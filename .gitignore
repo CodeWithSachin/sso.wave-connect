@@ -1,3 +1,47 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+tmp/
+out-tsc/
+
+# Nx
+.nx/
+
+# Angular
+.angular/
+
+# Environment & secrets
 .env
-.env.local
+.env.*
+!.env.example
+apps/*/config.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Go
+apps/*/tmp/
+
+# Prisma
+apps/admin-api/prisma/*.db
+
+# Test coverage
+coverage/
+
+# Claude Code
+.claude/launch.json
