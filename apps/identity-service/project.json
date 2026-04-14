@@ -1,0 +1,42 @@
+{
+  "name": "identity-service",
+  "projectType": "application",
+  "sourceRoot": "apps/identity-service",
+  "tags": ["scope:auth", "type:go-service"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "inputs": ["go-source"],
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "cwd": "apps/identity-service",
+        "command": "go build -o dist/identity-service ./cmd/server"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/identity-service",
+        "command": "go run ./cmd/server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["go-source"],
+      "options": {
+        "cwd": "apps/identity-service",
+        "command": "go test ./..."
+      },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "inputs": ["go-source"],
+      "options": {
+        "cwd": "apps/identity-service",
+        "command": "golangci-lint run"
+      },
+      "cache": true
+    }
+  }
+}

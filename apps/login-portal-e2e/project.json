@@ -1,0 +1,9 @@
+{
+  "name": "login-portal-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/login-portal-e2e/src",
+  "implicitDependencies": ["login-portal"],
+  "// targets": "to see all targets run: nx show project login-portal-e2e --web",
+  "targets": {}
+}

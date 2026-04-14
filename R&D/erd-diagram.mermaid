@@ -1,0 +1,494 @@
+---
+title: SSO Platform — Entity Relationship Diagram
+---
+erDiagram
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 1: CORE IDENTITY
+    %% ══════════════════════════════════════════════════
+
+    tenants {
+        varchar id PK "ten_01h2xcej..."
+        varchar name
+        varchar slug UK
+        varchar display_name
+        varchar domain UK
+        text logo_url
+        enum plan "free|starter|pro|enterprise"
+        enum data_residency "us|eu|ap|global"
+        varchar openfga_store_id
+        jsonb settings
+        jsonb metadata
+        int max_users
+        int max_apps
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    tenant_policies {
+        varchar id PK "tpol_..."
+        varchar tenant_id FK
+        smallint password_min_length
+        boolean password_require_mfa
+        enum_arr allowed_mfa_methods "totp|webauthn|sms"
+        smallint session_max_age_hours
+        smallint idle_timeout_minutes
+        cidr_arr ip_allowlist
+        text_arr allowed_email_domains
+        boolean require_sso
+        smallint max_sessions_per_user
+        smallint lockout_threshold
+        smallint lockout_duration_min
+    }
+
+    users {
+        varchar id PK "user_01h2xcej..."
+        citext email UK
+        boolean email_verified
+        varchar password_hash "Argon2id | NULL for SSO"
+        varchar display_name
+        varchar first_name
+        varchar last_name
+        text avatar_url
+        varchar phone_number
+        enum status "active|suspended|deactivated|pending"
+        jsonb metadata
+        timestamptz last_login_at
+        inet last_login_ip
+        smallint failed_login_count
+        timestamptz locked_until
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    password_history {
+        bigserial id PK
+        varchar user_id FK
+        varchar password_hash
+        timestamptz created_at
+    }
+
+    memberships {
+        varchar id PK "mem_..."
+        varchar user_id FK
+        varchar tenant_id FK
+        enum role "owner|admin|member|billing"
+        varchar invited_by FK
+        varchar invitation_token
+        timestamptz joined_at
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 2: AUTHENTICATION & MFA
+    %% ══════════════════════════════════════════════════
+
+    mfa_enrollments {
+        varchar id PK "mfa_..."
+        varchar user_id FK
+        enum method "totp|webauthn|sms|email|backup"
+        enum status "pending|active|disabled"
+        text secret_encrypted "Vault-encrypted"
+        text credential_id "WebAuthn"
+        text public_key "WebAuthn CBOR"
+        bigint sign_count
+        boolean is_default
+        timestamptz last_used_at
+        timestamptz created_at
+    }
+
+    mfa_backup_codes {
+        bigserial id PK
+        varchar user_id FK
+        varchar code_hash "bcrypt"
+        timestamptz used_at "NULL = available"
+        timestamptz created_at
+    }
+
+    sessions {
+        varchar id PK "ses_..."
+        varchar user_id FK
+        varchar tenant_id FK
+        varchar token_hash UK "SHA-256 of PASETO"
+        enum status "active|expired|revoked"
+        inet ip_address
+        text user_agent
+        varchar device_fingerprint
+        char country_code
+        boolean mfa_verified
+        timestamptz last_activity_at
+        timestamptz expires_at
+        timestamptz revoked_at
+        varchar revoke_reason
+        timestamptz created_at
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 3: OAUTH2 / OIDC
+    %% ══════════════════════════════════════════════════
+
+    oauth_clients {
+        varchar id PK "app_..."
+        varchar tenant_id FK
+        varchar client_id UK
+        varchar client_secret_hash "Argon2id"
+        varchar name
+        text description
+        text_arr redirect_uris
+        enum_arr allowed_grant_types
+        text_arr allowed_scopes
+        enum token_auth_method
+        int access_token_ttl "default 900s"
+        int refresh_token_ttl "default 30d"
+        boolean is_first_party
+        boolean is_public
+        boolean require_pkce
+        boolean is_active
+        jsonb metadata
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz deleted_at
+    }
+
+    oauth_client_secrets {
+        varchar id PK "csec_..."
+        varchar client_id FK
+        varchar secret_hash
+        varchar secret_prefix UK "first 8 chars"
+        varchar label
+        boolean is_active
+        timestamptz expires_at
+        timestamptz last_used_at
+        timestamptz created_at
+    }
+
+    user_consents {
+        varchar id PK "con_..."
+        varchar user_id FK
+        varchar client_id FK
+        varchar tenant_id FK
+        text_arr granted_scopes
+        enum status "granted|revoked"
+        timestamptz granted_at
+        timestamptz revoked_at
+        timestamptz updated_at
+    }
+
+    token_deny_list {
+        varchar jti PK "crypto-random"
+        varchar token_type "access|refresh|auth_code"
+        varchar user_id
+        varchar tenant_id
+        varchar reason "logout|rotation|replay"
+        timestamptz expires_at "auto-cleanup TTL"
+        timestamptz created_at
+    }
+
+    refresh_token_families {
+        varchar family_id PK "crypto-random"
+        varchar user_id FK
+        varchar tenant_id FK
+        varchar client_id FK
+        varchar current_jti "latest valid JTI"
+        int generation "rotation count"
+        boolean is_revoked
+        varchar revoked_reason
+        timestamptz last_rotated_at
+        timestamptz expires_at
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 4: IDENTITY PROVIDERS
+    %% ══════════════════════════════════════════════════
+
+    identity_providers {
+        varchar id PK "idp_..."
+        varchar tenant_id FK
+        varchar name
+        enum type "saml|oidc|social"
+        enum status "active|inactive|pending"
+        varchar domain_hint UK "e.g. acme.com"
+        text saml_entity_id
+        text saml_sso_url
+        text saml_certificate "Vault-encrypted"
+        text oidc_issuer
+        varchar oidc_client_id
+        text oidc_client_secret_enc
+        jsonb attribute_mapping
+        boolean jit_provisioning
+        boolean auto_sync_groups
+        enum default_role
+        timestamptz created_at
+        timestamptz deleted_at
+    }
+
+    federated_identities {
+        varchar id PK "fid_..."
+        varchar user_id FK
+        varchar idp_id FK
+        varchar external_user_id
+        citext external_email
+        jsonb profile_data
+        timestamptz last_login_at
+        timestamptz created_at
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 5: GROUPS & DIRECTORY
+    %% ══════════════════════════════════════════════════
+
+    groups {
+        varchar id PK "grp_..."
+        varchar tenant_id FK
+        varchar name
+        varchar slug UK
+        text description
+        boolean is_managed "SCIM-synced"
+        varchar source "manual|scim|saml"
+        varchar external_id
+        jsonb metadata
+        timestamptz created_at
+        timestamptz deleted_at
+    }
+
+    group_memberships {
+        varchar id PK "gm_..."
+        varchar group_id FK
+        varchar user_id FK
+        varchar role "admin|member"
+        varchar source "manual|scim"
+        timestamptz created_at
+    }
+
+    group_nesting {
+        varchar id PK "gn_..."
+        varchar parent_group_id FK
+        varchar child_group_id FK
+        timestamptz created_at
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 6: RESOURCES
+    %% ══════════════════════════════════════════════════
+
+    folders {
+        varchar id PK "fld_..."
+        varchar tenant_id FK
+        varchar parent_id FK "self-ref | NULL=root"
+        varchar name
+        text path "materialized path"
+        smallint depth
+        varchar owner_user_id FK
+        jsonb metadata
+        timestamptz created_at
+        timestamptz deleted_at
+    }
+
+    documents {
+        varchar id PK "doc_..."
+        varchar tenant_id FK
+        varchar folder_id FK
+        varchar owner_user_id FK
+        varchar title
+        varchar content_type "MIME"
+        bigint size_bytes
+        text storage_key "S3 path"
+        int version
+        jsonb metadata
+        timestamptz created_at
+        timestamptz deleted_at
+    }
+
+    api_resources {
+        varchar id PK "ares_..."
+        varchar tenant_id FK
+        varchar application_id FK
+        varchar name
+        varchar identifier UK "API URI"
+        text description
+        text_arr available_scopes
+        boolean is_active
+        timestamptz created_at
+    }
+
+    feature_flags {
+        varchar id PK "ff_..."
+        varchar tenant_id FK
+        varchar key UK
+        text description
+        boolean is_enabled
+        smallint rollout_percentage "0-100"
+        varchar_arr allowed_user_ids
+        varchar_arr allowed_group_ids
+        timestamptz created_at
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 7: WEBHOOKS
+    %% ══════════════════════════════════════════════════
+
+    webhook_endpoints {
+        varchar id PK "whk_..."
+        varchar tenant_id FK
+        text url "HTTPS only"
+        varchar description
+        text secret_encrypted "HMAC signing key"
+        enum_arr subscribed_events
+        boolean is_active
+        int failure_count
+        timestamptz disabled_at
+        timestamptz created_at
+    }
+
+    webhook_deliveries {
+        varchar id PK "wdel_..."
+        varchar endpoint_id FK
+        varchar tenant_id
+        enum event_type
+        jsonb payload
+        enum status "pending|success|failed|retrying"
+        smallint http_status_code
+        smallint attempt_number
+        smallint max_attempts
+        timestamptz next_retry_at
+        int duration_ms
+        text error_message
+        timestamptz created_at "PARTITION KEY"
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 8: AUDIT LOGS (Immutable)
+    %% ══════════════════════════════════════════════════
+
+    audit_logs {
+        bigserial id PK
+        varchar tenant_id
+        varchar actor_id
+        enum actor_type "user|system|api_key|scim"
+        inet actor_ip
+        varchar action "e.g. user.login"
+        varchar resource_type
+        varchar resource_id
+        text description
+        jsonb metadata
+        varchar request_id "trace correlation"
+        timestamptz created_at "PARTITION KEY"
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% SECTION 9: DEVELOPER PORTAL
+    %% ══════════════════════════════════════════════════
+
+    api_keys {
+        varchar id PK "akey_..."
+        varchar tenant_id FK
+        varchar user_id FK
+        varchar name
+        varchar key_prefix UK "sk_live_abc1"
+        varchar key_hash "SHA-256"
+        enum status "active|revoked|expired"
+        text_arr scopes
+        cidr_arr allowed_ips
+        int rate_limit_per_min
+        timestamptz last_used_at
+        timestamptz expires_at
+        timestamptz created_at
+    }
+
+    api_key_usage {
+        bigserial id PK
+        varchar api_key_id FK
+        varchar tenant_id
+        date date
+        bigint request_count
+        bigint error_count
+        numeric avg_latency_ms
+        numeric p99_latency_ms
+        bigint bandwidth_bytes
+    }
+
+    scim_tokens {
+        varchar id PK "scim_..."
+        varchar tenant_id FK
+        varchar token_hash UK
+        varchar token_prefix
+        varchar label
+        boolean is_active
+        timestamptz last_used_at
+        timestamptz expires_at
+        timestamptz created_at
+    }
+
+    scim_sync_log {
+        bigserial id PK
+        varchar tenant_id
+        varchar idp_id
+        varchar operation "create|update|delete"
+        varchar resource_type "User|Group"
+        varchar external_id
+        varchar internal_id
+        varchar status "success|error|skipped"
+        text error_message
+        jsonb request_payload
+        timestamptz created_at
+    }
+
+    %% ══════════════════════════════════════════════════
+    %% RELATIONSHIPS
+    %% ══════════════════════════════════════════════════
+
+    %% Core Identity
+    tenants ||--o| tenant_policies : "has policy"
+    tenants ||--o{ memberships : "has members"
+    users ||--o{ memberships : "belongs to orgs"
+    users ||--o{ password_history : "password history"
+
+    %% Auth & MFA
+    users ||--o{ mfa_enrollments : "MFA methods"
+    users ||--o{ mfa_backup_codes : "recovery codes"
+    users ||--o{ sessions : "active sessions"
+    tenants ||--o{ sessions : "tenant sessions"
+
+    %% OAuth2 / OIDC
+    tenants ||--o{ oauth_clients : "registered apps"
+    oauth_clients ||--o{ oauth_client_secrets : "rotatable secrets"
+    users ||--o{ user_consents : "granted consents"
+    oauth_clients ||--o{ user_consents : "app consents"
+    users ||--o{ refresh_token_families : "token families"
+    oauth_clients ||--o{ refresh_token_families : "client families"
+
+    %% Identity Providers
+    tenants ||--o{ identity_providers : "IdP connections"
+    users ||--o{ federated_identities : "external identities"
+    identity_providers ||--o{ federated_identities : "IdP users"
+
+    %% Groups
+    tenants ||--o{ groups : "org groups"
+    groups ||--o{ group_memberships : "group members"
+    users ||--o{ group_memberships : "user groups"
+    groups ||--o{ group_nesting : "parent groups"
+    groups ||--o{ group_nesting : "child groups"
+
+    %% Resources
+    tenants ||--o{ folders : "org folders"
+    folders ||--o{ folders : "subfolder (self-ref)"
+    folders ||--o{ documents : "contains docs"
+    users ||--o{ documents : "owns docs"
+    users ||--o{ folders : "owns folders"
+    oauth_clients ||--o{ api_resources : "app resources"
+    tenants ||--o{ feature_flags : "flags"
+
+    %% Webhooks
+    tenants ||--o{ webhook_endpoints : "webhook configs"
+    webhook_endpoints ||--o{ webhook_deliveries : "delivery log"
+
+    %% Developer Portal
+    tenants ||--o{ api_keys : "developer keys"
+    users ||--o{ api_keys : "user keys"
+    api_keys ||--o{ api_key_usage : "usage metrics"
+    tenants ||--o{ scim_tokens : "SCIM tokens"

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package sso.identity.v1;
+
+option go_package = "github.com/wave-connect/sso-platform/libs/proto/identity/v1";
+
+service IdentityService {
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string email = 4;
+  repeated string scopes = 5;
+  int64 expires_at = 6;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+  string status = 4;
+  string tenant_id = 5;
+  string role = 6;
+}

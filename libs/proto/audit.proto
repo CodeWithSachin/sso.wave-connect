@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package sso.audit.v1;
+
+option go_package = "github.com/wave-connect/sso-platform/libs/proto/audit/v1";
+
+service AuditService {
+  rpc IngestEvent(AuditEvent) returns (AuditAck);
+}
+
+message AuditEvent {
+  string tenant_id = 1;
+  string actor_id = 2;
+  string actor_type = 3;
+  string actor_ip = 4;
+  string action = 5;
+  string resource_type = 6;
+  string resource_id = 7;
+  string description = 8;
+  string metadata_json = 9;
+  string request_id = 10;
+}
+
+message AuditAck {
+  bool success = 1;
+  string event_id = 2;
+}

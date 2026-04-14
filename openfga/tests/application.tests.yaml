@@ -1,0 +1,78 @@
+name: Application permission tests
+model_file: ../model.fga
+tuples:
+  # Acme Corp with members
+  - user: user:alice
+    relation: owner
+    object: organization:acme
+  - user: user:bob
+    relation: member
+    object: organization:acme
+
+  # CRM app owned by Acme
+  - user: organization:acme
+    relation: owner
+    object: application:crm
+
+  # Charlie is direct admin of CRM
+  - user: user:charlie
+    relation: admin
+    object: application:crm
+
+  # Diana is direct editor
+  - user: user:diana
+    relation: editor
+    object: application:crm
+
+  # Eve is direct viewer
+  - user: user:eve
+    relation: viewer
+    object: application:crm
+
+tests:
+  - name: App admin can configure and access
+    check:
+      - user: user:charlie
+        object: application:crm
+        assertions:
+          can_configure: true
+          can_access: true
+
+  - name: App editor can access but not configure
+    check:
+      - user: user:diana
+        object: application:crm
+        assertions:
+          can_configure: false
+          can_access: true
+
+  - name: App viewer can access but not configure
+    check:
+      - user: user:eve
+        object: application:crm
+        assertions:
+          can_configure: false
+          can_access: true
+
+  - name: Org member gets viewer access to org-owned apps
+    check:
+      - user: user:bob
+        object: application:crm
+        assertions:
+          can_access: true
+          can_configure: false
+
+  - name: Org owner (admin -> member) gets viewer access to org-owned apps
+    check:
+      - user: user:alice
+        object: application:crm
+        assertions:
+          can_access: true
+
+  - name: Unknown user cannot access app
+    check:
+      - user: user:unknown
+        object: application:crm
+        assertions:
+          can_configure: false
+          can_access: false

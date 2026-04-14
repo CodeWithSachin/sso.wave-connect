@@ -1,0 +1,42 @@
+{
+  "name": "authz-service",
+  "projectType": "application",
+  "sourceRoot": "apps/authz-service",
+  "tags": ["scope:auth", "type:go-service"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "inputs": ["go-source"],
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "cwd": "apps/authz-service",
+        "command": "go build -o dist/authz-service ./cmd/server"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/authz-service",
+        "command": "go run ./cmd/server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "inputs": ["go-source"],
+      "options": {
+        "cwd": "apps/authz-service",
+        "command": "go test ./..."
+      },
+      "cache": true
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "inputs": ["go-source"],
+      "options": {
+        "cwd": "apps/authz-service",
+        "command": "golangci-lint run"
+      },
+      "cache": true
+    }
+  }
+}

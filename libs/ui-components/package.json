@@ -1,0 +1,17 @@
+{
+  "name": "@sso-platform/ui-components",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "nx": {
+    "name": "ui-components",
+    "tags": ["scope:shared", "type:ui"]
+  },
+  "peerDependencies": {
+    "@angular/common": "^21.0.0",
+    "@angular/core": "^21.0.0",
+    "@angular/cdk": "^21.0.0"
+  }
+}

@@ -1,0 +1,578 @@
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SSO Platform — Entity Relationship Diagram (Eraser.io)    ║
+// ║  Paste this code into: https://app.eraser.io/              ║
+// ║  Select "Diagram" → "Entity Relationship Diagram"          ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ── Diagram-Level Styling ──
+colorMode pastel
+styleMode shadow
+typeface clean
+notation crows-feet
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 1: CORE IDENTITY (Blue)
+// ══════════════════════════════════════════════════════════════
+
+tenants [icon: home, color: blue] {
+    id string pk "TypeID: ten_..."
+    name string
+    slug string
+    display_name string
+    domain string
+    logo_url string
+    favicon_url string
+    plan tenant_plan
+    data_residency data_residency
+    openfga_store_id string
+    settings jsonb
+    metadata jsonb
+    max_users int
+    max_apps int
+    is_active boolean
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+tenant_policies [icon: shield, color: blue] {
+    id string pk "TypeID: tpol_..."
+    tenant_id string fk
+    password_min_length smallint
+    password_require_upper boolean
+    password_require_lower boolean
+    password_require_number boolean
+    password_require_symbol boolean
+    password_require_mfa boolean
+    allowed_mfa_methods mfa_method[]
+    session_max_age_hours smallint
+    idle_timeout_minutes smallint
+    ip_allowlist cidr[]
+    allowed_email_domains text[]
+    require_sso boolean
+    max_sessions_per_user smallint
+    password_history_count smallint
+    lockout_threshold smallint
+    lockout_duration_min smallint
+    created_at timestamptz
+    updated_at timestamptz
+}
+
+users [icon: user, color: blue] {
+    id string pk "TypeID: user_..."
+    email citext
+    email_verified boolean
+    password_hash string
+    display_name string
+    first_name string
+    last_name string
+    avatar_url string
+    phone_number string
+    phone_verified boolean
+    locale string
+    timezone string
+    status user_status
+    metadata jsonb
+    last_login_at timestamptz
+    last_login_ip inet
+    failed_login_count smallint
+    locked_until timestamptz
+    password_changed_at timestamptz
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+password_history [icon: lock, color: blue] {
+    id bigserial pk
+    user_id string fk
+    password_hash string
+    created_at timestamptz
+}
+
+memberships [icon: users, color: blue] {
+    id string pk "TypeID: mem_..."
+    user_id string fk
+    tenant_id string fk
+    role membership_role
+    invited_by string fk
+    invitation_token string
+    invitation_expires timestamptz
+    joined_at timestamptz
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 2: AUTHENTICATION & MFA (Purple)
+// ══════════════════════════════════════════════════════════════
+
+mfa_enrollments [icon: smartphone, color: purple] {
+    id string pk "TypeID: mfa_..."
+    user_id string fk
+    method mfa_method
+    status mfa_status
+    secret_encrypted text
+    credential_id text
+    public_key text
+    sign_count bigint
+    transports text[]
+    phone_number string
+    is_default boolean
+    last_used_at timestamptz
+    created_at timestamptz
+    updated_at timestamptz
+}
+
+mfa_backup_codes [icon: key, color: purple] {
+    id bigserial pk
+    user_id string fk
+    code_hash string
+    used_at timestamptz
+    created_at timestamptz
+}
+
+sessions [icon: monitor, color: purple] {
+    id string pk "TypeID: ses_..."
+    user_id string fk
+    tenant_id string fk
+    token_hash string
+    status session_status
+    ip_address inet
+    user_agent text
+    device_fingerprint string
+    country_code char(2)
+    city string
+    mfa_verified boolean
+    mfa_method_used mfa_method
+    last_activity_at timestamptz
+    expires_at timestamptz
+    revoked_at timestamptz
+    revoke_reason string
+    created_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 3: OAUTH2 / OIDC (Green)
+// ══════════════════════════════════════════════════════════════
+
+oauth_clients [icon: grid, color: green] {
+    id string pk "TypeID: app_..."
+    tenant_id string fk
+    client_id string
+    client_secret_hash string
+    name string
+    description text
+    logo_url text
+    homepage_url text
+    redirect_uris text[]
+    post_logout_redirect_uris text[]
+    allowed_grant_types oauth_grant_type[]
+    allowed_scopes text[]
+    token_endpoint_auth_method token_auth_method
+    access_token_ttl_seconds int
+    refresh_token_ttl_seconds int
+    id_token_ttl_seconds int
+    is_first_party boolean
+    is_public boolean
+    require_pkce boolean
+    require_consent boolean
+    is_active boolean
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+oauth_client_secrets [icon: key, color: green] {
+    id string pk "TypeID: csec_..."
+    client_id string fk
+    secret_hash string
+    secret_prefix string
+    label string
+    is_active boolean
+    expires_at timestamptz
+    last_used_at timestamptz
+    created_at timestamptz
+}
+
+user_consents [icon: check-circle, color: green] {
+    id string pk "TypeID: con_..."
+    user_id string fk
+    client_id string fk
+    tenant_id string fk
+    granted_scopes text[]
+    status consent_status
+    granted_at timestamptz
+    revoked_at timestamptz
+    expires_at timestamptz
+    updated_at timestamptz
+}
+
+token_deny_list [icon: x-circle, color: green] {
+    jti string pk
+    token_type string
+    user_id string
+    tenant_id string
+    reason string
+    expires_at timestamptz
+    created_at timestamptz
+}
+
+refresh_token_families [icon: refresh-cw, color: green] {
+    family_id string pk
+    user_id string fk
+    tenant_id string fk
+    client_id string fk
+    current_jti string
+    generation int
+    is_revoked boolean
+    revoked_reason string
+    created_at timestamptz
+    last_rotated_at timestamptz
+    expires_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 4: IDENTITY PROVIDERS (Orange)
+// ══════════════════════════════════════════════════════════════
+
+identity_providers [icon: link, color: orange] {
+    id string pk "TypeID: idp_..."
+    tenant_id string fk
+    name string
+    type idp_type
+    status idp_status
+    domain_hint string
+    saml_entity_id text
+    saml_sso_url text
+    saml_certificate text
+    oidc_issuer text
+    oidc_client_id string
+    oidc_client_secret_enc text
+    oidc_discovery_url text
+    oidc_scopes text[]
+    attribute_mapping jsonb
+    jit_provisioning boolean
+    auto_sync_groups boolean
+    default_role membership_role
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+federated_identities [icon: link-2, color: orange] {
+    id string pk "TypeID: fid_..."
+    user_id string fk
+    idp_id string fk
+    external_user_id string
+    external_email citext
+    external_username string
+    profile_data jsonb
+    last_login_at timestamptz
+    created_at timestamptz
+    updated_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 5: GROUPS & DIRECTORY (Yellow)
+// ══════════════════════════════════════════════════════════════
+
+groups [icon: users, color: yellow] {
+    id string pk "TypeID: grp_..."
+    tenant_id string fk
+    name string
+    slug string
+    description text
+    is_managed boolean
+    source string
+    external_id string
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+group_memberships [icon: user-plus, color: yellow] {
+    id string pk "TypeID: gm_..."
+    group_id string fk
+    user_id string fk
+    role string
+    source string
+    created_at timestamptz
+}
+
+group_nesting [icon: layers, color: yellow] {
+    id string pk "TypeID: gn_..."
+    parent_group_id string fk
+    child_group_id string fk
+    created_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 6: RESOURCES (Pink/Red)
+// ══════════════════════════════════════════════════════════════
+
+folders [icon: folder, color: red] {
+    id string pk "TypeID: fld_..."
+    tenant_id string fk
+    parent_id string fk
+    name string
+    path text
+    depth smallint
+    owner_user_id string fk
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+documents [icon: file-text, color: red] {
+    id string pk "TypeID: doc_..."
+    tenant_id string fk
+    folder_id string fk
+    owner_user_id string fk
+    title string
+    content_type string
+    size_bytes bigint
+    storage_key text
+    version int
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+    deleted_at timestamptz
+}
+
+api_resources [icon: server, color: red] {
+    id string pk "TypeID: ares_..."
+    tenant_id string fk
+    application_id string fk
+    name string
+    identifier string
+    description text
+    available_scopes text[]
+    is_active boolean
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+}
+
+feature_flags [icon: flag, color: red] {
+    id string pk "TypeID: ff_..."
+    tenant_id string fk
+    key string
+    description text
+    is_enabled boolean
+    rollout_percentage smallint
+    allowed_user_ids string[]
+    allowed_group_ids string[]
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 7: WEBHOOKS & EVENTS (Cyan)
+// ══════════════════════════════════════════════════════════════
+
+webhook_endpoints [icon: link, color: cyan] {
+    id string pk "TypeID: whk_..."
+    tenant_id string fk
+    url text
+    description string
+    secret_hash string
+    secret_encrypted text
+    subscribed_events webhook_event_type[]
+    is_active boolean
+    failure_count int
+    disabled_at timestamptz
+    metadata jsonb
+    created_at timestamptz
+    updated_at timestamptz
+}
+
+webhook_deliveries [icon: send, color: cyan] {
+    id string pk "TypeID: wdel_..."
+    endpoint_id string fk
+    tenant_id string
+    event_type webhook_event_type
+    payload jsonb
+    status webhook_delivery_status
+    http_status_code smallint
+    response_body text
+    attempt_number smallint
+    max_attempts smallint
+    next_retry_at timestamptz
+    duration_ms int
+    error_message text
+    created_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 8: AUDIT LOGS (Gray)
+// ══════════════════════════════════════════════════════════════
+
+audit_logs [icon: file-text, color: gray] {
+    id bigserial pk
+    tenant_id string
+    actor_id string
+    actor_type audit_actor_type
+    actor_ip inet
+    actor_user_agent text
+    action string
+    resource_type string
+    resource_id string
+    description text
+    metadata jsonb
+    request_id string
+    created_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 9: DEVELOPER PORTAL (Teal)
+// ══════════════════════════════════════════════════════════════
+
+api_keys [icon: key, color: green] {
+    id string pk "TypeID: akey_..."
+    tenant_id string fk
+    user_id string fk
+    name string
+    key_prefix string
+    key_hash string
+    status api_key_status
+    scopes text[]
+    allowed_ips cidr[]
+    rate_limit_per_min int
+    last_used_at timestamptz
+    expires_at timestamptz
+    revoked_at timestamptz
+    created_at timestamptz
+}
+
+api_key_usage [icon: bar-chart-2, color: green] {
+    id bigserial pk
+    api_key_id string fk
+    tenant_id string
+    date date
+    request_count bigint
+    error_count bigint
+    avg_latency_ms numeric
+    p99_latency_ms numeric
+    bandwidth_bytes bigint
+    created_at timestamptz
+}
+
+scim_tokens [icon: terminal, color: green] {
+    id string pk "TypeID: scim_..."
+    tenant_id string fk
+    token_hash string
+    token_prefix string
+    label string
+    is_active boolean
+    last_used_at timestamptz
+    expires_at timestamptz
+    created_at timestamptz
+}
+
+scim_sync_log [icon: activity, color: green] {
+    id bigserial pk
+    tenant_id string
+    idp_id string
+    operation string
+    resource_type string
+    external_id string
+    internal_id string
+    status string
+    error_message text
+    request_payload jsonb
+    created_at timestamptz
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// RELATIONSHIPS
+// ══════════════════════════════════════════════════════════════
+
+// ── Core Identity ──
+tenant_policies.tenant_id - tenants.id
+memberships.user_id > users.id
+memberships.tenant_id > tenants.id
+memberships.invited_by > users.id
+password_history.user_id > users.id
+
+// ── Authentication & MFA ──
+mfa_enrollments.user_id > users.id
+mfa_backup_codes.user_id > users.id
+sessions.user_id > users.id
+sessions.tenant_id > tenants.id
+
+// ── OAuth2 / OIDC ──
+oauth_clients.tenant_id > tenants.id
+oauth_client_secrets.client_id > oauth_clients.id
+user_consents.user_id > users.id
+user_consents.client_id > oauth_clients.id
+user_consents.tenant_id > tenants.id
+refresh_token_families.user_id > users.id
+refresh_token_families.tenant_id > tenants.id
+refresh_token_families.client_id > oauth_clients.id
+
+// ── Identity Providers ──
+identity_providers.tenant_id > tenants.id
+federated_identities.user_id > users.id
+federated_identities.idp_id > identity_providers.id
+
+// ── Groups & Directory ──
+groups.tenant_id > tenants.id
+group_memberships.group_id > groups.id
+group_memberships.user_id > users.id
+group_nesting.parent_group_id > groups.id
+group_nesting.child_group_id > groups.id
+
+// ── Resources ──
+folders.tenant_id > tenants.id
+folders.parent_id > folders.id
+folders.owner_user_id > users.id
+documents.tenant_id > tenants.id
+documents.folder_id > folders.id
+documents.owner_user_id > users.id
+api_resources.tenant_id > tenants.id
+api_resources.application_id > oauth_clients.id
+feature_flags.tenant_id > tenants.id
+
+// ── Webhooks ──
+webhook_endpoints.tenant_id > tenants.id
+webhook_deliveries.endpoint_id > webhook_endpoints.id
+
+// ── Developer Portal ──
+api_keys.tenant_id > tenants.id
+api_keys.user_id > users.id
+api_key_usage.api_key_id > api_keys.id
+scim_tokens.tenant_id > tenants.id
+
+
+// ══════════════════════════════════════════════════════════════
+// LEGEND
+// ══════════════════════════════════════════════════════════════
+
+legend [position: bottom-right] {
+    [color: blue, label: Core Identity]
+    [color: purple, label: Auth & MFA]
+    [color: green, label: OAuth2 / OIDC / API]
+    [color: orange, label: Identity Providers]
+    [color: yellow, label: Groups & Directory]
+    [color: red, label: Resources & Docs]
+    [color: cyan, label: Webhooks & Events]
+    [color: gray, label: Audit Logs]
+    [connection: >, label: Many-to-one (FK)]
+    [connection: -, label: One-to-one]
+}

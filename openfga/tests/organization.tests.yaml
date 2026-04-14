@@ -1,0 +1,73 @@
+name: Organization permission tests
+model_file: ../model.fga
+tuples:
+  # Alice is the owner of Acme Corp
+  - user: user:alice
+    relation: owner
+    object: organization:acme
+
+  # Bob is an admin of Acme Corp
+  - user: user:bob
+    relation: admin
+    object: organization:acme
+
+  # Charlie is a regular member
+  - user: user:charlie
+    relation: member
+    object: organization:acme
+
+  # Diana is a billing manager
+  - user: user:diana
+    relation: billing_manager
+    object: organization:acme
+
+tests:
+  - name: Owner has all permissions
+    check:
+      - user: user:alice
+        object: organization:acme
+        assertions:
+          can_manage_members: true
+          can_manage_billing: true
+          can_manage_apps: true
+          can_view: true
+
+  - name: Admin can manage members and apps but inherits billing through admin
+    check:
+      - user: user:bob
+        object: organization:acme
+        assertions:
+          can_manage_members: true
+          can_manage_billing: true
+          can_manage_apps: true
+          can_view: true
+
+  - name: Regular member can only view
+    check:
+      - user: user:charlie
+        object: organization:acme
+        assertions:
+          can_manage_members: false
+          can_manage_billing: false
+          can_manage_apps: false
+          can_view: true
+
+  - name: Billing manager can manage billing but not members or apps
+    check:
+      - user: user:diana
+        object: organization:acme
+        assertions:
+          can_manage_members: false
+          can_manage_billing: true
+          can_manage_apps: false
+          can_view: false
+
+  - name: Unknown user has no permissions
+    check:
+      - user: user:unknown
+        object: organization:acme
+        assertions:
+          can_manage_members: false
+          can_manage_billing: false
+          can_manage_apps: false
+          can_view: false

@@ -1,0 +1,8 @@
+{
+  "name": "@sso-platform/login-portal-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "login-portal-e2e"
+  }
+}

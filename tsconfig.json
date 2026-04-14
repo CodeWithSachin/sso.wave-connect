@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/admin-api-e2e"
+    },
+    {
+      "path": "./apps/admin-api"
+    },
+    {
+      "path": "./apps/login-portal-e2e"
+    },
+    {
+      "path": "./libs/shared-types"
+    },
+    {
+      "path": "./libs/auth-guards"
+    },
+    {
+      "path": "./libs/nestjs-auth"
+    },
+    {
+      "path": "./libs/ui-components"
+    }
+  ]
+}

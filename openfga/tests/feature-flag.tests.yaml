@@ -1,0 +1,74 @@
+name: Feature flag permission tests
+model_file: ../model.fga
+tuples:
+  # Acme Corp org with members
+  - user: user:alice
+    relation: member
+    object: organization:acme
+
+  # Engineering group
+  - user: user:bob
+    relation: member
+    object: group:engineering
+
+  # Beta feature enabled for specific user
+  - user: user:alice
+    relation: enabled_for
+    object: feature_flag:dark-mode
+
+  # Feature enabled for engineering group members
+  - user: group:engineering#member
+    relation: enabled_for
+    object: feature_flag:new-dashboard
+
+  # Feature enabled for all org members
+  - user: organization:acme#member
+    relation: enabled_for
+    object: feature_flag:analytics-v2
+
+  # Acme Corp owns the feature flags
+  - user: organization:acme
+    relation: owner
+    object: feature_flag:dark-mode
+  - user: organization:acme
+    relation: owner
+    object: feature_flag:new-dashboard
+  - user: organization:acme
+    relation: owner
+    object: feature_flag:analytics-v2
+
+tests:
+  - name: User directly enabled for a feature
+    check:
+      - user: user:alice
+        object: feature_flag:dark-mode
+        assertions:
+          enabled_for: true
+
+  - name: User not enabled for a feature
+    check:
+      - user: user:bob
+        object: feature_flag:dark-mode
+        assertions:
+          enabled_for: false
+
+  - name: Group member enabled for group-targeted feature
+    check:
+      - user: user:bob
+        object: feature_flag:new-dashboard
+        assertions:
+          enabled_for: true
+
+  - name: Non-group member not enabled for group-targeted feature
+    check:
+      - user: user:alice
+        object: feature_flag:new-dashboard
+        assertions:
+          enabled_for: false
+
+  - name: Org member enabled for org-wide feature
+    check:
+      - user: user:alice
+        object: feature_flag:analytics-v2
+        assertions:
+          enabled_for: true

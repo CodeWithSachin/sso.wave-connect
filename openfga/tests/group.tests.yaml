@@ -1,0 +1,72 @@
+name: Group permission tests (including nested groups)
+model_file: ../model.fga
+tuples:
+  # Acme Corp organization
+  - user: user:alice
+    relation: admin
+    object: organization:acme
+
+  # Engineering group owned by Acme
+  - user: organization:acme
+    relation: owner
+    object: group:engineering
+
+  # Bob is admin of engineering group
+  - user: user:bob
+    relation: admin
+    object: group:engineering
+
+  # Charlie is a direct member of engineering
+  - user: user:charlie
+    relation: member
+    object: group:engineering
+
+  # Backend team is a nested sub-group of engineering
+  - user: organization:acme
+    relation: owner
+    object: group:backend-team
+
+  - user: user:diana
+    relation: member
+    object: group:backend-team
+
+  # Backend team members are also members of engineering (nested group)
+  - user: group:backend-team#member
+    relation: member
+    object: group:engineering
+
+tests:
+  - name: Group admin can manage the group
+    check:
+      - user: user:bob
+        object: group:engineering
+        assertions:
+          can_manage: true
+
+  - name: Org admin can manage the group via owner_admin
+    check:
+      - user: user:alice
+        object: group:engineering
+        assertions:
+          can_manage: true
+
+  - name: Regular member cannot manage the group
+    check:
+      - user: user:charlie
+        object: group:engineering
+        assertions:
+          can_manage: false
+
+  - name: Nested group member inherits membership in parent group
+    check:
+      - user: user:diana
+        object: group:engineering
+        assertions:
+          can_manage: false
+
+  - name: Backend team member is a member of backend-team
+    check:
+      - user: user:diana
+        object: group:backend-team
+        assertions:
+          can_manage: false

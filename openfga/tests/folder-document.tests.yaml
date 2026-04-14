@@ -1,0 +1,119 @@
+name: Folder and document hierarchy permission tests
+model_file: ../model.fga
+tuples:
+  # Alice owns the root folder
+  - user: user:alice
+    relation: owner
+    object: folder:root
+
+  # Bob is editor of root folder
+  - user: user:bob
+    relation: editor
+    object: folder:root
+
+  # Subfolder has root as parent
+  - user: folder:root
+    relation: parent
+    object: folder:projects
+
+  # Charlie is viewer of subfolder directly
+  - user: user:charlie
+    relation: viewer
+    object: folder:projects
+
+  # Document in projects folder
+  - user: folder:projects
+    relation: parent_folder
+    object: document:design-doc
+
+  # Diana owns the document
+  - user: user:diana
+    relation: owner
+    object: document:design-doc
+
+  # Eve is a commenter on the document
+  - user: user:eve
+    relation: commenter
+    object: document:design-doc
+
+tests:
+  - name: Folder owner has full access
+    check:
+      - user: user:alice
+        object: folder:root
+        assertions:
+          can_write: true
+          can_read: true
+          can_share: true
+          can_delete: true
+
+  - name: Folder editor can write and read
+    check:
+      - user: user:bob
+        object: folder:root
+        assertions:
+          can_write: true
+          can_read: true
+          can_share: false
+          can_delete: false
+
+  - name: Parent folder editor inherits write on child folder
+    check:
+      - user: user:bob
+        object: folder:projects
+        assertions:
+          can_write: true
+          can_read: true
+
+  - name: Parent folder owner inherits write on child folder
+    check:
+      - user: user:alice
+        object: folder:projects
+        assertions:
+          can_write: true
+          can_read: true
+
+  - name: Subfolder viewer can read but not write
+    check:
+      - user: user:charlie
+        object: folder:projects
+        assertions:
+          can_write: false
+          can_read: true
+
+  - name: Document owner has full access
+    check:
+      - user: user:diana
+        object: document:design-doc
+        assertions:
+          can_write: true
+          can_read: true
+          can_comment: true
+          can_share: true
+          can_delete: true
+
+  - name: Document commenter can comment and read
+    check:
+      - user: user:eve
+        object: document:design-doc
+        assertions:
+          can_write: false
+          can_read: true
+          can_comment: true
+          can_share: false
+
+  - name: Parent folder editor inherits write on documents in folder
+    check:
+      - user: user:bob
+        object: document:design-doc
+        assertions:
+          can_write: true
+          can_read: true
+
+  - name: Parent folder viewer inherits read on documents in folder
+    check:
+      - user: user:charlie
+        object: document:design-doc
+        assertions:
+          can_read: true
+          can_write: false

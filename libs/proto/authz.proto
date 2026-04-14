@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package sso.authz.v1;
+
+option go_package = "github.com/wave-connect/sso-platform/libs/proto/authz/v1";
+
+service AuthzService {
+  rpc Check(CheckRequest) returns (CheckResponse);
+  rpc BatchCheck(BatchCheckRequest) returns (BatchCheckResponse);
+  rpc WriteTuple(WriteTupleRequest) returns (WriteTupleResponse);
+  rpc DeleteTuple(DeleteTupleRequest) returns (DeleteTupleResponse);
+  rpc ListObjects(ListObjectsRequest) returns (ListObjectsResponse);
+}
+
+message CheckRequest {
+  string store_id = 1;
+  string user = 2;
+  string relation = 3;
+  string object = 4;
+}
+
+message CheckResponse {
+  bool allowed = 1;
+}
+
+message BatchCheckRequest {
+  string store_id = 1;
+  repeated CheckRequest checks = 2;
+}
+
+message BatchCheckResponse {
+  repeated CheckResponse results = 1;
+}
+
+message TupleKey {
+  string user = 1;
+  string relation = 2;
+  string object = 3;
+}
+
+message WriteTupleRequest {
+  string store_id = 1;
+  TupleKey tuple = 2;
+}
+
+message WriteTupleResponse {}
+
+message DeleteTupleRequest {
+  string store_id = 1;
+  TupleKey tuple = 2;
+}
+
+message DeleteTupleResponse {}
+
+message ListObjectsRequest {
+  string store_id = 1;
+  string user = 2;
+  string relation = 3;
+  string type = 4;
+}
+
+message ListObjectsResponse {
+  repeated string objects = 1;
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@sso-platform/admin-api-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "admin-api-e2e",
+    "implicitDependencies": [
+      "admin-api"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/admin-api-e2e/jest.config.cts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "admin-api:build",
+          "admin-api:serve"
+        ]
+      }
+    }
+  }
+}

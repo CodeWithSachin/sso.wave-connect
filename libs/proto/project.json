@@ -1,0 +1,23 @@
+{
+  "name": "proto",
+  "projectType": "library",
+  "sourceRoot": "libs/proto",
+  "tags": ["scope:shared", "type:proto"],
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "libs/proto",
+        "command": "buf lint"
+      },
+      "cache": true
+    },
+    "generate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "libs/proto",
+        "command": "buf generate"
+      }
+    }
+  }
+}

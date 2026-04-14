@@ -1,0 +1,8 @@
+name: sso-wave-connect
+model_file: model.fga
+tests:
+  - tests/organization.tests.yaml
+  - tests/group.tests.yaml
+  - tests/folder-document.tests.yaml
+  - tests/application.tests.yaml
+  - tests/feature-flag.tests.yaml

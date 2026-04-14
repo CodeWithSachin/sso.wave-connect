@@ -1,0 +1,79 @@
+model
+  schema 1.1
+
+# === CORE TYPES ===
+
+type user
+
+type organization
+  relations
+    define owner: [user]
+    define admin: [user] or owner
+    define member: [user] or admin
+    define billing_manager: [user]
+    define can_manage_members: admin
+    define can_manage_billing: billing_manager or admin
+    define can_manage_apps: admin
+    define can_view: member
+
+type group
+  relations
+    define owner: [organization]
+    define admin: [user]
+    define member: [user, group#member]
+    define can_manage: admin or owner_admin
+    define owner_admin: admin from owner
+
+type application
+  relations
+    define owner: [organization]
+    define admin: [user, group#member]
+    define editor: [user, group#member] or admin
+    define viewer: [user, group#member] or editor or org_member
+    define can_configure: admin
+    define can_access: viewer
+    define org_member: member from owner
+
+type folder
+  relations
+    define owner: [user, organization]
+    define editor: [user, group#member] or owner
+    define viewer: [user, group#member] or editor
+    define parent: [folder]
+    define can_write: editor or can_write_parent
+    define can_read: viewer or can_read_parent
+    define can_write_parent: can_write from parent
+    define can_read_parent: can_read from parent
+    define can_share: owner
+    define can_delete: owner
+
+type document
+  relations
+    define owner: [user]
+    define editor: [user, group#member] or owner
+    define viewer: [user, group#member] or editor
+    define commenter: [user, group#member]
+    define parent_folder: [folder]
+    define can_write: editor or folder_write
+    define can_read: viewer or commenter or folder_read
+    define can_comment: commenter or can_write
+    define can_share: owner
+    define can_delete: owner
+    define folder_write: can_write from parent_folder
+    define folder_read: can_read from parent_folder
+
+type api_resource
+  relations
+    define owner: [application]
+    define admin: [user, group#member]
+    define reader: [user, group#member] or admin
+    define writer: [user, group#member] or admin
+    define can_read: reader or app_viewer
+    define can_write: writer
+    define can_admin: admin
+    define app_viewer: viewer from owner
+
+type feature_flag
+  relations
+    define owner: [organization]
+    define enabled_for: [user, group#member, organization#member]

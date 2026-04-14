@@ -1,0 +1,12 @@
+version: '3.9'
+
+# Dev overrides — hot reload, debug ports, relaxed settings
+services:
+  postgres:
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+
+  redis:
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru

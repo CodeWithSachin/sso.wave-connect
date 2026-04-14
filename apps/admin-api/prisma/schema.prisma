@@ -1,0 +1,614 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantPlan {
+  free
+  starter
+  pro
+  enterprise
+
+  @@map("tenant_plan")
+}
+
+enum DataResidency {
+  us
+  eu
+  ap
+  global
+
+  @@map("data_residency")
+}
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+  pending
+
+  @@map("user_status")
+}
+
+enum MembershipRole {
+  owner
+  admin
+  member
+  billing_manager
+  readonly
+
+  @@map("membership_role")
+}
+
+enum IdpType {
+  saml
+  oidc
+  social_google
+  social_github
+  social_microsoft
+
+  @@map("idp_type")
+}
+
+enum IdpStatus {
+  active
+  inactive
+  pending_verification
+
+  @@map("idp_status")
+}
+
+enum OAuthGrantType {
+  authorization_code
+  refresh_token
+  client_credentials
+  device_code
+
+  @@map("oauth_grant_type")
+}
+
+enum TokenAuthMethod {
+  client_secret_basic
+  client_secret_post
+  private_key_jwt
+  none
+
+  @@map("token_auth_method")
+}
+
+enum MfaMethod {
+  totp
+  webauthn
+  backup_code
+  sms
+  email
+
+  @@map("mfa_method")
+}
+
+enum MfaStatus {
+  pending_setup
+  active
+  disabled
+
+  @@map("mfa_status")
+}
+
+enum ApiKeyStatus {
+  active
+  revoked
+  expired
+
+  @@map("api_key_status")
+}
+
+enum SessionStatus {
+  active
+  expired
+  revoked
+
+  @@map("session_status")
+}
+
+enum ConsentStatus {
+  granted
+  revoked
+
+  @@map("consent_status")
+}
+
+enum AuditActorType {
+  user
+  system
+  api_key
+  scim_token
+  service
+
+  @@map("audit_actor_type")
+}
+
+model Tenant {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  slug           String         @unique
+  displayName    String?        @map("display_name")
+  domain         String?        @unique
+  logoUrl        String?        @map("logo_url")
+  faviconUrl     String?        @map("favicon_url")
+  plan           TenantPlan     @default(free)
+  dataResidency  DataResidency? @map("data_residency")
+  openfgaStoreId String?        @map("openfga_store_id")
+  openfgaModelId String?        @map("openfga_model_id")
+  settings       Json?          @db.JsonB
+  metadata       Json?          @db.JsonB
+  maxUsers       Int?           @map("max_users")
+  maxApps        Int?           @map("max_apps")
+  isActive       Boolean        @default(true) @map("is_active")
+  version        Int            @default(1)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz
+
+  policies          TenantPolicy[]
+  memberships       Membership[]
+  sessions          Session[]
+  oauthClients      OAuthClient[]
+  userConsents      UserConsent[]
+  identityProviders IdentityProvider[]
+  groups            Group[]
+  webhookEndpoints  WebhookEndpoint[]
+  apiKeys           ApiKey[]
+  scimTokens        ScimToken[]
+  authzOutbox       AuthzOutbox[]
+
+  @@map("tenants")
+}
+
+model TenantPolicy {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  passwordMinLength     Int      @default(8) @map("password_min_length")
+  passwordRequireUpper  Boolean  @default(true) @map("password_require_upper")
+  passwordRequireLower  Boolean  @default(true) @map("password_require_lower")
+  passwordRequireNumber Boolean  @default(true) @map("password_require_number")
+  passwordRequireSymbol Boolean  @default(false) @map("password_require_symbol")
+  passwordRequireMfa    Boolean  @default(false) @map("password_require_mfa")
+  allowedMfaMethods     String[] @map("allowed_mfa_methods")
+  sessionMaxAgeHours    Int      @default(24) @map("session_max_age_hours")
+  idleTimeoutMinutes    Int      @default(30) @map("idle_timeout_minutes")
+  ipAllowlist           String[] @map("ip_allowlist")
+  allowedEmailDomains   String[] @map("allowed_email_domains")
+  requireSso            Boolean  @default(false) @map("require_sso")
+  maxSessionsPerUser    Int      @default(5) @map("max_sessions_per_user")
+  passwordHistoryCount  Int      @default(0) @map("password_history_count")
+  lockoutThreshold      Int      @default(5) @map("lockout_threshold")
+  lockoutDurationMin    Int      @default(15) @map("lockout_duration_min")
+  version               Int      @default(1)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_policies")
+}
+
+model User {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String     @unique
+  emailVerified     Boolean    @default(false) @map("email_verified")
+  passwordHash      String?    @map("password_hash")
+  displayName       String?    @map("display_name")
+  firstName         String?    @map("first_name")
+  lastName          String?    @map("last_name")
+  avatarUrl         String?    @map("avatar_url")
+  phoneNumber       String?    @map("phone_number")
+  phoneVerified     Boolean    @default(false) @map("phone_verified")
+  locale            String?    @default("en")
+  timezone          String?    @default("UTC")
+  status            UserStatus @default(pending)
+  metadata          Json?      @db.JsonB
+  lastLoginAt       DateTime?  @map("last_login_at") @db.Timestamptz
+  lastLoginIp       String?    @map("last_login_ip")
+  failedLoginCount  Int        @default(0) @map("failed_login_count")
+  lockedUntil       DateTime?  @map("locked_until") @db.Timestamptz
+  passwordChangedAt DateTime?  @map("password_changed_at") @db.Timestamptz
+  version           Int        @default(1)
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?  @map("deleted_at") @db.Timestamptz
+
+  memberships         Membership[]
+  invitedMemberships  Membership[]        @relation("InvitedBy")
+  mfaEnrollments      MfaEnrollment[]
+  mfaBackupCodes      MfaBackupCode[]
+  sessions            Session[]
+  userConsents        UserConsent[]
+  federatedIdentities FederatedIdentity[]
+  groupMemberships    GroupMembership[]
+  apiKeys             ApiKey[]
+
+  @@map("users")
+}
+
+model Membership {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  tenantId          String         @map("tenant_id") @db.Uuid
+  role              MembershipRole @default(member)
+  invitedBy         String?        @map("invited_by") @db.Uuid
+  invitationToken   String?        @map("invitation_token")
+  invitationExpires DateTime?      @map("invitation_expires") @db.Timestamptz
+  joinedAt          DateTime?      @map("joined_at") @db.Timestamptz
+  createdBy         String?        @map("created_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?      @map("deleted_at") @db.Timestamptz
+
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inviter User?  @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@unique([tenantId, userId])
+  @@map("memberships")
+}
+
+// ===== AUTH & MFA =====
+
+model MfaEnrollment {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  method          MfaMethod
+  status          MfaStatus @default(pending_setup)
+  secretEncrypted String?   @map("secret_encrypted")
+  credentialId    String?   @map("credential_id")
+  publicKey       String?   @map("public_key")
+  signCount       BigInt    @default(0) @map("sign_count")
+  transports      String[]
+  phoneNumber     String?   @map("phone_number") @db.VarChar(20)
+  isDefault       Boolean   @default(false) @map("is_default")
+  lastUsedAt      DateTime? @map("last_used_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, method, credentialId])
+  @@map("mfa_enrollments")
+}
+
+model MfaBackupCode {
+  id        BigInt    @id @default(autoincrement())
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.VarChar(255)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_backup_codes")
+}
+
+model Session {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  tokenHash         String        @unique @map("token_hash") @db.VarChar(255)
+  status            SessionStatus @default(active)
+  ipAddress         String?       @map("ip_address")
+  userAgent         String?       @map("user_agent")
+  deviceFingerprint String?       @map("device_fingerprint") @db.VarChar(255)
+  countryCode       String?       @map("country_code") @db.Char(2)
+  city              String?       @db.VarChar(100)
+  mfaVerified       Boolean       @default(false) @map("mfa_verified")
+  mfaMethodUsed     MfaMethod?    @map("mfa_method_used")
+  lastActivityAt    DateTime      @default(now()) @map("last_activity_at") @db.Timestamptz
+  expiresAt         DateTime      @map("expires_at") @db.Timestamptz
+  revokedAt         DateTime?     @map("revoked_at") @db.Timestamptz
+  revokeReason      String?       @map("revoke_reason") @db.VarChar(100)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ===== OAUTH2 / OIDC =====
+
+model OAuthClient {
+  id                      String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                String           @map("tenant_id") @db.Uuid
+  clientId                String           @unique @map("client_id") @db.VarChar(255)
+  clientSecretHash        String?          @map("client_secret_hash") @db.VarChar(255)
+  name                    String           @db.VarChar(255)
+  description             String?
+  logoUrl                 String?          @map("logo_url")
+  homepageUrl             String?          @map("homepage_url")
+  privacyPolicyUrl        String?          @map("privacy_policy_url")
+  termsOfServiceUrl       String?          @map("terms_of_service_url")
+  redirectUris            String[]         @map("redirect_uris")
+  postLogoutRedirectUris  String[]         @default([]) @map("post_logout_redirect_uris")
+  allowedGrantTypes       OAuthGrantType[] @default([authorization_code, refresh_token]) @map("allowed_grant_types")
+  allowedScopes           String[]         @default(["openid", "profile", "email"]) @map("allowed_scopes")
+  tokenEndpointAuthMethod TokenAuthMethod  @default(client_secret_basic) @map("token_endpoint_auth_method")
+  accessTokenTtlSeconds   Int              @default(900) @map("access_token_ttl_seconds")
+  refreshTokenTtlSeconds  Int              @default(2592000) @map("refresh_token_ttl_seconds")
+  idTokenTtlSeconds       Int              @default(3600) @map("id_token_ttl_seconds")
+  isFirstParty            Boolean          @default(false) @map("is_first_party")
+  isPublic                Boolean          @default(false) @map("is_public")
+  requirePkce             Boolean          @default(true) @map("require_pkce")
+  requireConsent          Boolean          @default(true) @map("require_consent")
+  isActive                Boolean          @default(true) @map("is_active")
+  metadata                Json             @default("{}") @db.JsonB
+  version                 Int              @default(1)
+  createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt               DateTime?        @map("deleted_at") @db.Timestamptz
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  secrets  OAuthClientSecret[]
+  consents UserConsent[]
+
+  @@map("oauth_clients")
+}
+
+model OAuthClientSecret {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId     String    @map("client_id") @db.Uuid
+  secretHash   String    @map("secret_hash") @db.VarChar(255)
+  secretPrefix String    @map("secret_prefix") @db.VarChar(8)
+  label        String?   @db.VarChar(100)
+  isActive     Boolean   @default(true) @map("is_active")
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, secretPrefix])
+  @@map("oauth_client_secrets")
+}
+
+model UserConsent {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String        @map("user_id") @db.Uuid
+  clientId      String        @map("client_id") @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  grantedScopes String[]      @map("granted_scopes")
+  status        ConsentStatus @default(granted)
+  grantedAt     DateTime      @default(now()) @map("granted_at") @db.Timestamptz
+  revokedAt     DateTime?     @map("revoked_at") @db.Timestamptz
+  expiresAt     DateTime?     @map("expires_at") @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, clientId])
+  @@map("user_consents")
+}
+
+// ===== IDENTITY PROVIDERS =====
+
+model IdentityProvider {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String         @map("tenant_id") @db.Uuid
+  name                 String         @db.VarChar(255)
+  type                 IdpType
+  status               IdpStatus      @default(pending_verification)
+  domainHint           String?        @map("domain_hint") @db.VarChar(255)
+  samlEntityId         String?        @map("saml_entity_id")
+  samlSsoUrl           String?        @map("saml_sso_url")
+  samlSloUrl           String?        @map("saml_slo_url")
+  samlCertificate      String?        @map("saml_certificate")
+  samlSigningAlgorithm String?        @default("RSA-SHA256") @map("saml_signing_algorithm") @db.VarChar(20)
+  samlNameIdFormat     String?        @default("urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress") @map("saml_name_id_format") @db.VarChar(100)
+  oidcIssuer           String?        @map("oidc_issuer")
+  oidcClientId         String?        @map("oidc_client_id") @db.VarChar(255)
+  oidcClientSecretEnc  String?        @map("oidc_client_secret_enc")
+  oidcDiscoveryUrl     String?        @map("oidc_discovery_url")
+  oidcScopes           String[]       @default(["openid", "profile", "email"]) @map("oidc_scopes")
+  attributeMapping     Json           @default("{\"email\":\"email\",\"firstName\":\"first_name\",\"lastName\":\"last_name\",\"displayName\":\"display_name\",\"groups\":\"groups\"}") @map("attribute_mapping") @db.JsonB
+  jitProvisioning      Boolean        @default(true) @map("jit_provisioning")
+  autoSyncGroups       Boolean        @default(false) @map("auto_sync_groups")
+  defaultRole          MembershipRole @default(member) @map("default_role")
+  metadata             Json           @default("{}") @db.JsonB
+  version              Int            @default(1)
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt            DateTime?      @map("deleted_at") @db.Timestamptz
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  federatedIdentities FederatedIdentity[]
+
+  @@unique([tenantId, domainHint])
+  @@map("identity_providers")
+}
+
+model FederatedIdentity {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  idpId            String    @map("idp_id") @db.Uuid
+  externalUserId   String    @map("external_user_id") @db.VarChar(500)
+  externalEmail    String?   @map("external_email")
+  externalUsername String?   @map("external_username") @db.VarChar(255)
+  profileData      Json      @default("{}") @map("profile_data") @db.JsonB
+  lastLoginAt      DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idp  IdentityProvider @relation(fields: [idpId], references: [id], onDelete: Cascade)
+
+  @@unique([idpId, externalUserId])
+  @@map("federated_identities")
+}
+
+// ===== GROUPS =====
+
+model Group {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  name        String    @db.VarChar(255)
+  slug        String    @db.VarChar(255)
+  description String?
+  isManaged   Boolean   @default(false) @map("is_managed")
+  source      String?   @default("manual") @db.VarChar(50)
+  externalId  String?   @map("external_id") @db.VarChar(500)
+  metadata    Json      @default("{}") @db.JsonB
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  memberships GroupMembership[]
+  parentOf    GroupNesting[]    @relation("ParentGroup")
+  childOf     GroupNesting[]    @relation("ChildGroup")
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, externalId])
+  @@map("groups")
+}
+
+model GroupMembership {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId   String   @map("group_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member") @db.VarChar(20)
+  source    String?  @default("manual") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_memberships")
+}
+
+model GroupNesting {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentGroupId String   @map("parent_group_id") @db.Uuid
+  childGroupId  String   @map("child_group_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  parentGroup Group @relation("ParentGroup", fields: [parentGroupId], references: [id], onDelete: Cascade)
+  childGroup  Group @relation("ChildGroup", fields: [childGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([parentGroupId, childGroupId])
+  @@map("group_nesting")
+}
+
+// ===== WEBHOOKS =====
+
+model WebhookEndpoint {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  url              String
+  description      String?   @db.VarChar(500)
+  secretHash       String    @map("secret_hash") @db.VarChar(255)
+  secretEncrypted  String    @map("secret_encrypted")
+  subscribedEvents String[]  @map("subscribed_events")
+  isActive         Boolean   @default(true) @map("is_active")
+  failureCount     Int       @default(0) @map("failure_count")
+  disabledAt       DateTime? @map("disabled_at") @db.Timestamptz
+  metadata         Json      @default("{}") @db.JsonB
+  version          Int       @default(1)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_endpoints")
+}
+
+// ===== DEVELOPER PORTAL =====
+
+model ApiKey {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  name            String       @db.VarChar(255)
+  keyPrefix       String       @unique @map("key_prefix") @db.VarChar(12)
+  keyHash         String       @map("key_hash") @db.VarChar(255)
+  status          ApiKeyStatus @default(active)
+  scopes          String[]     @default([])
+  allowedIps      String[]     @default([]) @map("allowed_ips")
+  rateLimitPerMin Int?         @default(1000) @map("rate_limit_per_min")
+  lastUsedAt      DateTime?    @map("last_used_at") @db.Timestamptz
+  expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
+  revokedAt       DateTime?    @map("revoked_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usage  ApiKeyUsage[]
+
+  @@map("api_keys")
+}
+
+model ApiKeyUsage {
+  id             BigInt   @id @default(autoincrement())
+  apiKeyId       String   @map("api_key_id") @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  date           DateTime @db.Date
+  requestCount   BigInt   @default(0) @map("request_count")
+  errorCount     BigInt   @default(0) @map("error_count")
+  avgLatencyMs   Decimal  @default(0) @map("avg_latency_ms") @db.Decimal(10, 2)
+  p99LatencyMs   Decimal  @default(0) @map("p99_latency_ms") @db.Decimal(10, 2)
+  bandwidthBytes BigInt   @default(0) @map("bandwidth_bytes")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, date])
+  @@map("api_key_usage")
+}
+
+model ScimToken {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  tokenHash   String    @unique @map("token_hash") @db.VarChar(255)
+  tokenPrefix String    @map("token_prefix") @db.VarChar(12)
+  label       String?   @db.VarChar(255)
+  isActive    Boolean   @default(true) @map("is_active")
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("scim_tokens")
+}
+
+// ===== AUTHORIZATION OUTBOX =====
+
+model AuthzOutbox {
+  id             BigInt    @id @default(autoincrement())
+  tenantId       String    @map("tenant_id") @db.Uuid
+  storeId        String    @map("store_id") @db.VarChar(100)
+  operation      String    @db.VarChar(10)
+  tupleUser      String    @map("tuple_user") @db.VarChar(500)
+  tupleRelation  String    @map("tuple_relation") @db.VarChar(100)
+  tupleObject    String    @map("tuple_object") @db.VarChar(500)
+  conditionName  String?   @map("condition_name") @db.VarChar(100)
+  conditionCtx   Json?     @map("condition_ctx") @db.JsonB
+  status         String    @default("pending") @db.VarChar(20)
+  retryCount     Int       @default(0) @map("retry_count") @db.SmallInt
+  maxRetries     Int       @default(5) @map("max_retries") @db.SmallInt
+  lastError      String?   @map("last_error")
+  idempotencyKey String    @unique @map("idempotency_key") @db.VarChar(255)
+  actorUserId    String?   @map("actor_user_id") @db.Uuid
+  source         String    @default("api") @db.VarChar(50)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("authz_outbox")
+}
