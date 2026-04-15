@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: Service
+metadata: { name: directory-service, namespace: sso-platform }
+spec:
+  selector: { app: directory-service }
+  ports: [{ name: http, port: 3200, targetPort: 3200 }]

@@ -15,6 +15,11 @@ type Config struct {
 	Cache    CacheConfig
 	Outbox   OutboxConfig
 	GRPC     GRPCConfig
+	NATS     NATSConfig
+}
+
+type NATSConfig struct {
+	URL string `mapstructure:"url"`
 }
 
 type ServerConfig struct {
@@ -74,6 +79,9 @@ func Load() (*Config, error) {
 	// gRPC defaults
 	v.SetDefault("grpc.port", 50051)
 
+	// NATS defaults
+	v.SetDefault("nats.url", "nats://localhost:4222")
+
 	// Database defaults
 	v.SetDefault("database.url", "postgres://app_readwrite:dev@localhost:5433/sso_dev?sslmode=disable")
 	v.SetDefault("database.max_conns", 10)
@@ -111,6 +119,7 @@ func Load() (*Config, error) {
 		{"token", &cfg.Token},
 		{"cache", &cfg.Cache},
 		{"outbox", &cfg.Outbox},
+		{"nats", &cfg.NATS},
 	} {
 		if err := v.UnmarshalKey(pair.key, pair.dest); err != nil {
 			return nil, err

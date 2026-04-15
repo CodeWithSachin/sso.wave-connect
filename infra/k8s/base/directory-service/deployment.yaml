@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: directory-service, namespace: sso-platform, labels: { app: directory-service, tier: platform } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: directory-service } }
+  template:
+    metadata: { labels: { app: directory-service, tier: platform } }
+    spec:
+      containers:
+        - name: directory-service
+          image: sso-platform/directory-serviceatest
+          ports: [{ containerPort: 3200, name: http }]
+          envFrom: [{ configMapRef: { name: sso-config } }]
+          resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 512Mi } }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, initialDelaySeconds: 10 }
+          readinessProbe: { httpGet: { path: /readyz, port: http }, initialDelaySeconds: 5 }

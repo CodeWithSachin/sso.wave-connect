@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sso-config
+  namespace: sso-platform
+data:
+  DATABASE_URL: "postgres://app_readwrite:dev@postgres:5432/sso_dev?sslmode=disable"
+  REDIS_URL: "redis://redis:6379/0"
+  NATS_URL: "nats://nats:4222"
+  OPENFGA_API_URL: "http://openfga:8080"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4318"
+  LOGIN_PORTAL_URL: "https://login.wave-connect.com/login"

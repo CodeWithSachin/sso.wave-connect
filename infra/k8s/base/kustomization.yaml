@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sso-platform
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - ingress.yaml
+  # Go services
+  - identity-service/deployment.yaml
+  - identity-service/service.yaml
+  - identity-service/hpa.yaml
+  - authz-service/deployment.yaml
+  - authz-service/service.yaml
+  - authz-service/hpa.yaml
+  - sso-service/deployment.yaml
+  - sso-service/service.yaml
+  - sso-service/hpa.yaml
+  # NestJS services
+  - admin-api/deployment.yaml
+  - admin-api/service.yaml
+  - admin-api/hpa.yaml
+  - directory-service/deployment.yaml
+  - directory-service/service.yaml
+  - directory-service/hpa.yaml
+  - webhook-service/deployment.yaml
+  - webhook-service/service.yaml
+  - webhook-service/hpa.yaml
+  - audit-service/deployment.yaml
+  - audit-service/service.yaml
+  - audit-service/hpa.yaml
+  # Frontends
+  - login-portal/deployment.yaml
+  - login-portal/service.yaml
+  - admin-console/deployment.yaml
+  - admin-console/service.yaml
+  # Infrastructure
+  - pgbouncer/deployment.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: sso-platform

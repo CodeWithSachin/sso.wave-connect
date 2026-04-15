@@ -18,6 +18,11 @@ type Config struct {
 	WebAuthn          WebAuthnConfig
 	Cookie            CookieConfig
 	WebhookServiceURL string `mapstructure:"webhook_service_url"`
+	NATS              NATSConfig
+}
+
+type NATSConfig struct {
+	URL string `mapstructure:"url"`
 }
 
 type CookieConfig struct {
@@ -119,6 +124,9 @@ func Load() (*Config, error) {
 	v.SetDefault("argon2.key_len", 32)
 	v.SetDefault("argon2.salt_len", 16)
 
+	// NATS defaults
+	v.SetDefault("nats.url", "nats://localhost:4222")
+
 	// SSO cookie defaults (dev: localhost HTTP, prod: .wave-connect.com HTTPS)
 	v.SetDefault("cookie.domain", "localhost")
 	v.SetDefault("cookie.secure", false)
@@ -154,6 +162,10 @@ func Load() (*Config, error) {
 	}
 	if err := v.UnmarshalKey("cookie", &cfg.Cookie); err != nil {
 		return nil, fmt.Errorf("unmarshal cookie config: %w", err)
+	}
+
+	if err := v.UnmarshalKey("nats", &cfg.NATS); err != nil {
+		return nil, fmt.Errorf("unmarshal nats config: %w", err)
 	}
 
 	cfg.WebhookServiceURL = v.GetString("webhook_service_url")
