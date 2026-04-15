@@ -8,10 +8,9 @@ import (
 func CORS() fiber.Handler {
 	return cors.New(cors.Config{
 		AllowOrigins:     "http://localhost:4200,http://localhost:4300",
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Tenant-ID,X-Request-ID",
-		ExposeHeaders:    "X-Request-ID",
-		AllowCredentials: true,
+		AllowMethods:     "GET,POST,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		AllowCredentials: true, // Required for sso_session cookie on cross-origin requests
 		MaxAge:           3600,
 	})
 }

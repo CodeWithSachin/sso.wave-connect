@@ -76,29 +76,16 @@ export const AuthStore = signalStore(
     const baseUrl = environment.identityServiceUrl;
 
     /**
-     * After successful authentication, redirect to the returnUrl if present
-     * (e.g. admin-console sent user here), otherwise navigate to '/'.
-     */
-    /**
-     * After successful authentication, redirect to the returnUrl if present
-     * (e.g. admin-console sent user here). Passes tokens via URL hash fragment
-     * since sessionStorage is per-origin and won't be accessible cross-port.
+     * After successful authentication, redirect to the return_to URL if present
+     * (e.g. sso-service sent user here during an OAuth2 flow for admin-console).
+     * The sso_session cookie (set by identity-service) handles cross-app auth —
+     * no tokens are passed in the URL.
      */
     function redirectAfterAuth(): void {
       const params = new URLSearchParams(window.location.search);
-      const returnUrl = params.get('returnUrl');
-      if (returnUrl) {
-        const accessToken = sessionStorage.getItem('accessToken') ?? '';
-        const refreshToken = sessionStorage.getItem('refreshToken') ?? '';
-        const idToken = sessionStorage.getItem('idToken') ?? '';
-        const tenantId = sessionStorage.getItem('tenantId') ?? '';
-        const hash = new URLSearchParams({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          id_token: idToken,
-          tenant_id: tenantId,
-        }).toString();
-        window.location.href = `${returnUrl}#${hash}`;
+      const returnTo = params.get('return_to') || params.get('returnUrl');
+      if (returnTo) {
+        window.location.href = returnTo;
       } else {
         router.navigateByUrl('/');
       }

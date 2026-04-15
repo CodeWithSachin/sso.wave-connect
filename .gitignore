@@ -49,3 +49,4 @@ coverage/
 .angular
 
 __screenshots__/
+.logs/

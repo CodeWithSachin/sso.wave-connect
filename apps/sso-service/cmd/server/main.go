@@ -63,6 +63,7 @@ func main() {
 	// --- Repositories ---
 	clientRepo := repository.NewOAuthClientRepository(pool)
 	consentRepo := repository.NewConsentRepository(pool)
+	sessionRepo := repository.NewSessionRepository(pool)
 
 	// --- Services ---
 	oauth2Svc, err := service.NewOAuth2Service(cfg.Token, clientRepo, log)
@@ -77,7 +78,7 @@ func main() {
 
 	// --- Handlers ---
 	validate := validator.New()
-	loginURL := "/login" // Login portal URL
+	loginURL := cfg.LoginPortalURL
 	oauth2Handler := handler.NewOAuth2Handler(oauth2Svc, oidcSvc, clientRepo, consentRepo, validate, log, loginURL)
 	consentHandler := handler.NewConsentHandler(oauth2Svc, clientRepo, consentRepo, validate, log)
 	oidcHandler := handler.NewOIDCHandler(oidcSvc, cfg.Token.Issuer, log)
@@ -96,6 +97,9 @@ func main() {
 		},
 	})
 
+	// --- Global Middleware ---
+	app.Use(middleware.CORS())
+
 	// --- Health Routes (no auth required) ---
 	app.Get("/healthz", healthHandler.Liveness)
 	app.Get("/readyz", healthHandler.Readiness)
@@ -103,8 +107,8 @@ func main() {
 	// --- OIDC Discovery (no auth required) ---
 	app.Get("/.well-known/openid-configuration", oidcHandler.Discovery)
 
-	// --- OAuth2 Authorization (optional auth — redirects to login if missing) ---
-	app.Get("/oauth2/authorize", middleware.OptionalPASETOAuth(cfg.Token.SymmetricKeyHex, log), oauth2Handler.Authorize)
+	// --- OAuth2 Authorization (checks Bearer token OR sso_session cookie) ---
+	app.Get("/oauth2/authorize", middleware.SessionOrTokenAuth(cfg.Token.SymmetricKeyHex, sessionRepo, log), oauth2Handler.Authorize)
 
 	// --- OAuth2 Token (no session auth — uses client credentials) ---
 	app.Post("/oauth2/token", oauth2Handler.Token)

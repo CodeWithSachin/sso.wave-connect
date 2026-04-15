@@ -103,12 +103,14 @@ func main() {
 		passwordSvc, tokenSvc, sessionSvc,
 		mfaService, mfaRepo,
 		publisher, validate, log, cfg.Token.RefreshTTL,
+		cfg.Cookie,
 	)
 	mfaHandler := handler.NewMfaHandler(
 		mfaService, mfaRepo,
 		userRepo, membershipRepo, familyRepo,
 		tokenSvc, sessionSvc, webauthnSvc,
 		validate, log, cfg.Token.RefreshTTL,
+		cfg.Cookie,
 	)
 	tokenHandler := handler.NewTokenHandler(tokenSvc, validate, log)
 	sessionHandler := handler.NewSessionHandler(sessionSvc, log)

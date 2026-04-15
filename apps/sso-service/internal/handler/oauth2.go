@@ -116,8 +116,10 @@ func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 	// Check if user is authenticated (userID set by auth middleware)
 	userIDStr, ok := c.Locals("userID").(string)
 	if !ok || userIDStr == "" {
-		// Redirect to login portal with return URL
-		returnURL := c.OriginalURL()
+		// Redirect to login portal with full return URL (include sso-service origin)
+		scheme := c.Protocol()
+		host := c.Hostname()
+		returnURL := fmt.Sprintf("%s://%s%s", scheme, host, c.OriginalURL())
 		loginRedirect := fmt.Sprintf("%s?return_to=%s", h.loginURL, url.QueryEscape(returnURL))
 		return c.Redirect(loginRedirect, fiber.StatusFound)
 	}

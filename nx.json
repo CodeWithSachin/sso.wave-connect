@@ -1,5 +1,11 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "sync": {
+    "applyChanges": true,
+    "disabledTaskSyncGenerators": [
+      "@nx/js:typescript-sync"
+    ]
+  },
   "namedInputs": {
     "default": [
       "{projectRoot}/**/*",

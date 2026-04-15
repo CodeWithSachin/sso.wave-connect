@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/id"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
@@ -27,6 +28,7 @@ type MfaHandler struct {
 	validate       *validator.Validate
 	log            zerolog.Logger
 	refreshTTL     time.Duration
+	cookieCfg      config.CookieConfig
 }
 
 func NewMfaHandler(
@@ -41,6 +43,7 @@ func NewMfaHandler(
 	validate *validator.Validate,
 	log zerolog.Logger,
 	refreshTTL time.Duration,
+	cookieCfg config.CookieConfig,
 ) *MfaHandler {
 	return &MfaHandler{
 		mfaService:     mfaService,
@@ -54,6 +57,7 @@ func NewMfaHandler(
 		validate:       validate,
 		log:            log.With().Str("component", "mfa_handler").Logger(),
 		refreshTTL:     refreshTTL,
+		cookieCfg:      cookieCfg,
 	}
 }
 
@@ -185,6 +189,20 @@ func (h *MfaHandler) Verify(c *fiber.Ctx) error {
 	if err != nil {
 		h.log.Error().Err(err).Msg("failed to create session after MFA")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	}
+
+	// Set SSO session cookie (HttpOnly — enables cross-app auto-login via sso-service)
+	if sess.RawToken != "" {
+		c.Cookie(&fiber.Cookie{
+			Name:     "sso_session",
+			Value:    sess.RawToken,
+			Path:     "/",
+			Domain:   h.cookieCfg.Domain,
+			HTTPOnly: true,
+			Secure:   h.cookieCfg.Secure,
+			SameSite: "Lax",
+			MaxAge:   int(time.Until(sess.ExpiresAt).Seconds()),
+		})
 	}
 
 	return c.JSON(model.LoginResponse{

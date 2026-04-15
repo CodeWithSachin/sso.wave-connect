@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/event"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/id"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
@@ -30,6 +31,7 @@ type AuthHandler struct {
 	validate       *validator.Validate
 	log            zerolog.Logger
 	refreshTTL     time.Duration
+	cookieCfg      config.CookieConfig
 }
 
 func NewAuthHandler(
@@ -45,6 +47,7 @@ func NewAuthHandler(
 	validate *validator.Validate,
 	log zerolog.Logger,
 	refreshTTL time.Duration,
+	cookieCfg config.CookieConfig,
 ) *AuthHandler {
 	return &AuthHandler{
 		userRepo:       userRepo,
@@ -59,6 +62,7 @@ func NewAuthHandler(
 		validate:       validate,
 		log:            log.With().Str("component", "auth_handler").Logger(),
 		refreshTTL:     refreshTTL,
+		cookieCfg:      cookieCfg,
 	}
 }
 
@@ -306,6 +310,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 	}
 
+	// Set SSO session cookie (HttpOnly — enables cross-app auto-login via sso-service)
+	h.setSSOCookie(c, sess)
+
 	_ = h.publisher.Publish(c.Context(), event.Event{
 		Type:      event.TypeUserLogin,
 		Timestamp: now,
@@ -331,6 +338,23 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		IDToken:      tokens.IDToken,
 		ExpiresIn:    tokens.ExpiresIn,
 		TokenType:    tokens.TokenType,
+	})
+}
+
+// setSSOCookie sets the HttpOnly sso_session cookie for cross-app SSO.
+func (h *AuthHandler) setSSOCookie(c *fiber.Ctx, sess *model.Session) {
+	if sess.RawToken == "" {
+		return
+	}
+	c.Cookie(&fiber.Cookie{
+		Name:     "sso_session",
+		Value:    sess.RawToken,
+		Path:     "/",
+		Domain:   h.cookieCfg.Domain,
+		HTTPOnly: true,
+		Secure:   h.cookieCfg.Secure,
+		SameSite: "Lax",
+		MaxAge:   int(time.Until(sess.ExpiresAt).Seconds()),
 	})
 }
 

@@ -16,7 +16,13 @@ type Config struct {
 	Token             TokenConfig
 	Argon2            Argon2Config
 	WebAuthn          WebAuthnConfig
+	Cookie            CookieConfig
 	WebhookServiceURL string `mapstructure:"webhook_service_url"`
+}
+
+type CookieConfig struct {
+	Domain string `mapstructure:"domain"` // "" for localhost dev, ".wave-connect.com" for prod
+	Secure bool   `mapstructure:"secure"` // false for dev (HTTP), true for prod (HTTPS)
 }
 
 type WebAuthnConfig struct {
@@ -113,6 +119,10 @@ func Load() (*Config, error) {
 	v.SetDefault("argon2.key_len", 32)
 	v.SetDefault("argon2.salt_len", 16)
 
+	// SSO cookie defaults (dev: localhost HTTP, prod: .wave-connect.com HTTPS)
+	v.SetDefault("cookie.domain", "localhost")
+	v.SetDefault("cookie.secure", false)
+
 	// Webhook service URL (empty = log-only, no webhook dispatch)
 	v.SetDefault("webhook_service_url", "")
 
@@ -141,6 +151,9 @@ func Load() (*Config, error) {
 	}
 	if err := v.UnmarshalKey("webauthn", &cfg.WebAuthn); err != nil {
 		return nil, fmt.Errorf("unmarshal webauthn config: %w", err)
+	}
+	if err := v.UnmarshalKey("cookie", &cfg.Cookie); err != nil {
+		return nil, fmt.Errorf("unmarshal cookie config: %w", err)
 	}
 
 	cfg.WebhookServiceURL = v.GetString("webhook_service_url")

@@ -74,7 +74,7 @@ func (w *OutboxWorker) drain(ctx context.Context) {
 		if err := w.processEntry(ctx, entry); err != nil {
 			w.log.Error().Err(err).
 				Str("id", entry.ID).
-				Str("op", entry.OperationType).
+				Str("op", entry.Operation).
 				Msg("failed to process outbox entry")
 
 			if markErr := w.repo.MarkFailed(ctx, entry.ID, err.Error()); markErr != nil {
@@ -96,7 +96,7 @@ func (w *OutboxWorker) processEntry(ctx context.Context, entry model.OutboxEntry
 		Object:   entry.TupleObject,
 	}
 
-	switch entry.OperationType {
+	switch entry.Operation {
 	case "write":
 		return w.authz.WriteTuples(ctx, []model.TupleWrite{tuple})
 	case "delete":
@@ -104,7 +104,7 @@ func (w *OutboxWorker) processEntry(ctx context.Context, entry model.OutboxEntry
 	default:
 		w.log.Warn().
 			Str("id", entry.ID).
-			Str("op", entry.OperationType).
+			Str("op", entry.Operation).
 			Msg("unknown outbox operation type, skipping")
 		return nil
 	}

@@ -60,5 +60,12 @@ export const appRoutes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },
+  {
+    path: 'callback',
+    loadComponent: () =>
+      import('./callback/callback.component').then(
+        (m) => m.CallbackComponent,
+      ),
+  },
   { path: '**', redirectTo: '' },
 ];

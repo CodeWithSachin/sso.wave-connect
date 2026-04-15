@@ -1,48 +1,48 @@
 import { CanActivateFn } from '@angular/router';
 import { environment } from '../environments/environment';
+import {
+  generateCodeVerifier,
+  generateCodeChallenge,
+  generateState,
+} from '../services/pkce.service';
 
 /**
- * Guard that checks if the user has a valid access token.
+ * OAuth2 PKCE auth guard for the admin-console.
  *
  * Flow:
- * 1. Check URL hash for tokens (passed by login-portal after cross-origin redirect)
- * 2. If found, store them in sessionStorage and clean the URL
- * 3. Check sessionStorage for existing tokens
- * 4. If no tokens, redirect to login-portal with returnUrl
+ * 1. Check sessionStorage for existing accessToken → allow if present
+ * 2. Otherwise, generate PKCE verifier/challenge + state
+ * 3. Store verifier + state in sessionStorage (survive the redirect round-trip)
+ * 4. Redirect to sso-service /oauth2/authorize with PKCE params
+ * 5. sso-service checks sso_session cookie → if valid, issues auth code silently
+ * 6. Redirect back to /callback with code → callback exchanges for tokens
  */
-export const authGuard: CanActivateFn = () => {
-  // 1. Check URL hash fragment for tokens from login-portal redirect
-  if (window.location.hash) {
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const tenantId = hashParams.get('tenant_id');
-
-    if (accessToken && tenantId) {
-      sessionStorage.setItem('accessToken', accessToken);
-      sessionStorage.setItem('tenantId', tenantId);
-
-      const refreshToken = hashParams.get('refresh_token');
-      if (refreshToken) sessionStorage.setItem('refreshToken', refreshToken);
-
-      const idToken = hashParams.get('id_token');
-      if (idToken) sessionStorage.setItem('idToken', idToken);
-
-      // Clean the hash from the URL
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-      return true;
-    }
-  }
-
-  // 2. Check sessionStorage
+export const authGuard: CanActivateFn = async () => {
   const token = sessionStorage.getItem('accessToken');
-  const tenantId = sessionStorage.getItem('tenantId');
-
-  if (token && tenantId) {
+  if (token) {
     return true;
   }
 
-  // 3. Redirect to login-portal
-  const returnUrl = encodeURIComponent(window.location.origin + window.location.pathname);
-  window.location.href = `${environment.loginPortalUrl}/login?returnUrl=${returnUrl}`;
+  // Generate PKCE parameters
+  const verifier = generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  const state = generateState();
+
+  // Store for the callback to use after redirect
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('oauth_state', state);
+
+  // Build the OAuth2 authorize URL
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: environment.oauthClientId,
+    redirect_uri: environment.oauthRedirectUri,
+    scope: 'openid profile email',
+    state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+  });
+
+  window.location.href = `${environment.ssoServiceUrl}/oauth2/authorize?${params.toString()}`;
   return false;
 };
