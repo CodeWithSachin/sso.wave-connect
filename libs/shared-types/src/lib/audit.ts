@@ -1,4 +1,4 @@
-// SSO Platform — Audit Log Types (scaffold)
+// SSO Platform — Audit Log Types
 
 import type { AuditActorType } from './enums';
 
@@ -17,4 +17,23 @@ export interface AuditEntry {
   metadata: Record<string, unknown>;
   requestId?: string;
   createdAt: string;
+}
+
+export interface AuditQueryParams {
+  tenantId: string;
+  page: number;
+  pageSize: number;
+  actorId?: string;
+  action?: string;
+  resourceType?: string;
+  resourceId?: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface AuditQueryResponse {
+  data: AuditEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

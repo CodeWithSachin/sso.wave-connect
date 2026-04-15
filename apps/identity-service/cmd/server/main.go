@@ -67,11 +67,13 @@ func main() {
 	sessionRepo := repository.NewSessionRepository(pool)
 	denyRepo := repository.NewTokenDenyRepository(rdb)
 	familyRepo := repository.NewRefreshFamilyRepository(pool)
+	policyRepo := repository.NewPolicyRepository(pool)
 
 	// --- Services ---
 	passwordSvc := service.NewPasswordService(cfg.Argon2)
+	policySvc := service.NewPolicyService(policyRepo, rdb, log)
 
-	publisher := event.NewLogPublisher(log)
+	publisher := event.NewPublisher(cfg.WebhookServiceURL, log)
 
 	tokenSvc, err := service.NewTokenService(cfg.Token, denyRepo, familyRepo, log)
 	if err != nil {
@@ -82,7 +84,17 @@ func main() {
 
 	// --- MFA ---
 	mfaRepo := repository.NewMfaRepository(pool)
-	mfaService := service.NewMfaService(mfaRepo, tokenSvc, log)
+	mfaService := service.NewMfaService(mfaRepo, tokenSvc, rdb, log)
+
+	// --- WebAuthn ---
+	webauthnSvc, err := service.NewWebAuthnService(service.WebAuthnConfig{
+		RPID:          cfg.WebAuthn.RPID,
+		RPDisplayName: cfg.WebAuthn.RPDisplayName,
+		RPOrigin:      cfg.WebAuthn.RPOrigin,
+	}, mfaRepo, rdb, log)
+	if err != nil {
+		log.Warn().Err(err).Msg("WebAuthn service init failed; WebAuthn endpoints will be disabled")
+	}
 
 	// --- Handlers ---
 	validate := validator.New()
@@ -95,7 +107,7 @@ func main() {
 	mfaHandler := handler.NewMfaHandler(
 		mfaService, mfaRepo,
 		userRepo, membershipRepo, familyRepo,
-		tokenSvc, sessionSvc,
+		tokenSvc, sessionSvc, webauthnSvc,
 		validate, log, cfg.Token.RefreshTTL,
 	)
 	tokenHandler := handler.NewTokenHandler(tokenSvc, validate, log)
@@ -129,8 +141,8 @@ func main() {
 	app.Get("/.well-known/openid-configuration", wellKnownHandler.OpenIDConfiguration)
 	app.Get("/.well-known/paseto-keys", wellKnownHandler.PASETOKeys)
 
-	// --- Public Auth Routes (tenant required, rate-limited) ---
-	auth := app.Group("/auth", middleware.TenantExtraction(pool))
+	// --- Public Auth Routes (tenant required, policy enforced, rate-limited) ---
+	auth := app.Group("/auth", middleware.TenantExtraction(pool), middleware.TenantPolicyEnforcement(policySvc, log))
 	auth.Post("/register", middleware.RegisterRateLimit(rdb), authHandler.Register)
 	auth.Post("/login", middleware.LoginRateLimit(rdb), authHandler.Login)
 	auth.Post("/mfa/verify", mfaHandler.Verify)
@@ -148,6 +160,11 @@ func main() {
 	protected.Post("/auth/mfa/enroll/:id/verify", mfaHandler.VerifyEnrollment)
 	protected.Get("/auth/mfa/enrollments", mfaHandler.ListEnrollments)
 	protected.Delete("/auth/mfa/enrollments/:id", mfaHandler.DeleteEnrollment)
+	protected.Post("/auth/mfa/backup-codes/regenerate", mfaHandler.RegenerateBackupCodes)
+	protected.Post("/auth/mfa/webauthn/register/begin", mfaHandler.BeginWebAuthnRegistration)
+	protected.Post("/auth/mfa/webauthn/register/complete", mfaHandler.CompleteWebAuthnRegistration)
+	protected.Post("/auth/mfa/webauthn/login/begin", mfaHandler.BeginWebAuthnLogin)
+	protected.Post("/auth/mfa/webauthn/login/complete", mfaHandler.CompleteWebAuthnLogin)
 
 	// --- Graceful Shutdown ---
 	go func() {

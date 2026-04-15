@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -73,6 +74,21 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	tenantID, ok := c.Locals("tenant_id").(uuid.UUID)
 	if !ok {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "tenant context required"})
+	}
+
+	// --- Tenant policy enforcement ---
+	if policy, ok := c.Locals("tenant_policy").(*model.TenantPolicy); ok {
+		if len(req.Password) < policy.PasswordMinLength {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+				"error": fmt.Sprintf("password must be at least %d characters", policy.PasswordMinLength),
+			})
+		}
+		if !policy.IsEmailDomainAllowed(req.Email) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "email_domain_not_allowed",
+				"message": "your email domain is not permitted by this organization",
+			})
+		}
 	}
 
 	hash, err := h.passwordSvc.Hash(req.Password)
@@ -198,6 +214,23 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	valid, err := h.passwordSvc.Verify(req.Password, user.PasswordHash)
 	if err != nil || !valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid credentials"})
+	}
+
+	// Check if org policy requires MFA but user hasn't enrolled
+	if policy, ok := c.Locals("tenant_policy").(*model.TenantPolicy); ok && policy.PasswordRequireMFA {
+		hasMfaForPolicy, _ := h.mfaRepo.HasActiveEnrollment(c.Context(), user.ID)
+		if !hasMfaForPolicy {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "mfa_enrollment_required",
+				"message": "your organization requires multi-factor authentication; please enroll an MFA method",
+				"allowed_methods": func() []string {
+					if len(policy.AllowedMFAMethods) > 0 {
+						return policy.AllowedMFAMethods
+					}
+					return []string{"totp", "webauthn"}
+				}(),
+			})
+		}
 	}
 
 	// Check if user has active MFA enrollment

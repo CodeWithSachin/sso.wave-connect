@@ -32,16 +32,43 @@ type MfaBackupCode struct {
 }
 
 type MfaEnrollRequest struct {
-	Method string `json:"method" validate:"required,oneof=totp"`
+	Method string `json:"method" validate:"required,oneof=totp webauthn"`
 }
 
 type MfaVerifyRequest struct {
-	Code           string `json:"code" validate:"required,len=6"`
+	Code           string `json:"code" validate:"required,min=6,max=4096"`
 	ChallengeToken string `json:"challenge_token" validate:"required"`
+	Method         string `json:"method,omitempty"`
 }
 
 type MfaEnrollVerifyRequest struct {
 	Code string `json:"code" validate:"required,len=6"`
+}
+
+// WebAuthn request/response types
+
+type WebAuthnBeginRegisterResponse struct {
+	Options      interface{} `json:"options"`
+	EnrollmentID string      `json:"enrollment_id"`
+}
+
+type WebAuthnCompleteRegisterRequest struct {
+	EnrollmentID string      `json:"enrollment_id" validate:"required"`
+	Credential   interface{} `json:"credential" validate:"required"`
+}
+
+type WebAuthnBeginLoginResponse struct {
+	Options interface{} `json:"options"`
+}
+
+type WebAuthnCompleteLoginRequest struct {
+	Credential     interface{} `json:"credential" validate:"required"`
+	ChallengeToken string      `json:"challenge_token" validate:"required"`
+}
+
+type BackupCodeRegenerateResponse struct {
+	BackupCodes []string `json:"backup_codes"`
+	Count       int      `json:"count"`
 }
 
 type MfaEnrollResponse struct {

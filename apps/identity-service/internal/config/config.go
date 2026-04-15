@@ -10,11 +10,19 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	Token    TokenConfig
-	Argon2   Argon2Config
+	Server            ServerConfig
+	Database          DatabaseConfig
+	Redis             RedisConfig
+	Token             TokenConfig
+	Argon2            Argon2Config
+	WebAuthn          WebAuthnConfig
+	WebhookServiceURL string `mapstructure:"webhook_service_url"`
+}
+
+type WebAuthnConfig struct {
+	RPID          string `mapstructure:"rp_id"`
+	RPDisplayName string `mapstructure:"rp_display_name"`
+	RPOrigin      string `mapstructure:"rp_origin"`
 }
 
 type ServerConfig struct {
@@ -105,6 +113,14 @@ func Load() (*Config, error) {
 	v.SetDefault("argon2.key_len", 32)
 	v.SetDefault("argon2.salt_len", 16)
 
+	// Webhook service URL (empty = log-only, no webhook dispatch)
+	v.SetDefault("webhook_service_url", "")
+
+	// WebAuthn defaults
+	v.SetDefault("webauthn.rp_id", "localhost")
+	v.SetDefault("webauthn.rp_display_name", "WaveConnect SSO")
+	v.SetDefault("webauthn.rp_origin", "http://localhost:4200")
+
 	_ = v.ReadInConfig() // Not fatal if config file is missing; env vars suffice
 
 	cfg := &Config{}
@@ -123,6 +139,11 @@ func Load() (*Config, error) {
 	if err := v.UnmarshalKey("argon2", &cfg.Argon2); err != nil {
 		return nil, fmt.Errorf("unmarshal argon2 config: %w", err)
 	}
+	if err := v.UnmarshalKey("webauthn", &cfg.WebAuthn); err != nil {
+		return nil, fmt.Errorf("unmarshal webauthn config: %w", err)
+	}
+
+	cfg.WebhookServiceURL = v.GetString("webhook_service_url")
 
 	return cfg, nil
 }

@@ -7,10 +7,21 @@ import (
 )
 
 const (
-	TypeUserCreated    = "user.created"
-	TypeUserLogin      = "user.login"
-	TypeSessionCreated = "session.created"
-	TypeSessionRevoked = "session.revoked"
+	TypeUserCreated      = "user.created"
+	TypeUserUpdated      = "user.updated"
+	TypeUserDeleted      = "user.deleted"
+	TypeUserLogin        = "user.login"
+	TypeUserMfaEnrolled  = "user.mfa_enrolled"
+	TypeMembershipCreated = "membership.created"
+	TypeMembershipDeleted = "membership.deleted"
+	TypeGroupCreated     = "group.created"
+	TypeGroupUpdated     = "group.updated"
+	TypeGroupMemberAdded = "group.member_added"
+	TypeGroupMemberRemoved = "group.member_removed"
+	TypePermissionGranted = "permission.granted"
+	TypePermissionRevoked = "permission.revoked"
+	TypeSessionCreated   = "session.created"
+	TypeSessionRevoked   = "session.revoked"
 )
 
 type Event struct {

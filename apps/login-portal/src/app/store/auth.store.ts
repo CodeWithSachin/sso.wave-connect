@@ -75,6 +75,35 @@ export const AuthStore = signalStore(
     const router = inject(Router);
     const baseUrl = environment.identityServiceUrl;
 
+    /**
+     * After successful authentication, redirect to the returnUrl if present
+     * (e.g. admin-console sent user here), otherwise navigate to '/'.
+     */
+    /**
+     * After successful authentication, redirect to the returnUrl if present
+     * (e.g. admin-console sent user here). Passes tokens via URL hash fragment
+     * since sessionStorage is per-origin and won't be accessible cross-port.
+     */
+    function redirectAfterAuth(): void {
+      const params = new URLSearchParams(window.location.search);
+      const returnUrl = params.get('returnUrl');
+      if (returnUrl) {
+        const accessToken = sessionStorage.getItem('accessToken') ?? '';
+        const refreshToken = sessionStorage.getItem('refreshToken') ?? '';
+        const idToken = sessionStorage.getItem('idToken') ?? '';
+        const tenantId = sessionStorage.getItem('tenantId') ?? '';
+        const hash = new URLSearchParams({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          id_token: idToken,
+          tenant_id: tenantId,
+        }).toString();
+        window.location.href = `${returnUrl}#${hash}`;
+      } else {
+        router.navigateByUrl('/');
+      }
+    }
+
     return {
       async login(email: string, password: string): Promise<void> {
         patchState(store, { loading: true, error: '' });
@@ -103,11 +132,12 @@ export const AuthStore = signalStore(
           const authResp = response as AuthResponse;
           sessionStorage.setItem('accessToken', authResp.access_token);
           sessionStorage.setItem('refreshToken', authResp.refresh_token);
+          sessionStorage.setItem('tenantId', environment.tenantId);
           if (authResp.id_token) {
             sessionStorage.setItem('idToken', authResp.id_token);
           }
           patchState(store, { currentUser: authResp.user, loading: false });
-          router.navigateByUrl('/');
+          redirectAfterAuth();
         } catch (err: unknown) {
           const message =
             (err as { error?: { error?: string } })?.error?.error ||
@@ -128,6 +158,7 @@ export const AuthStore = signalStore(
 
           sessionStorage.setItem('accessToken', response.access_token);
           sessionStorage.setItem('refreshToken', response.refresh_token);
+          sessionStorage.setItem('tenantId', environment.tenantId);
           if (response.id_token) {
             sessionStorage.setItem('idToken', response.id_token);
           }
@@ -138,7 +169,7 @@ export const AuthStore = signalStore(
             mfaChallengeToken: '',
             mfaAllowedMethods: [],
           });
-          router.navigateByUrl('/');
+          redirectAfterAuth();
         } catch (err: unknown) {
           const message =
             (err as { error?: { error?: string } })?.error?.error ||
@@ -160,6 +191,7 @@ export const AuthStore = signalStore(
 
           sessionStorage.setItem('accessToken', response.access_token);
           sessionStorage.setItem('refreshToken', response.refresh_token);
+          sessionStorage.setItem('tenantId', environment.tenantId);
           if (response.id_token) {
             sessionStorage.setItem('idToken', response.id_token);
           }
@@ -170,7 +202,7 @@ export const AuthStore = signalStore(
             mfaChallengeToken: '',
             mfaAllowedMethods: [],
           });
-          router.navigateByUrl('/');
+          redirectAfterAuth();
         } catch (err: unknown) {
           const message =
             (err as { error?: { error?: string } })?.error?.error ||
