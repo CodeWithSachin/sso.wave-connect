@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/id"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
@@ -23,9 +24,11 @@ type MfaHandler struct {
 	familyRepo     *repository.RefreshFamilyRepository
 	tokenSvc       *service.TokenService
 	sessionSvc     *service.SessionService
+	webauthnSvc    *service.WebAuthnService
 	validate       *validator.Validate
 	log            zerolog.Logger
 	refreshTTL     time.Duration
+	cookieCfg      config.CookieConfig
 }
 
 func NewMfaHandler(
@@ -36,9 +39,11 @@ func NewMfaHandler(
 	familyRepo *repository.RefreshFamilyRepository,
 	tokenSvc *service.TokenService,
 	sessionSvc *service.SessionService,
+	webauthnSvc *service.WebAuthnService,
 	validate *validator.Validate,
 	log zerolog.Logger,
 	refreshTTL time.Duration,
+	cookieCfg config.CookieConfig,
 ) *MfaHandler {
 	return &MfaHandler{
 		mfaService:     mfaService,
@@ -48,9 +53,11 @@ func NewMfaHandler(
 		familyRepo:     familyRepo,
 		tokenSvc:       tokenSvc,
 		sessionSvc:     sessionSvc,
+		webauthnSvc:    webauthnSvc,
 		validate:       validate,
 		log:            log.With().Str("component", "mfa_handler").Logger(),
 		refreshTTL:     refreshTTL,
+		cookieCfg:      cookieCfg,
 	}
 }
 
@@ -184,6 +191,20 @@ func (h *MfaHandler) Verify(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 	}
 
+	// Set SSO session cookie (HttpOnly — enables cross-app auto-login via sso-service)
+	if sess.RawToken != "" {
+		c.Cookie(&fiber.Cookie{
+			Name:     "sso_session",
+			Value:    sess.RawToken,
+			Path:     "/",
+			Domain:   h.cookieCfg.Domain,
+			HTTPOnly: true,
+			Secure:   h.cookieCfg.Secure,
+			SameSite: "Lax",
+			MaxAge:   int(time.Until(sess.ExpiresAt).Seconds()),
+		})
+	}
+
 	return c.JSON(model.LoginResponse{
 		User: model.UserDTO{
 			ID:          id.Format(id.PrefixUser, user.ID),
@@ -227,6 +248,143 @@ func (h *MfaHandler) ListEnrollments(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"enrollments": dtos})
+}
+
+// RegenerateBackupCodes generates a new set of backup codes, replacing old ones.
+// POST /auth/mfa/backup-codes/regenerate
+func (h *MfaHandler) RegenerateBackupCodes(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "authentication required"})
+	}
+
+	codes, err := h.mfaService.RegenerateBackupCodes(c.Context(), userID)
+	if err != nil {
+		h.log.Error().Err(err).Str("user_id", userID.String()).Msg("failed to regenerate backup codes")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(model.BackupCodeRegenerateResponse{
+		BackupCodes: codes,
+		Count:       len(codes),
+	})
+}
+
+// BeginWebAuthnRegistration starts a WebAuthn registration ceremony.
+// POST /auth/mfa/webauthn/register/begin
+func (h *MfaHandler) BeginWebAuthnRegistration(c *fiber.Ctx) error {
+	if h.webauthnSvc == nil {
+		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
+	}
+
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "authentication required"})
+	}
+
+	user, err := h.userRepo.GetByID(c.Context(), userID)
+	if err != nil {
+		h.log.Error().Err(err).Msg("failed to get user for webauthn registration")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	}
+
+	options, enrollmentID, err := h.webauthnSvc.BeginRegistration(c.Context(), user)
+	if err != nil {
+		h.log.Error().Err(err).Msg("failed to begin webauthn registration")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	}
+
+	return c.JSON(model.WebAuthnBeginRegisterResponse{
+		Options:      options,
+		EnrollmentID: enrollmentID,
+	})
+}
+
+// CompleteWebAuthnRegistration finishes a WebAuthn registration ceremony.
+// POST /auth/mfa/webauthn/register/complete
+func (h *MfaHandler) CompleteWebAuthnRegistration(c *fiber.Ctx) error {
+	if h.webauthnSvc == nil {
+		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
+	}
+
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "authentication required"})
+	}
+
+	var req model.WebAuthnCompleteRegisterRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	user, err := h.userRepo.GetByID(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	}
+
+	credJSON, _ := c.Body(), error(nil)
+	enrollment, err := h.webauthnSvc.CompleteRegistration(c.Context(), user, req.EnrollmentID, credJSON)
+	if err != nil {
+		h.log.Warn().Err(err).Msg("webauthn registration completion failed")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":        "active",
+		"enrollment_id": enrollment.ID.String(),
+		"method":        "webauthn",
+	})
+}
+
+// BeginWebAuthnLogin starts a WebAuthn login ceremony.
+// POST /auth/mfa/webauthn/login/begin
+func (h *MfaHandler) BeginWebAuthnLogin(c *fiber.Ctx) error {
+	if h.webauthnSvc == nil {
+		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
+	}
+
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "authentication required"})
+	}
+
+	user, err := h.userRepo.GetByID(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	}
+
+	options, err := h.webauthnSvc.BeginLogin(c.Context(), user)
+	if err != nil {
+		h.log.Error().Err(err).Msg("failed to begin webauthn login")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(model.WebAuthnBeginLoginResponse{Options: options})
+}
+
+// CompleteWebAuthnLogin finishes a WebAuthn login ceremony.
+// POST /auth/mfa/webauthn/login/complete
+func (h *MfaHandler) CompleteWebAuthnLogin(c *fiber.Ctx) error {
+	if h.webauthnSvc == nil {
+		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
+	}
+
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "authentication required"})
+	}
+
+	user, err := h.userRepo.GetByID(c.Context(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
+	}
+
+	if err := h.webauthnSvc.CompleteLogin(c.Context(), user, c.Body()); err != nil {
+		h.log.Warn().Err(err).Msg("webauthn login verification failed")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"status": "verified"})
 }
 
 // DeleteEnrollment removes an MFA enrollment for the authenticated user.

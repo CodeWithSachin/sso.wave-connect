@@ -53,7 +53,7 @@ type ListObjectsResponse struct {
 type OutboxEntry struct {
 	ID            string    `json:"id"`
 	TenantID      string    `json:"tenant_id"`
-	OperationType string    `json:"operation_type"` // "write" or "delete"
+	Operation     string    `json:"operation"` // "write" or "delete"
 	TupleUser     string    `json:"tuple_user"`
 	TupleRelation string    `json:"tuple_relation"`
 	TupleObject   string    `json:"tuple_object"`

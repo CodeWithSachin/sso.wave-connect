@@ -45,3 +45,8 @@ coverage/
 
 # Claude Code
 .claude/launch.json
+
+.angular
+
+__screenshots__/
+.logs/

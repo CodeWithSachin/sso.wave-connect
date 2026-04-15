@@ -23,6 +23,15 @@
     },
     {
       "path": "./libs/ui-components"
+    },
+    {
+      "path": "./apps/directory-service"
+    },
+    {
+      "path": "./apps/webhook-service"
+    },
+    {
+      "path": "./apps/audit-service"
     }
   ]
 }

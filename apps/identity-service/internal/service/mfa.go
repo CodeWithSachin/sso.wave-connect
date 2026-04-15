@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 
@@ -23,20 +24,25 @@ const (
 	backupCodeChars  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
+const totpReplayTTL = 90 * time.Second
+
 type MfaService struct {
 	mfaRepo  *repository.MfaRepository
 	tokenSvc *TokenService
+	rdb      *redis.Client
 	log      zerolog.Logger
 }
 
 func NewMfaService(
 	mfaRepo *repository.MfaRepository,
 	tokenSvc *TokenService,
+	rdb *redis.Client,
 	log zerolog.Logger,
 ) *MfaService {
 	return &MfaService{
 		mfaRepo:  mfaRepo,
 		tokenSvc: tokenSvc,
+		rdb:      rdb,
 		log:      log.With().Str("component", "mfa_service").Logger(),
 	}
 }
@@ -136,10 +142,17 @@ func (s *MfaService) Verify(ctx context.Context, userID uuid.UUID, code string) 
 		return fmt.Errorf("get active enrollments: %w", err)
 	}
 
-	// Try TOTP first
+	// Try TOTP first (with replay prevention)
 	for _, e := range enrollments {
 		if e.Method == "totp" {
 			if totp.Validate(code, e.SecretEncrypted) {
+				// Replay prevention: reject if same code was used within TTL window
+				replayKey := fmt.Sprintf("totp_used:%s:%s", userID.String(), code)
+				if s.rdb.Get(ctx, replayKey).Err() == nil {
+					s.log.Warn().Str("user_id", userID.String()).Msg("TOTP code replay detected")
+					return fmt.Errorf("TOTP code already used")
+				}
+				s.rdb.Set(ctx, replayKey, "1", totpReplayTTL)
 				_ = s.mfaRepo.UpdateLastUsed(ctx, e.ID)
 				return nil
 			}
@@ -181,6 +194,36 @@ func (s *MfaService) ListEnrollments(ctx context.Context, userID uuid.UUID) ([]m
 // DeleteEnrollment removes an MFA enrollment belonging to the user.
 func (s *MfaService) DeleteEnrollment(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
 	return s.mfaRepo.DeleteEnrollment(ctx, id, userID)
+}
+
+// RegenerateBackupCodes deletes all existing backup codes and generates new ones.
+func (s *MfaService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	// Ensure user has at least one active MFA enrollment
+	hasActive, err := s.mfaRepo.HasActiveEnrollment(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("check active enrollment: %w", err)
+	}
+	if !hasActive {
+		return nil, fmt.Errorf("no active MFA enrollment; enroll an MFA method first")
+	}
+
+	// Delete old codes
+	if err := s.mfaRepo.DeleteAllBackupCodes(ctx, userID); err != nil {
+		return nil, fmt.Errorf("delete old backup codes: %w", err)
+	}
+
+	// Generate new codes
+	plaintextCodes, codeHashes, err := generateBackupCodes()
+	if err != nil {
+		return nil, fmt.Errorf("generate backup codes: %w", err)
+	}
+
+	if err := s.mfaRepo.CreateBackupCodes(ctx, userID, codeHashes); err != nil {
+		return nil, fmt.Errorf("store backup codes: %w", err)
+	}
+
+	s.log.Info().Str("user_id", userID.String()).Msg("backup codes regenerated")
+	return plaintextCodes, nil
 }
 
 // tryBackupCode iterates through unused backup codes and compares with bcrypt.

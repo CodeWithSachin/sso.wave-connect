@@ -10,11 +10,12 @@ import (
 )
 
 type Config struct {
-	Server       ServerConfig
-	Database     DatabaseConfig
-	Redis        RedisConfig
-	Token        TokenConfig
-	AuthzService AuthzServiceConfig
+	Server         ServerConfig
+	Database       DatabaseConfig
+	Redis          RedisConfig
+	Token          TokenConfig
+	AuthzService   AuthzServiceConfig
+	LoginPortalURL string `mapstructure:"login_portal_url"`
 }
 
 type ServerConfig struct {
@@ -97,6 +98,9 @@ func Load() (*Config, error) {
 	// AuthzService defaults
 	v.SetDefault("authz_service.url", "http://localhost:8081")
 
+	// Login portal URL — where to redirect unauthenticated users
+	v.SetDefault("login_portal_url", "http://localhost:4200/login")
+
 	_ = v.ReadInConfig() // Not fatal if config file is missing; env vars suffice
 
 	cfg := &Config{}
@@ -115,6 +119,8 @@ func Load() (*Config, error) {
 	if err := v.UnmarshalKey("authz_service", &cfg.AuthzService); err != nil {
 		return nil, fmt.Errorf("unmarshal authz_service config: %w", err)
 	}
+
+	cfg.LoginPortalURL = v.GetString("login_portal_url")
 
 	return cfg, nil
 }

@@ -25,10 +25,10 @@ func NewOutboxRepository(pool *pgxpool.Pool) *OutboxRepository {
 // concurrent workers without contention.
 func (r *OutboxRepository) FetchUnprocessed(ctx context.Context, limit int) ([]model.OutboxEntry, error) {
 	const q = `
-		SELECT id, tenant_id, operation_type, tuple_user, tuple_relation, tuple_object,
+		SELECT id, tenant_id, operation, tuple_user, tuple_relation, tuple_object,
 		       idempotency_key, created_at, retry_count
 		FROM authz_outbox
-		WHERE processed_at IS NULL AND retry_count < 5
+		WHERE status IN ('pending', 'failed') AND retry_count < max_retries
 		ORDER BY created_at ASC
 		LIMIT $1
 		FOR UPDATE SKIP LOCKED
@@ -44,7 +44,7 @@ func (r *OutboxRepository) FetchUnprocessed(ctx context.Context, limit int) ([]m
 	for rows.Next() {
 		var e model.OutboxEntry
 		if err := rows.Scan(
-			&e.ID, &e.TenantID, &e.OperationType, &e.TupleUser,
+			&e.ID, &e.TenantID, &e.Operation, &e.TupleUser,
 			&e.TupleRelation, &e.TupleObject, &e.IdempotencyKey,
 			&e.CreatedAt, &e.RetryCount,
 		); err != nil {
@@ -58,7 +58,7 @@ func (r *OutboxRepository) FetchUnprocessed(ctx context.Context, limit int) ([]m
 
 // MarkProcessed marks an outbox entry as successfully processed.
 func (r *OutboxRepository) MarkProcessed(ctx context.Context, id string) error {
-	const q = `UPDATE authz_outbox SET processed_at = $1 WHERE id = $2`
+	const q = `UPDATE authz_outbox SET status = 'completed', processed_at = $1 WHERE id = $2`
 	now := time.Now().UTC()
 	_, err := r.pool.Exec(ctx, q, now, id)
 	if err != nil {
@@ -69,7 +69,7 @@ func (r *OutboxRepository) MarkProcessed(ctx context.Context, id string) error {
 
 // MarkFailed increments the retry count and stores the error.
 func (r *OutboxRepository) MarkFailed(ctx context.Context, id string, errMsg string) error {
-	const q = `UPDATE authz_outbox SET retry_count = retry_count + 1, error = $1 WHERE id = $2`
+	const q = `UPDATE authz_outbox SET status = 'failed', retry_count = retry_count + 1, last_error = $1 WHERE id = $2`
 	_, err := r.pool.Exec(ctx, q, errMsg, id)
 	if err != nil {
 		return fmt.Errorf("mark failed: %w", err)

@@ -1,0 +1,13 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Directory service uses raw SQL for most queries since it needs
+// access to tables with features Prisma doesn't model well (arrays, CIDR, partitions).
+// This schema enables Prisma Client for connection management and $queryRaw/$executeRaw.
+// The actual tables are created by the shared migrations in database/migrations/.

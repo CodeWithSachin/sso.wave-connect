@@ -37,9 +37,9 @@ func NewSessionService(
 func (s *SessionService) Create(ctx context.Context, userID, tenantID uuid.UUID, ip, ua string) (*model.Session, error) {
 	now := time.Now().UTC()
 
-	tokenHash, err := model.GenerateTokenHash()
+	rawToken, tokenHash, err := model.GenerateSessionToken()
 	if err != nil {
-		return nil, fmt.Errorf("generate token hash: %w", err)
+		return nil, fmt.Errorf("generate session token: %w", err)
 	}
 
 	sess := &model.Session{
@@ -47,6 +47,7 @@ func (s *SessionService) Create(ctx context.Context, userID, tenantID uuid.UUID,
 		UserID:         userID,
 		TenantID:       tenantID,
 		TokenHash:      tokenHash,
+		RawToken:       rawToken,
 		Status:         "active",
 		IPAddress:      ip,
 		UserAgent:      ua,

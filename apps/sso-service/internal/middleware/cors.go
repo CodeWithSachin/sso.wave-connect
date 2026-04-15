@@ -1,0 +1,16 @@
+package middleware
+
+import (
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+)
+
+func CORS() fiber.Handler {
+	return cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:4200,http://localhost:4300",
+		AllowMethods:     "GET,POST,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		AllowCredentials: true, // Required for sso_session cookie on cross-origin requests
+		MaxAge:           3600,
+	})
+}

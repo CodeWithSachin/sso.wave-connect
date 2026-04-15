@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/event"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/id"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
@@ -29,6 +31,7 @@ type AuthHandler struct {
 	validate       *validator.Validate
 	log            zerolog.Logger
 	refreshTTL     time.Duration
+	cookieCfg      config.CookieConfig
 }
 
 func NewAuthHandler(
@@ -44,6 +47,7 @@ func NewAuthHandler(
 	validate *validator.Validate,
 	log zerolog.Logger,
 	refreshTTL time.Duration,
+	cookieCfg config.CookieConfig,
 ) *AuthHandler {
 	return &AuthHandler{
 		userRepo:       userRepo,
@@ -58,6 +62,7 @@ func NewAuthHandler(
 		validate:       validate,
 		log:            log.With().Str("component", "auth_handler").Logger(),
 		refreshTTL:     refreshTTL,
+		cookieCfg:      cookieCfg,
 	}
 }
 
@@ -73,6 +78,21 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	tenantID, ok := c.Locals("tenant_id").(uuid.UUID)
 	if !ok {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "tenant context required"})
+	}
+
+	// --- Tenant policy enforcement ---
+	if policy, ok := c.Locals("tenant_policy").(*model.TenantPolicy); ok {
+		if len(req.Password) < policy.PasswordMinLength {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+				"error": fmt.Sprintf("password must be at least %d characters", policy.PasswordMinLength),
+			})
+		}
+		if !policy.IsEmailDomainAllowed(req.Email) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "email_domain_not_allowed",
+				"message": "your email domain is not permitted by this organization",
+			})
+		}
 	}
 
 	hash, err := h.passwordSvc.Hash(req.Password)
@@ -200,6 +220,23 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid credentials"})
 	}
 
+	// Check if org policy requires MFA but user hasn't enrolled
+	if policy, ok := c.Locals("tenant_policy").(*model.TenantPolicy); ok && policy.PasswordRequireMFA {
+		hasMfaForPolicy, _ := h.mfaRepo.HasActiveEnrollment(c.Context(), user.ID)
+		if !hasMfaForPolicy {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "mfa_enrollment_required",
+				"message": "your organization requires multi-factor authentication; please enroll an MFA method",
+				"allowed_methods": func() []string {
+					if len(policy.AllowedMFAMethods) > 0 {
+						return policy.AllowedMFAMethods
+					}
+					return []string{"totp", "webauthn"}
+				}(),
+			})
+		}
+	}
+
 	// Check if user has active MFA enrollment
 	hasMfa, err := h.mfaRepo.HasActiveEnrollment(c.Context(), user.ID)
 	if err != nil {
@@ -273,6 +310,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 	}
 
+	// Set SSO session cookie (HttpOnly — enables cross-app auto-login via sso-service)
+	h.setSSOCookie(c, sess)
+
 	_ = h.publisher.Publish(c.Context(), event.Event{
 		Type:      event.TypeUserLogin,
 		Timestamp: now,
@@ -298,6 +338,23 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		IDToken:      tokens.IDToken,
 		ExpiresIn:    tokens.ExpiresIn,
 		TokenType:    tokens.TokenType,
+	})
+}
+
+// setSSOCookie sets the HttpOnly sso_session cookie for cross-app SSO.
+func (h *AuthHandler) setSSOCookie(c *fiber.Ctx, sess *model.Session) {
+	if sess.RawToken == "" {
+		return
+	}
+	c.Cookie(&fiber.Cookie{
+		Name:     "sso_session",
+		Value:    sess.RawToken,
+		Path:     "/",
+		Domain:   h.cookieCfg.Domain,
+		HTTPOnly: true,
+		Secure:   h.cookieCfg.Secure,
+		SameSite: "Lax",
+		MaxAge:   int(time.Until(sess.ExpiresAt).Seconds()),
 	})
 }
 
