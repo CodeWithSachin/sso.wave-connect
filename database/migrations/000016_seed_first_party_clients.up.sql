@@ -50,5 +50,21 @@ INSERT INTO oauth_clients (
     TRUE,
     FALSE,
     TRUE
+),
+-- Developer Portal (Angular SPA on port 4400)
+(
+    '01473191-863b-4035-ac65-05782ca6159b',
+    'developer-portal',
+    'Developer Portal',
+    'WaveConnect SSO Developer Portal — API keys, SDKs, OAuth app management',
+    ARRAY['http://localhost:4400/callback'],
+    ARRAY['authorization_code', 'refresh_token']::oauth_grant_type[],
+    ARRAY['openid', 'profile', 'email'],
+    'none',
+    TRUE,
+    TRUE,
+    TRUE,
+    FALSE,
+    TRUE
 )
 ON CONFLICT (client_id) DO NOTHING;

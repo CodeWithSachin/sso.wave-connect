@@ -1,0 +1,15 @@
+{
+  "name": "@wave-connect/sso-sdk",
+  "version": "1.0.0",
+  "description": "WaveConnect SSO SDK for Node.js/TypeScript — PASETO token verification, ReBAC permission checks, Express middleware",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "keywords": ["sso", "paseto", "rebac", "openfga", "authentication", "authorization"],
+  "license": "MIT",
+  "engines": { "node": ">=18" }
+}
