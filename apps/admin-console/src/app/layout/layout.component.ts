@@ -1,5 +1,10 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { NgIcon } from '@ng-icons/core';
+import { Toast } from 'primeng/toast';
+import { ConfirmDialog } from 'primeng/confirmdialog';
+import { MessageService } from 'primeng/api';
+import { ConfirmationService } from 'primeng/api';
 
 interface NavItem {
   path: string;
@@ -10,35 +15,37 @@ interface NavItem {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIcon, Toast, ConfirmDialog],
+  providers: [MessageService, ConfirmationService],
   template: `
-    <div class="flex h-screen overflow-hidden">
+    <div class="flex h-screen overflow-hidden bg-background">
       <!-- Sidebar -->
       <aside
-        class="flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200"
+        class="flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200 shrink-0"
         [class.w-64]="!collapsed()"
         [class.w-16]="collapsed()"
       >
         <!-- Logo -->
-        <div class="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
+        <div class="flex h-14 items-center gap-3 border-b border-sidebar-border px-4">
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shrink-0">
             W
           </div>
           @if (!collapsed()) {
-            <span class="text-sm font-semibold text-sidebar-foreground">WaveConnect</span>
+            <span class="text-sm font-semibold text-sidebar-foreground truncate">WaveConnect</span>
           }
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 space-y-1 overflow-y-auto p-3">
+        <nav class="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
           @for (item of navItems; track item.path) {
             <a
               [routerLink]="item.path"
-              routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground"
-              class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
               [class.justify-center]="collapsed()"
+              [class.px-0]="collapsed()"
             >
-              <span class="text-base">{{ item.icon }}</span>
+              <ng-icon [name]="item.icon" class="shrink-0" size="1.25rem" />
               @if (!collapsed()) {
                 <span>{{ item.label }}</span>
               }
@@ -47,12 +54,13 @@ interface NavItem {
         </nav>
 
         <!-- Collapse toggle -->
-        <div class="border-t border-sidebar-border p-3">
+        <div class="border-t border-sidebar-border p-2">
           <button
             (click)="collapsed.set(!collapsed())"
-            class="flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm text-sidebar-muted hover:bg-sidebar-accent transition-colors"
+            class="flex w-full items-center justify-center rounded-lg p-2 text-sidebar-muted hover:bg-sidebar-accent/50 transition-colors"
+            [title]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
           >
-            {{ collapsed() ? '\u2192' : '\u2190' }}
+            <ng-icon [name]="collapsed() ? 'heroChevronRight' : 'heroChevronLeft'" size="1rem" />
           </button>
         </div>
       </aside>
@@ -60,27 +68,42 @@ interface NavItem {
       <!-- Main Content -->
       <div class="flex flex-1 flex-col overflow-hidden">
         <!-- Top Bar -->
-        <header class="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-          <h1 class="text-lg font-semibold text-foreground">Admin Console</h1>
-          <div class="flex items-center gap-4">
+        <header class="flex h-14 items-center justify-between border-b border-border bg-card px-6 shrink-0">
+          <div class="flex items-center gap-3">
+            <button
+              (click)="collapsed.set(!collapsed())"
+              class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 transition-colors lg:hidden"
+            >
+              <ng-icon name="heroBars3" size="1.25rem" />
+            </button>
+            <h1 class="text-base font-semibold text-foreground">Admin Console</h1>
+          </div>
+          <div class="flex items-center gap-2">
             <button
               (click)="toggleDarkMode()"
-              class="rounded-lg p-2 text-muted-foreground hover:bg-accent transition-colors"
+              class="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 transition-colors"
+              [title]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
             >
-              {{ isDark() ? '\u2600' : '\u263E' }}
+              <ng-icon [name]="isDark() ? 'heroSun' : 'heroMoon'" size="1.125rem" />
             </button>
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
+            <div class="h-6 w-px bg-border"></div>
+            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20 transition-colors">
               A
             </div>
           </div>
         </header>
 
         <!-- Page Content -->
-        <main class="flex-1 overflow-y-auto p-6">
-          <router-outlet />
+        <main class="flex-1 overflow-y-auto bg-background">
+          <div class="p-6">
+            <router-outlet />
+          </div>
         </main>
       </div>
     </div>
+
+    <p-toast position="top-right" />
+    <p-confirmDialog />
   `,
 })
 export class LayoutComponent {
@@ -88,13 +111,13 @@ export class LayoutComponent {
   isDark = signal(false);
 
   navItems: NavItem[] = [
-    { path: 'dashboard', label: 'Dashboard', icon: '\u25A6' },
-    { path: 'users', label: 'Users', icon: '\u263A' },
-    { path: 'groups', label: 'Groups', icon: '\u2630' },
-    { path: 'policies', label: 'Policies', icon: '\u2699' },
-    { path: 'webhooks', label: 'Webhooks', icon: '\u21C4' },
-    { path: 'audit', label: 'Audit Log', icon: '\u2637' },
-    { path: 'scim', label: 'SCIM', icon: '\u21BB' },
+    { path: 'dashboard', label: 'Dashboard', icon: 'heroHome' },
+    { path: 'users', label: 'Users', icon: 'heroUsers' },
+    { path: 'groups', label: 'Groups', icon: 'heroUserGroup' },
+    { path: 'policies', label: 'Policies', icon: 'heroShieldCheck' },
+    { path: 'webhooks', label: 'Webhooks', icon: 'heroBolt' },
+    { path: 'audit', label: 'Audit Log', icon: 'heroClipboardDocumentList' },
+    { path: 'scim', label: 'SCIM', icon: 'heroArrowPath' },
   ];
 
   toggleDarkMode() {

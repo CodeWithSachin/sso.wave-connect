@@ -19,7 +19,6 @@ interface ApiKeyRow {
   expires_at: Date | null;
   last_used_at: Date | null;
   created_at: Date;
-  updated_at: Date;
 }
 
 interface ApiKeyUsageRow {
@@ -54,11 +53,11 @@ export class ApiKeysService {
     const now = new Date();
 
     await this.prisma.$executeRaw`
-      INSERT INTO api_keys (id, tenant_id, user_id, name, key_prefix, key_hash, status, scopes, rate_limit_per_min, expires_at, created_at, updated_at)
+      INSERT INTO api_keys (id, tenant_id, user_id, name, key_prefix, key_hash, status, scopes, rate_limit_per_min, expires_at, created_at)
       VALUES (
         ${id}::uuid, ${tenantId}::uuid, ${userId}::uuid, ${name},
         ${prefix}, ${keyHash}, 'active', ${scopes}::text[],
-        ${rateLimitPerMin}, ${expiresAt ?? null}, ${now}, ${now}
+        ${rateLimitPerMin}, ${expiresAt ?? null}, ${now}
       )
     `;
 
@@ -82,16 +81,16 @@ export class ApiKeysService {
 
     const keys = await this.prisma.$queryRaw<ApiKeyRow[]>`
       SELECT id, tenant_id, user_id, name, key_prefix, status, scopes,
-             allowed_ips, rate_limit_per_min, expires_at, last_used_at, created_at, updated_at
+             allowed_ips, rate_limit_per_min, expires_at, last_used_at, created_at
       FROM api_keys
-      WHERE tenant_id = ${tenantId}::uuid AND status != 'deleted'
+      WHERE tenant_id = ${tenantId}::uuid
       ORDER BY created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `;
 
     const totalResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) as count FROM api_keys
-      WHERE tenant_id = ${tenantId}::uuid AND status != 'deleted'
+      WHERE tenant_id = ${tenantId}::uuid
     `;
 
     return {
@@ -105,7 +104,7 @@ export class ApiKeysService {
   async getById(tenantId: string, id: string) {
     const rows = await this.prisma.$queryRaw<ApiKeyRow[]>`
       SELECT id, tenant_id, user_id, name, key_prefix, status, scopes,
-             allowed_ips, rate_limit_per_min, expires_at, last_used_at, created_at, updated_at
+             allowed_ips, rate_limit_per_min, expires_at, last_used_at, created_at
       FROM api_keys
       WHERE id = ${id}::uuid AND tenant_id = ${tenantId}::uuid
       LIMIT 1
@@ -117,7 +116,7 @@ export class ApiKeysService {
   async revoke(tenantId: string, id: string) {
     const now = new Date();
     const result = await this.prisma.$executeRaw`
-      UPDATE api_keys SET status = 'revoked', updated_at = ${now}
+      UPDATE api_keys SET status = 'revoked', revoked_at = ${now}
       WHERE id = ${id}::uuid AND tenant_id = ${tenantId}::uuid AND status = 'active'
     `;
     if (result === 0) throw new NotFoundException('API key not found or already revoked');

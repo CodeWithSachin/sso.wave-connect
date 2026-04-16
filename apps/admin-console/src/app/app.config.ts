@@ -1,13 +1,47 @@
 import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { providePrimeNG } from 'primeng/config';
+import Nora from '@primeng/themes/nora';
+import { provideIcons, provideNgIconsConfig } from '@ng-icons/core';
+import {
+  heroHome,
+  heroUsers,
+  heroUserGroup,
+  heroShieldCheck,
+  heroBolt,
+  heroClipboardDocumentList,
+  heroArrowPath,
+  heroSun,
+  heroMoon,
+  heroPlus,
+  heroUserPlus,
+  heroPencilSquare,
+  heroTrash,
+  heroEllipsisVertical,
+  heroMagnifyingGlass,
+  heroFunnel,
+  heroArrowTrendingUp,
+  heroArrowTrendingDown,
+  heroChartBar,
+  heroKey,
+  heroClipboard,
+  heroXMark,
+  heroCheck,
+  heroExclamationTriangle,
+  heroInformationCircle,
+  heroChevronLeft,
+  heroChevronRight,
+  heroBars3,
+  heroGlobeAlt,
+  heroCog6Tooth,
+  heroArrowRightStartOnRectangle,
+} from '@ng-icons/heroicons/outline';
 import { appRoutes } from './app.routes';
 import { HttpInterceptorFn } from '@angular/common/http';
+import { snowPassThrough } from '../../../../libs/ui-components/src/lib/primeng-passthrough';
 
-/**
- * Attaches the PASETO access token as a Bearer header to all same-origin requests.
- * Token is stored by the OAuth2 callback after PKCE exchange.
- */
 const bearerInterceptor: HttpInterceptorFn = (req, next) => {
   const token = sessionStorage.getItem('accessToken');
   if (token) {
@@ -18,9 +52,6 @@ const bearerInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req);
 };
 
-/**
- * Attaches the X-Tenant-ID header from sessionStorage (set during OAuth callback).
- */
 const tenantInterceptor: HttpInterceptorFn = (req, next) => {
   const tenantId = sessionStorage.getItem('tenantId');
   if (tenantId) {
@@ -36,5 +67,50 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideRouter(appRoutes),
     provideHttpClient(withInterceptors([bearerInterceptor, tenantInterceptor])),
+    provideAnimationsAsync(),
+    providePrimeNG({
+      theme: {
+        preset: Nora,
+        options: {
+          darkModeSelector: '.dark',
+        },
+      },
+      ripple: true,
+      pt: snowPassThrough,
+    }),
+    provideIcons({
+      heroHome,
+      heroUsers,
+      heroUserGroup,
+      heroShieldCheck,
+      heroBolt,
+      heroClipboardDocumentList,
+      heroArrowPath,
+      heroSun,
+      heroMoon,
+      heroPlus,
+      heroUserPlus,
+      heroPencilSquare,
+      heroTrash,
+      heroEllipsisVertical,
+      heroMagnifyingGlass,
+      heroFunnel,
+      heroArrowTrendingUp,
+      heroArrowTrendingDown,
+      heroChartBar,
+      heroKey,
+      heroClipboard,
+      heroXMark,
+      heroCheck,
+      heroExclamationTriangle,
+      heroInformationCircle,
+      heroChevronLeft,
+      heroChevronRight,
+      heroBars3,
+      heroGlobeAlt,
+      heroCog6Tooth,
+      heroArrowRightStartOnRectangle,
+    }),
+    provideNgIconsConfig({ size: '1.25rem' }),
   ],
 };
