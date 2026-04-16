@@ -18,7 +18,7 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  app.enableCors({ origin: 'http://localhost:4200' });
+  app.enableCors({ origin: ['http://localhost:4200', 'http://localhost:4300', 'http://localhost:4400'] });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('SSO Directory Service')

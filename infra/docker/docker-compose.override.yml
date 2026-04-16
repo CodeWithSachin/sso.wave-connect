@@ -3,7 +3,7 @@
 
 services:
   jaeger:
-    image: jaegertracing/all-in-one:1.62
+    image: jaegertracing/all-in-one:1.63.0
     container_name: sso-jaeger
     environment:
       - COLLECTOR_OTLP_ENABLED=true
@@ -35,7 +35,7 @@ services:
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
     ports:
-      - "3500:3000"     # Grafana on 3500 (3000 used by identity-service)
+      - "3600:3000"     # Grafana on 3600 (3000=identity-service, 3500=developer-portal-api)
     depends_on:
       - prometheus
       - jaeger

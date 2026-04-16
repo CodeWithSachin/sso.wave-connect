@@ -26,7 +26,8 @@ export interface ScimSyncLog {
 export class ScimService {
   private http = inject(HttpClient);
   private get baseUrl() {
-    return `${environment.directoryServiceUrl}/api/v1/scim-tokens`;
+    // SCIM token management lives on developer-portal-api (:3500), not directory-service
+    return `${environment.devPortalApiUrl ?? 'http://localhost:3500'}/api/v1/scim-tokens`;
   }
 
   listTokens() {

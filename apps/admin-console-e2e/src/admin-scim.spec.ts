@@ -9,9 +9,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Admin SCIM Provisioning', () => {
-  test('should load the SCIM page with heading', async ({ page }) => {
+  test('should load the SCIM page with h2 heading', async ({ page }) => {
     await page.goto('/scim');
-    await expect(page.locator('h1')).toContainText('SCIM');
+    await expect(page.locator('h2').first()).toContainText('SCIM Provisioning');
   });
 
   test('should have a Generate Token button', async ({ page }) => {
@@ -19,13 +19,13 @@ test.describe('Admin SCIM Provisioning', () => {
     await expect(page.getByRole('button', { name: /generate token/i })).toBeVisible();
   });
 
-  test('should display tokens table', async ({ page }) => {
+  test('should display SCIM Tokens section', async ({ page }) => {
     await page.goto('/scim');
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'SCIM Tokens' })).toBeVisible();
   });
 
-  test('should show SCIM endpoint URL', async ({ page }) => {
+  test('should display Sync Log section', async ({ page }) => {
     await page.goto('/scim');
-    await expect(page.getByText(/scim|endpoint/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sync Log' })).toBeVisible();
   });
 });

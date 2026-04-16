@@ -9,9 +9,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Admin Webhooks', () => {
-  test('should load the webhooks page with heading', async ({ page }) => {
+  test('should load the webhooks page with h2 heading', async ({ page }) => {
     await page.goto('/webhooks');
-    await expect(page.locator('h1')).toContainText('Webhooks');
+    await expect(page.locator('h2').first()).toContainText('Webhooks');
   });
 
   test('should have an Add Endpoint button', async ({ page }) => {
@@ -19,14 +19,14 @@ test.describe('Admin Webhooks', () => {
     await expect(page.getByRole('button', { name: /add endpoint/i })).toBeVisible();
   });
 
-  test('should display webhooks table', async ({ page }) => {
+  test('should display webhooks table with URL column', async ({ page }) => {
     await page.goto('/webhooks');
-    await expect(page.locator('table')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'URL' })).toBeVisible();
   });
 
-  test('should show empty state or webhook entries', async ({ page }) => {
+  test('should open Add Webhook dialog', async ({ page }) => {
     await page.goto('/webhooks');
-    const table = page.locator('table');
-    await expect(table).toBeVisible();
+    await page.getByRole('button', { name: /add endpoint/i }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
   });
 });

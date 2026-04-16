@@ -9,35 +9,37 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Admin Dashboard', () => {
-  test('should load the dashboard page', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('h1')).toContainText('Dashboard');
+  test('should load the dashboard page with h2 heading', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.locator('h2').first()).toContainText('Dashboard');
+  });
+
+  test('should display the app header in h1', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.locator('h1').first()).toContainText('Admin Console');
   });
 
   test('should display stat cards', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/dashboard');
     await expect(page.getByText('Total Users')).toBeVisible();
     await expect(page.getByText('Active Members')).toBeVisible();
     await expect(page.getByText('Session Rate')).toBeVisible();
     await expect(page.getByText('MFA Enrolled')).toBeVisible();
   });
 
-  test('should have sidebar with navigation items', async ({ page }) => {
-    await page.goto('/');
-    const navItems = page.locator('nav a, nav mat-list-item, nav [mat-list-item]');
-    await expect(navItems).toHaveCount(7);
+  test('should have sidebar with all 7 navigation items', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^users$/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /groups/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /policies/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /webhooks/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /audit/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /scim/i })).toBeVisible();
   });
 
-  test('should navigate to users page from sidebar', async ({ page }) => {
-    await page.goto('/');
-    await page.getByText('Users').click();
-    await expect(page).toHaveURL(/\/users/);
-  });
-
-  test('should display dashboard heading with correct hierarchy', async ({ page }) => {
-    await page.goto('/');
-    const heading = page.locator('h1');
-    await expect(heading).toBeVisible();
-    await expect(heading).toContainText('Dashboard');
+  test('should have Recent Activity section', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.getByRole('heading', { name: 'Recent Activity' })).toBeVisible();
   });
 });

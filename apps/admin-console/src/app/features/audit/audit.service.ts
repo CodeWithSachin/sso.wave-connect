@@ -39,9 +39,16 @@ export class AuditService {
   }
 
   list(filters: AuditFilters, page = 1, pageSize = 20) {
-    let params = new HttpParams().set('page', page).set('pageSize', pageSize);
-    if (filters.startDate) params = params.set('startDate', filters.startDate);
-    if (filters.endDate) params = params.set('endDate', filters.endDate);
+    // Audit service requires date range for partition pruning — default to last 30 days
+    const endDate = filters.endDate ?? new Date().toISOString();
+    const startDate =
+      filters.startDate ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    let params = new HttpParams()
+      .set('page', page)
+      .set('pageSize', pageSize)
+      .set('startDate', startDate)
+      .set('endDate', endDate);
     if (filters.action) params = params.set('action', filters.action);
     if (filters.resourceType) params = params.set('resourceType', filters.resourceType);
     if (filters.actorId) params = params.set('actorId', filters.actorId);

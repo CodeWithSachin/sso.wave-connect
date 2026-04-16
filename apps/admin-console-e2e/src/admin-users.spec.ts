@@ -9,16 +9,17 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Admin Users', () => {
-  test('should load the users page with heading', async ({ page }) => {
+  test('should load the users page with h2 heading', async ({ page }) => {
     await page.goto('/users');
-    await expect(page.locator('h1')).toContainText('Users');
+    await expect(page.locator('h2').first()).toContainText('Users');
   });
 
   test('should display user table with correct columns', async ({ page }) => {
     await page.goto('/users');
     await expect(page.locator('table')).toBeVisible();
-    await expect(page.getByText('USER')).toBeVisible();
-    await expect(page.getByText('STATUS')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'User' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Status' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Last Login' })).toBeVisible();
   });
 
   test('should have an Invite User button', async ({ page }) => {
@@ -28,7 +29,7 @@ test.describe('Admin Users', () => {
 
   test('should have a search input that accepts text', async ({ page }) => {
     await page.goto('/users');
-    const searchInput = page.getByPlaceholder(/search/i);
+    const searchInput = page.getByPlaceholder('Search users...');
     await expect(searchInput).toBeVisible();
     await searchInput.fill('test@example.com');
     await expect(searchInput).toHaveValue('test@example.com');

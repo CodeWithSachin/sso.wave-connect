@@ -9,29 +9,28 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Admin Security Policies', () => {
-  test('should load the policies page with heading', async ({ page }) => {
+  test('should load the policies page with h2 heading', async ({ page }) => {
     await page.goto('/policies');
-    await expect(page.locator('h1')).toContainText('Security Policies');
+    await expect(page.locator('h2').first()).toContainText('Security Policies');
   });
 
-  test('should display Password Policy card', async ({ page }) => {
+  test('should display Password Policy section', async ({ page }) => {
     await page.goto('/policies');
     await expect(page.getByText('Password Policy')).toBeVisible();
   });
 
-  test('should have toggle switches for policy settings', async ({ page }) => {
+  test('should display MFA Policy section', async ({ page }) => {
     await page.goto('/policies');
-    const toggles = page.locator('mat-slide-toggle');
-    await expect(toggles.first()).toBeVisible();
+    await expect(page.getByText('MFA Policy')).toBeVisible();
   });
 
-  test('should have a Save button', async ({ page }) => {
+  test('should have a Save Policies button', async ({ page }) => {
     await page.goto('/policies');
-    await expect(page.getByRole('button', { name: /save/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /save policies/i })).toBeVisible();
   });
 
-  test('should display MFA settings section', async ({ page }) => {
+  test('should display Session Policy section', async ({ page }) => {
     await page.goto('/policies');
-    await expect(page.getByText(/mfa|multi-factor/i)).toBeVisible();
+    await expect(page.getByText('Session Policy')).toBeVisible();
   });
 });

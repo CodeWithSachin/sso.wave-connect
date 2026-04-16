@@ -11,7 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { CryptoService } from '../services/crypto.service';
 
@@ -20,7 +20,7 @@ interface WebhookEndpointRow {
   tenant_id: string;
   url: string;
   description: string | null;
-  event_types: string[];
+  subscribed_events: string[];
   is_active: boolean;
   failure_count: number;
   disabled_at: Date | null;
@@ -46,7 +46,7 @@ export class EndpointsController {
     const limit = parseInt(pageSize, 10);
 
     const endpoints = await this.prisma.$queryRaw<WebhookEndpointRow[]>`
-      SELECT id, tenant_id, url, description, event_types, is_active,
+      SELECT id, tenant_id, url, description, subscribed_events, is_active,
              failure_count, disabled_at, created_at, updated_at
       FROM webhook_endpoints
       WHERE tenant_id = ${tenantId}::uuid
@@ -70,17 +70,18 @@ export class EndpointsController {
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
-    @Body() body: { url: string; description?: string; event_types: string[] },
+    @Body() body: { url: string; description?: string; subscribedEvents: string[] },
   ) {
     const id = randomUUID();
     const secret = this.crypto.generateSecret();
+    const secretHash = createHash('sha256').update(secret).digest('hex');
     const now = new Date();
 
     await this.prisma.$executeRaw`
-      INSERT INTO webhook_endpoints (id, tenant_id, url, description, secret, event_types, is_active, created_at, updated_at)
+      INSERT INTO webhook_endpoints (id, tenant_id, url, description, secret_hash, secret_encrypted, subscribed_events, is_active, created_at, updated_at)
       VALUES (
         ${id}::uuid, ${tenantId}::uuid, ${body.url}, ${body.description ?? null},
-        ${secret}, ${body.event_types}::text[], true, ${now}, ${now}
+        ${secretHash}, ${secret}, ${body.subscribedEvents}::text[], true, ${now}, ${now}
       )
     `;
 
@@ -88,10 +89,10 @@ export class EndpointsController {
       id,
       url: body.url,
       description: body.description,
-      event_types: body.event_types,
+      subscribedEvents: body.subscribedEvents,
       secret,
-      is_active: true,
-      created_at: now,
+      isActive: true,
+      createdAt: now,
     };
   }
 

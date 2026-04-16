@@ -27,9 +27,12 @@ export class DashboardService {
   }
 
   getRecentAuditEvents(limit = 10) {
+    // Audit service requires date range for partition pruning — default to last 30 days
+    const endDate = new Date().toISOString();
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     return this.http.get<{ data: AuditEvent[]; total: number }>(
       `${this.auditUrl}/api/v1/tenants/${this.tenantId}/audit-logs`,
-      { params: { page: 1, pageSize: limit } },
+      { params: { page: 1, pageSize: limit, startDate, endDate } },
     );
   }
 }

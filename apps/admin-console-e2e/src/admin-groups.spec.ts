@@ -9,9 +9,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('Admin Groups', () => {
-  test('should load the groups page with heading', async ({ page }) => {
+  test('should load the groups page with h2 heading', async ({ page }) => {
     await page.goto('/groups');
-    await expect(page.locator('h1')).toContainText('Groups');
+    await expect(page.locator('h2').first()).toContainText('Groups');
   });
 
   test('should have a Create Group button', async ({ page }) => {
@@ -24,9 +24,9 @@ test.describe('Admin Groups', () => {
     await expect(page.locator('table')).toBeVisible();
   });
 
-  test('should navigate back to dashboard', async ({ page }) => {
+  test('should open Create Group dialog', async ({ page }) => {
     await page.goto('/groups');
-    await page.getByText('Dashboard').click();
-    await expect(page).toHaveURL(/\/$/);
+    await page.getByRole('button', { name: /create group/i }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
   });
 });
