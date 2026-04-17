@@ -21,8 +21,8 @@ interface AuditLogRow {
   action: string;
   resource_type: string | null;
   resource_id: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
+  actor_ip: string | null;
+  actor_user_agent: string | null;
   metadata: Record<string, unknown>;
   created_at: Date;
 }
@@ -81,7 +81,7 @@ export class AuditService {
 
     const logs = await this.prisma.$queryRawUnsafe<AuditLogRow[]>(
       `SELECT id, tenant_id, actor_id, actor_type, action, resource_type, resource_id,
-              ip_address, user_agent, metadata, created_at
+              actor_ip, actor_user_agent, metadata, created_at
        FROM audit_logs
        WHERE ${whereClause}
        ORDER BY created_at DESC

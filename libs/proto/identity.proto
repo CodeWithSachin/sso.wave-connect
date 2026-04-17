@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sso.identity.v1;
 
-option go_package = "github.com/wave-connect/sso-platform/libs/proto/identity/v1";
+option go_package = "github.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1";
 
 service IdentityService {
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);

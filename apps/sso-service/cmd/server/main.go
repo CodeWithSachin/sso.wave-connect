@@ -76,10 +76,13 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to create oidc service")
 	}
 
+	// --- Auth Code Tracker (single-use enforcement via Redis) ---
+	codeTracker := repository.NewAuthCodeTracker(rdb)
+
 	// --- Handlers ---
 	validate := validator.New()
 	loginURL := cfg.LoginPortalURL
-	oauth2Handler := handler.NewOAuth2Handler(oauth2Svc, oidcSvc, clientRepo, consentRepo, validate, log, loginURL)
+	oauth2Handler := handler.NewOAuth2Handler(oauth2Svc, oidcSvc, clientRepo, consentRepo, codeTracker, validate, log, loginURL)
 	consentHandler := handler.NewConsentHandler(oauth2Svc, clientRepo, consentRepo, validate, log)
 	oidcHandler := handler.NewOIDCHandler(oidcSvc, cfg.Token.Issuer, log)
 	healthHandler := handler.NewHealthHandler(pool, rdb)

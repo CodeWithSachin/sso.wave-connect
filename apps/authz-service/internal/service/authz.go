@@ -8,20 +8,23 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/wave-connect/sso-platform/apps/authz-service/internal/model"
+	ssonats "github.com/wave-connect/sso-platform/libs/nats"
 )
 
-// AuthzService wraps the OpenFGA client with caching.
+// AuthzService wraps the OpenFGA client with caching and NATS event publishing.
 type AuthzService struct {
 	fga   *openfga.OpenFgaClient
 	cache *CacheService
+	nats  *ssonats.Client // optional: nil if NATS unavailable
 	log   zerolog.Logger
 }
 
 // NewAuthzService creates a new authorization service.
-func NewAuthzService(fga *openfga.OpenFgaClient, cache *CacheService, log zerolog.Logger) *AuthzService {
+func NewAuthzService(fga *openfga.OpenFgaClient, cache *CacheService, nats *ssonats.Client, log zerolog.Logger) *AuthzService {
 	return &AuthzService{
 		fga:   fga,
 		cache: cache,
+		nats:  nats,
 		log:   log.With().Str("component", "authz-service").Logger(),
 	}
 }
@@ -143,10 +146,11 @@ func (s *AuthzService) WriteTuples(ctx context.Context, writes []model.TupleWrit
 		return fmt.Errorf("openfga write: %w", err)
 	}
 
-	// Invalidate related cache entries
+	// Invalidate related cache entries locally + broadcast via NATS
 	for _, w := range writes {
 		cacheKey := fmt.Sprintf("check:%s:%s:%s", w.User, w.Relation, w.Object)
 		s.cache.Delete(ctx, cacheKey)
+		s.publishCacheInvalidation(w.User, w.Relation, w.Object)
 	}
 
 	return nil
@@ -175,10 +179,11 @@ func (s *AuthzService) DeleteTuples(ctx context.Context, deletes []model.TupleWr
 		return fmt.Errorf("openfga delete: %w", err)
 	}
 
-	// Invalidate related cache entries
+	// Invalidate related cache entries locally + broadcast via NATS
 	for _, d := range deletes {
 		cacheKey := fmt.Sprintf("check:%s:%s:%s", d.User, d.Relation, d.Object)
 		s.cache.Delete(ctx, cacheKey)
+		s.publishCacheInvalidation(d.User, d.Relation, d.Object)
 	}
 
 	return nil
@@ -203,4 +208,20 @@ func (s *AuthzService) ListObjects(ctx context.Context, req model.ListObjectsReq
 	}
 
 	return resp.GetObjects(), nil
+}
+
+// publishCacheInvalidation broadcasts a cache invalidation event via NATS.
+// Fails silently — cache will expire naturally via TTL if NATS is unavailable.
+func (s *AuthzService) publishCacheInvalidation(user, relation, object string) {
+	if s.nats == nil {
+		return
+	}
+	msg := map[string]string{
+		"user":     user,
+		"relation": relation,
+		"object":   object,
+	}
+	if err := s.nats.Publish(ssonats.SubjectCacheInvalidateAuthz, msg); err != nil {
+		s.log.Warn().Err(err).Msg("failed to publish cache invalidation via NATS")
+	}
 }

@@ -48,6 +48,9 @@
     "serve": {
       "continuous": true,
       "executor": "@angular/build:dev-server",
+      "options": {
+        "port": 4300
+      },
       "configurations": {
         "production": {
           "buildTarget": "login-portal:build:production"
@@ -70,7 +73,7 @@
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "login-portal:build",
-        "port": 4200,
+        "port": 4300,
         "staticFilePath": "dist/apps/login-portal/browser",
         "spa": true
       }

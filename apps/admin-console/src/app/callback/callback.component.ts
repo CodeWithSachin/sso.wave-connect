@@ -92,16 +92,22 @@ export class CallbackComponent implements OnInit {
       tenant_id?: string;
     };
 
-    // Store tokens in sessionStorage
-    sessionStorage.setItem('accessToken', tokens.access_token);
-    if (tokens.refresh_token) {
-      sessionStorage.setItem('refreshToken', tokens.refresh_token);
-    }
+    // API auth uses the sso_session HttpOnly cookie — we do not store the access_token
+    // or refresh_token in sessionStorage. Per the PASETO spec, these tokens are for
+    // single-use handoffs (machine-to-machine) and should not be reused per request.
+    //
+    // We keep the id_token for UI display (user name, email, tenant name) only.
     if (tokens.id_token) {
       sessionStorage.setItem('idToken', tokens.id_token);
     }
-    if (tokens.tenant_id) {
-      sessionStorage.setItem('tenantId', tokens.tenant_id);
+    const userId = this.extractClaim(tokens.id_token, 'sub');
+    if (userId) {
+      sessionStorage.setItem('userId', userId);
+    }
+    const tenantId = this.extractClaim(tokens.id_token, 'tid');
+    if (tenantId) {
+      // Stored for display purposes (e.g., "Switch tenant" UI). NOT used for API auth.
+      sessionStorage.setItem('tenantId', tenantId);
     }
 
     // Clean up PKCE state
@@ -110,5 +116,39 @@ export class CallbackComponent implements OnInit {
 
     // Clean the URL and navigate to dashboard
     this.router.navigateByUrl('/dashboard');
+  }
+
+  /**
+   * Extract a claim from a PASETO v4.public or JWT token payload.
+   *
+   * PASETO v4.public format: 'v4.public.{base64url(JSON_message + 64_byte_signature)}[.footer]'
+   * JWT format:              '{header}.{payload}.{signature}'
+   *
+   * For PASETO, the decoded payload contains JSON followed by binary signature bytes,
+   * so we must slice from the first '{' to the matching last '}' before JSON.parse.
+   */
+  private extractClaim(token: string | undefined, claim: string): string | undefined {
+    if (!token) return undefined;
+    try {
+      const parts = token.split('.');
+      // PASETO: parts = ['v4', 'public'|'local', payloadB64, footerB64?]
+      // JWT:    parts = [headerB64, payloadB64, signatureB64]
+      const isPaseto = parts.length >= 3 && parts[0].startsWith('v') && /^(public|local)$/.test(parts[1]);
+      const payloadB64 = isPaseto ? parts[2] : parts[1];
+
+      const normalized = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+      const raw = atob(padded);
+
+      // Extract the JSON object (PASETO has 64 binary signature bytes after the JSON)
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start < 0 || end < 0 || end < start) return undefined;
+      const decoded = JSON.parse(raw.substring(start, end + 1));
+      const value = decoded?.[claim];
+      return typeof value === 'string' ? value : undefined;
+    } catch {
+      return undefined;
+    }
   }
 }

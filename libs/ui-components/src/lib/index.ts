@@ -32,3 +32,6 @@ export {
 
 // Dialog
 export { DialogComponent } from './dialog/dialog.component';
+
+// PrimeNG Pass-Through Configuration
+export { snowPassThrough } from './primeng-passthrough';

@@ -5,7 +5,20 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { decrypt } from 'paseto-ts/v4';
+
+// paseto-ts is ESM-only; load it dynamically so CJS-bundled apps that don't
+// invoke this guard (e.g., browser auth via SessionCookieGuard) don't crash
+// on import. Only M2M API-client flows that actually use Bearer PASETO tokens
+// will pay the first-call cost.
+type DecryptFn = (key: string, token: string) => { payload: unknown };
+let decryptFn: DecryptFn | null = null;
+async function getDecrypt(): Promise<DecryptFn> {
+  if (!decryptFn) {
+    const mod = await import('paseto-ts/v4');
+    decryptFn = mod.decrypt as unknown as DecryptFn;
+  }
+  return decryptFn;
+}
 
 export interface AuthUser {
   id: string;
@@ -33,6 +46,7 @@ export class PasetoGuard implements CanActivate {
 
     try {
       const key = this.getSymmetricKey();
+      const decrypt = await getDecrypt();
       const { payload } = decrypt(key, token);
 
       const claims = payload as Record<string, unknown>;

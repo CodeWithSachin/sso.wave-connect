@@ -10,7 +10,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 
 @ApiTags('Webhook Deliveries')
-@Controller('api/v1/tenants/:tenantId/webhooks/:endpointId/deliveries')
+@Controller('api/v1/webhooks/:endpointId/deliveries')
 export class DeliveriesController {
   constructor(private readonly prisma: PrismaService) {}
 

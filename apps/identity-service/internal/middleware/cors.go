@@ -7,7 +7,7 @@ import (
 
 func CORS() fiber.Handler {
 	return cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:4200,http://localhost:4300",
+		AllowOrigins:     "http://localhost:4300,http://localhost:4301,http://localhost:4302",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Tenant-ID,X-Request-ID",
 		ExposeHeaders:    "X-Request-ID",

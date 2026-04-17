@@ -18,13 +18,14 @@ import (
 )
 
 type OAuth2Handler struct {
-	oauth2Svc   *service.OAuth2Service
-	oidcSvc     *service.OIDCService
-	clientRepo  *repository.OAuthClientRepository
-	consentRepo *repository.ConsentRepository
-	validate    *validator.Validate
-	log         zerolog.Logger
-	loginURL    string
+	oauth2Svc    *service.OAuth2Service
+	oidcSvc      *service.OIDCService
+	clientRepo   *repository.OAuthClientRepository
+	consentRepo  *repository.ConsentRepository
+	codeTracker  *repository.AuthCodeTracker
+	validate     *validator.Validate
+	log          zerolog.Logger
+	loginURL     string
 }
 
 func NewOAuth2Handler(
@@ -32,17 +33,19 @@ func NewOAuth2Handler(
 	oidcSvc *service.OIDCService,
 	clientRepo *repository.OAuthClientRepository,
 	consentRepo *repository.ConsentRepository,
+	codeTracker *repository.AuthCodeTracker,
 	validate *validator.Validate,
 	log zerolog.Logger,
 	loginURL string,
 ) *OAuth2Handler {
 	return &OAuth2Handler{
-		oauth2Svc:   oauth2Svc,
-		oidcSvc:     oidcSvc,
-		clientRepo:  clientRepo,
-		consentRepo: consentRepo,
-		validate:    validate,
-		log:         log.With().Str("handler", "oauth2").Logger(),
+		oauth2Svc:    oauth2Svc,
+		oidcSvc:      oidcSvc,
+		clientRepo:   clientRepo,
+		consentRepo:  consentRepo,
+		codeTracker:  codeTracker,
+		validate:     validate,
+		log:          log.With().Str("handler", "oauth2").Logger(),
 		loginURL:    loginURL,
 	}
 }
@@ -254,6 +257,19 @@ func (h *OAuth2Handler) handleAuthorizationCodeGrant(c *fiber.Ctx, req *model.To
 		if !authenticateClient(client, req.ClientSecret) {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "invalid_client",
+			})
+		}
+	}
+
+	// Single-use check: prevent authorization code replay
+	if h.codeTracker != nil {
+		firstUse, err := h.codeTracker.MarkUsed(c.Context(), req.Code)
+		if err != nil {
+			h.log.Warn().Err(err).Msg("auth code tracker failed; allowing (fail-open)")
+		} else if !firstUse {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":             "invalid_grant",
+				"error_description": "authorization code has already been used",
 			})
 		}
 	}

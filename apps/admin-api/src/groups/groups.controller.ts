@@ -18,6 +18,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { TenantId } from '@sso-platform/nestjs-auth';
 import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { AddGroupMemberDto } from './dto/add-member.dto';
@@ -26,7 +27,7 @@ import { GroupResponseDto, PaginatedGroupsResponseDto } from './dto/group-respon
 
 @ApiTags('groups')
 @ApiBearerAuth()
-@Controller('api/v1/tenants/:tenantId/groups')
+@Controller('api/v1/groups')
 export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
@@ -34,7 +35,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Create a group' })
   @ApiCreatedResponse({ type: GroupResponseDto })
   create(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Body() dto: CreateGroupDto,
   ) {
     return this.groupsService.create(tenantId, dto);
@@ -46,7 +47,7 @@ export class GroupsController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   findAll(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -62,7 +63,7 @@ export class GroupsController {
   @ApiOkResponse({ type: GroupResponseDto })
   @ApiNotFoundResponse({ description: 'Group not found' })
   findOne(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.groupsService.findOne(tenantId, id);
@@ -73,7 +74,7 @@ export class GroupsController {
   @ApiOkResponse({ type: GroupResponseDto })
   @ApiNotFoundResponse({ description: 'Group not found' })
   remove(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.groupsService.remove(tenantId, id);
@@ -85,7 +86,7 @@ export class GroupsController {
   @ApiOperation({ summary: 'Add a member to a group' })
   @ApiCreatedResponse({ description: 'Member added' })
   addMember(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) groupId: string,
     @Body() dto: AddGroupMemberDto,
   ) {
@@ -97,7 +98,7 @@ export class GroupsController {
   @ApiOkResponse({ description: 'Member removed' })
   @ApiNotFoundResponse({ description: 'Member not in group' })
   removeMember(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) groupId: string,
     @Param('userId', ParseUUIDPipe) userId: string,
   ) {
@@ -111,7 +112,7 @@ export class GroupsController {
   @ApiCreatedResponse({ description: 'Group nested' })
   @ApiConflictResponse({ description: 'Cannot nest a group under itself' })
   nestGroup(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) parentGroupId: string,
     @Body() dto: NestGroupDto,
   ) {
@@ -123,7 +124,7 @@ export class GroupsController {
   @ApiOkResponse({ description: 'Nesting removed' })
   @ApiNotFoundResponse({ description: 'Nesting not found' })
   unnestGroup(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) parentGroupId: string,
     @Param('childGroupId', ParseUUIDPipe) childGroupId: string,
   ) {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,13 +14,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/event"
+	identitygrpc "github.com/wave-connect/sso-platform/apps/identity-service/internal/grpc"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/handler"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/middleware"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
+	ssonats "github.com/wave-connect/sso-platform/libs/nats"
+	pb "github.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1"
 )
 
 func main() {
@@ -69,11 +75,21 @@ func main() {
 	familyRepo := repository.NewRefreshFamilyRepository(pool)
 	policyRepo := repository.NewPolicyRepository(pool)
 
+	// --- NATS ---
+	var natsClient interface{}
+	natsConn, err := ssonats.Connect(ssonats.Config{URL: cfg.NATS.URL}, log)
+	if err != nil {
+		log.Warn().Err(err).Msg("NATS connection failed; events will use HTTP/log fallback")
+	} else {
+		defer natsConn.Close()
+		natsClient = natsConn
+	}
+
 	// --- Services ---
 	passwordSvc := service.NewPasswordService(cfg.Argon2)
 	policySvc := service.NewPolicyService(policyRepo, rdb, log)
 
-	publisher := event.NewPublisher(cfg.WebhookServiceURL, log)
+	publisher := event.NewPublisher(cfg.WebhookServiceURL, natsClient, log)
 
 	tokenSvc, err := service.NewTokenService(cfg.Token, denyRepo, familyRepo, log)
 	if err != nil {
@@ -149,6 +165,11 @@ func main() {
 	auth.Post("/login", middleware.LoginRateLimit(rdb), authHandler.Login)
 	auth.Post("/mfa/verify", mfaHandler.Verify)
 
+	// Logout is registered at /logout (outside the /auth prefix) to bypass TenantExtraction:
+	// the tenant is derived from the session cookie's sessions row, so clients shouldn't
+	// need to pass X-Tenant-ID. Idempotent — returns 204 even if there's nothing to revoke.
+	app.Post("/logout", authHandler.Logout)
+
 	// --- OAuth2 Token Routes (tenant required) ---
 	oauth2 := app.Group("/oauth2", middleware.TenantExtraction(pool))
 	oauth2.Post("/token", tokenHandler.Refresh)
@@ -168,20 +189,40 @@ func main() {
 	protected.Post("/auth/mfa/webauthn/login/begin", mfaHandler.BeginWebAuthnLogin)
 	protected.Post("/auth/mfa/webauthn/login/complete", mfaHandler.CompleteWebAuthnLogin)
 
-	// --- Graceful Shutdown ---
+	// --- Start gRPC Server ---
+	grpcServer := grpc.NewServer()
+	pb.RegisterIdentityServiceServer(grpcServer, identitygrpc.NewIdentityServer(tokenSvc, userRepo, log))
+	reflection.Register(grpcServer)
+
+	go func() {
+		grpcAddr := ":50052"
+		lis, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			log.Fatal().Err(err).Msg("gRPC listen failed")
+		}
+		log.Info().Str("addr", grpcAddr).Msg("starting identity-service gRPC")
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatal().Err(err).Msg("gRPC server failed")
+		}
+	}()
+
+	// --- Start HTTP Server ---
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.Server.Port)
-		log.Info().Str("addr", addr).Msg("starting identity-service")
+		log.Info().Str("addr", addr).Msg("starting identity-service HTTP")
 		if err := app.Listen(addr); err != nil {
 			log.Fatal().Err(err).Msg("server failed")
 		}
 	}()
 
+	// --- Graceful Shutdown ---
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Info().Msg("shutting down")
+	log.Info().Msg("shutting down identity-service")
+	grpcServer.GracefulStop()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := app.ShutdownWithContext(ctx); err != nil {

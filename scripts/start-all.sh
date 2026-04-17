@@ -37,7 +37,7 @@ stop_all() {
   fi
 
   # Kill by known ports (skip 8080 — used by Docker/OpenFGA)
-  for port in 3000 8082 8083 3100 3200 3300 3400 4200 4300; do
+  for port in 3000 8082 8083 3100 3200 3300 3400 3500 4200 4300 4400; do
     pids=$(lsof -ti:$port 2>/dev/null || true)
     if [ -n "$pids" ]; then
       echo "$pids" | xargs kill 2>/dev/null || true
@@ -52,7 +52,7 @@ stop_all() {
 
 # ── Kill any existing processes on our ports (skip 8080 — Docker/OpenFGA) ─
 log "Cleaning up existing processes..."
-for port in 3000 8082 8083 3100 3200 3300 3400 4200 4300; do
+for port in 3000 8082 8083 3100 3200 3300 3400 3500 4200 4300 4400; do
   pids=$(lsof -ti:$port 2>/dev/null || true)
   if [ -n "$pids" ]; then
     echo "$pids" | xargs kill 2>/dev/null || true
@@ -98,11 +98,11 @@ start_nx() {
 # Angular apps (use Angular dev server — no Nx daemon contention)
 start_nx "login-portal"       4200
 start_nx "admin-console"      4300
+start_nx "developer-portal"   4400
 
-# NestJS apps (run sequentially through nx to avoid daemon lock)
-# admin-api runs through nx serve which needs build first
+# NestJS apps (run in parallel through nx run-many)
 log "Starting ${BLUE}NestJS services${NC} (building + serving)..."
-(cd "$ROOT_DIR" && npx nx run-many -t serve -p admin-api,directory-service,webhook-service,audit-service --parallel=4 > "$LOG_DIR/nestjs-all.log" 2>&1) &
+(cd "$ROOT_DIR" && npx nx run-many -t serve -p admin-api,directory-service,webhook-service,audit-service,developer-portal-api --parallel=5 > "$LOG_DIR/nestjs-all.log" 2>&1) &
 echo $! >> "$PID_FILE"
 
 # ── Summary ───────────────────────────────────────────────────────────────
@@ -117,14 +117,16 @@ log "    authz-service     http://localhost:8080"
 log "    sso-service       http://localhost:8082"
 log ""
 log "  ${BLUE}NestJS APIs:${NC}"
-log "    admin-api         http://localhost:3100/docs"
-log "    directory-service http://localhost:3200/docs"
-log "    webhook-service   http://localhost:3300/docs"
-log "    audit-service     http://localhost:3400/docs"
+log "    admin-api             http://localhost:3100/docs"
+log "    directory-service     http://localhost:3200/docs"
+log "    webhook-service       http://localhost:3300/docs"
+log "    audit-service         http://localhost:3400/docs"
+log "    developer-portal-api  http://localhost:3500/api/docs"
 log ""
 log "  ${BLUE}Frontend Apps:${NC}"
-log "    login-portal      http://localhost:4200"
-log "    admin-console     http://localhost:4300"
+log "    login-portal       http://localhost:4200"
+log "    admin-console      http://localhost:4300"
+log "    developer-portal   http://localhost:4400"
 log ""
 log "  Logs: .logs/<service>.log"
 log "  Stop: ./scripts/start-all.sh --stop"

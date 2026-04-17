@@ -1,12 +1,16 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app/app.module';
 import { AllExceptionsFilter } from './shared/filters/http-exception.filter';
 import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Parse sso_session and other cookies so SessionCookieGuard can read them
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -18,7 +22,11 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  app.enableCors({ origin: 'http://localhost:4200' });
+  // credentials: true is required so browsers send the sso_session cookie on cross-origin requests
+  app.enableCors({
+    origin: ['http://localhost:4300', 'http://localhost:4301', 'http://localhost:4302'],
+    credentials: true,
+  });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('SSO Admin API')

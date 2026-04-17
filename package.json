@@ -6,7 +6,10 @@
     "prepare": "husky",
     "lint:all": "pnpm nx run-many --target=lint --all",
     "test:all": "pnpm nx run-many --target=test --all",
-    "build:all": "pnpm nx run-many --target=build --all"
+    "build:all": "pnpm nx run-many --target=build --all",
+    "serve:all": "export $(grep -v '^#' .env | xargs) && pnpm nx run-many --target=serve --projects=admin-console,developer-portal,login-portal,admin-api,developer-portal-api,audit-service,webhook-service,directory-service,sso-service,identity-service,authz-service --parallel=11",
+    "serve:frontend": "pnpm nx run-many --target=serve --projects=admin-console,developer-portal,login-portal --parallel=3",
+    "serve:backend": "export $(grep -v '^#' .env | xargs) && pnpm nx run-many --target=serve --projects=admin-api,developer-portal-api,audit-service,webhook-service,directory-service,sso-service,identity-service,authz-service --parallel=8"
   },
   "private": true,
   "devDependencies": {
@@ -54,6 +57,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@angular/animations": "~21.2.0",
     "@angular/common": "~21.2.0",
     "@angular/compiler": "~21.2.0",
     "@angular/core": "~21.2.0",
@@ -64,16 +68,23 @@
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.2.7",
+    "@ng-icons/core": "^33.2.1",
+    "@ng-icons/heroicons": "^33.2.1",
     "@ngrx/signals": "^21.1.0",
+    "@primeng/themes": "^21.0.4",
     "@prisma/client": "^6.19.3",
     "@tailwindcss/postcss": "^4.2.2",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "axios": "^1.6.0",
+    "chart.js": "^4.5.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
     "paseto-ts": "^2.0.6",
     "postcss": "^8.5.9",
+    "primeng": "^21.1.6",
     "prisma": "^6.19.3",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",

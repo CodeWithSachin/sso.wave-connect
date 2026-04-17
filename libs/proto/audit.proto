@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sso.audit.v1;
 
-option go_package = "github.com/wave-connect/sso-platform/libs/proto/audit/v1";
+option go_package = "github.com/wave-connect/sso-platform/libs/proto/gen/go/audit/v1";
 
 service AuditService {
   rpc IngestEvent(AuditEvent) returns (AuditAck);

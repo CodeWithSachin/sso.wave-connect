@@ -23,6 +23,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { TenantId } from '@sso-platform/nestjs-auth';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -30,7 +31,7 @@ import { PaginatedUsersResponseDto, UserResponseDto } from './dto/user-response.
 
 @ApiTags('users')
 @ApiBearerAuth()
-@Controller('api/v1/tenants/:tenantId/users')
+@Controller('api/v1/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -40,7 +41,7 @@ export class UsersController {
   @ApiUnauthorizedResponse({ description: 'Invalid or missing token' })
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   create(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Body() dto: CreateUserDto,
   ) {
     return this.usersService.create(tenantId, dto);
@@ -52,7 +53,7 @@ export class UsersController {
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 20 })
   findAll(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -68,7 +69,7 @@ export class UsersController {
   @ApiOkResponse({ type: UserResponseDto })
   @ApiNotFoundResponse({ description: 'User not found in tenant' })
   findOne(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.usersService.findOne(tenantId, id);
@@ -80,7 +81,7 @@ export class UsersController {
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiConflictResponse({ description: 'Version conflict' })
   update(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
   ) {
@@ -92,7 +93,7 @@ export class UsersController {
   @ApiOkResponse({ type: UserResponseDto })
   @ApiNotFoundResponse({ description: 'User not found' })
   remove(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.usersService.remove(tenantId, id);

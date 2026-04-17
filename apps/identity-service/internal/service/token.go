@@ -195,6 +195,35 @@ func (s *TokenService) DecryptAccessToken(ctx context.Context, tokenStr string, 
 	return claims, nil
 }
 
+// ValidateTokenGeneric decrypts and validates a PASETO access token without requiring
+// a tenant ID upfront. Tries decryption with nil implicit assertion first.
+// Used by the gRPC IdentityService for cross-service token validation.
+func (s *TokenService) ValidateTokenGeneric(ctx context.Context, tokenStr string) (*model.TokenClaims, error) {
+	parser := paseto.NewParser()
+	parser.AddRule(paseto.IssuedBy(s.cfg.Issuer))
+
+	// Try with nil implicit (works if token was created without tenant-specific implicit)
+	token, err := parser.ParseV4Local(s.symKey, tokenStr, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrTokenInvalid, err)
+	}
+
+	claims, err := extractClaims(token)
+	if err != nil {
+		return nil, err
+	}
+
+	denied, err := s.denyRepo.IsDenied(ctx, claims.JTI)
+	if err != nil {
+		return nil, fmt.Errorf("check deny list: %w", err)
+	}
+	if denied {
+		return nil, ErrTokenDenied
+	}
+
+	return claims, nil
+}
+
 // DecryptRefreshToken decrypts a v4.local refresh token.
 func (s *TokenService) DecryptRefreshToken(tokenStr string, tenantID uuid.UUID) (*paseto.Token, error) {
 	parser := paseto.NewParser()

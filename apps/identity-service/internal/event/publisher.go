@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
+	ssonats "github.com/wave-connect/sso-platform/libs/nats"
 )
 
 type Publisher interface {
@@ -96,10 +98,20 @@ func (p *WebhookPublisher) Publish(ctx context.Context, evt Event) error {
 }
 
 // NewPublisher creates the appropriate publisher based on configuration.
-// If webhookURL is provided, uses WebhookPublisher with LogPublisher fallback.
+// Priority: NATS > Webhook HTTP > Log-only.
+// If natsClient is provided, uses NATSPublisher (with LogPublisher fallback).
+// Else if webhookURL is provided, uses WebhookPublisher (with LogPublisher fallback).
 // Otherwise, uses LogPublisher directly.
-func NewPublisher(webhookURL string, log zerolog.Logger) Publisher {
+func NewPublisher(webhookURL string, natsClient interface{}, log zerolog.Logger) Publisher {
 	logPub := NewLogPublisher(log)
+
+	// Check if NATS client is available (passed as interface to avoid import cycle)
+	if natsClient != nil {
+		if nc, ok := natsClient.(*ssonats.Client); ok && nc != nil {
+			return NewNATSPublisher(nc, logPub, log)
+		}
+	}
+
 	if webhookURL == "" {
 		return logPub
 	}

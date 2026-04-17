@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sso.authz.v1;
 
-option go_package = "github.com/wave-connect/sso-platform/libs/proto/authz/v1";
+option go_package = "github.com/wave-connect/sso-platform/libs/proto/gen/go/authz/v1";
 
 service AuthzService {
   rpc Check(CheckRequest) returns (CheckResponse);

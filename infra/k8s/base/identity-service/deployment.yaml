@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  namespace: sso-platform
+  labels:
+    app: identity-service
+    tier: hot-path
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: identity-service
+  template:
+    metadata:
+      labels:
+        app: identity-service
+        tier: hot-path
+    spec:
+      containers:
+        - name: identity-service
+          image: sso-platform/identity-service:latest
+          ports:
+            - containerPort: 3000
+              name: http
+            - containerPort: 50052
+              name: grpc
+          envFrom:
+            - configMapRef:
+                name: sso-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5

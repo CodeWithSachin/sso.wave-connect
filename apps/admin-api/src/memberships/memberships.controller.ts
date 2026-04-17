@@ -21,6 +21,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { TenantId } from '@sso-platform/nestjs-auth';
 import { MembershipsService } from './memberships.service';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -31,7 +32,7 @@ import {
 
 @ApiTags('memberships')
 @ApiBearerAuth()
-@Controller('api/v1/tenants/:tenantId/memberships')
+@Controller('api/v1/memberships')
 export class MembershipsController {
   constructor(private readonly membershipsService: MembershipsService) {}
 
@@ -41,7 +42,7 @@ export class MembershipsController {
   @ApiConflictResponse({ description: 'User already a member' })
   @ApiNotFoundResponse({ description: 'User email not found' })
   invite(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Body() dto: InviteMemberDto,
   ) {
     return this.membershipsService.invite(tenantId, dto);
@@ -53,7 +54,7 @@ export class MembershipsController {
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 20 })
   findAll(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -69,7 +70,7 @@ export class MembershipsController {
   @ApiOkResponse({ type: MembershipResponseDto })
   @ApiNotFoundResponse({ description: 'Membership not found' })
   findOne(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.membershipsService.findOne(tenantId, id);
@@ -80,7 +81,7 @@ export class MembershipsController {
   @ApiOkResponse({ type: MembershipResponseDto })
   @ApiNotFoundResponse({ description: 'Membership not found' })
   updateRole(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRoleDto,
   ) {
@@ -92,7 +93,7 @@ export class MembershipsController {
   @ApiOkResponse({ type: MembershipResponseDto })
   @ApiNotFoundResponse({ description: 'Membership not found' })
   remove(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.membershipsService.remove(tenantId, id);

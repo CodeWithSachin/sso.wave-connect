@@ -1,0 +1,81 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sso-platform-ingress
+  namespace: sso-platform
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - login.wave-connect.com
+        - admin.wave-connect.com
+        - api.wave-connect.com
+        - sso.wave-connect.com
+      secretName: sso-platform-tls
+  rules:
+    - host: login.wave-connect.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: login-portal, port: { number: 80 } }
+
+    - host: admin.wave-connect.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: admin-console, port: { number: 80 } }
+
+    - host: sso.wave-connect.com
+      http:
+        paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service: { name: sso-service, port: { number: 8083 } }
+          - path: /.well-known
+            pathType: Prefix
+            backend:
+              service: { name: sso-service, port: { number: 8083 } }
+          - path: /userinfo
+            pathType: Prefix
+            backend:
+              service: { name: sso-service, port: { number: 8083 } }
+
+    - host: api.wave-connect.com
+      http:
+        paths:
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service: { name: identity-service, port: { number: 3000 } }
+          - path: /sessions
+            pathType: Prefix
+            backend:
+              service: { name: identity-service, port: { number: 3000 } }
+          - path: /authz
+            pathType: Prefix
+            backend:
+              service: { name: authz-service, port: { number: 8080 } }
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service: { name: admin-api, port: { number: 3100 } }
+          - path: /scim
+            pathType: Prefix
+            backend:
+              service: { name: directory-service, port: { number: 3200 } }
+          - path: /webhooks
+            pathType: Prefix
+            backend:
+              service: { name: webhook-service, port: { number: 3300 } }
+          - path: /audit
+            pathType: Prefix
+            backend:
+              service: { name: audit-service, port: { number: 3400 } }

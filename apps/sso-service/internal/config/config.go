@@ -99,7 +99,7 @@ func Load() (*Config, error) {
 	v.SetDefault("authz_service.url", "http://localhost:8081")
 
 	// Login portal URL — where to redirect unauthenticated users
-	v.SetDefault("login_portal_url", "http://localhost:4200/login")
+	v.SetDefault("login_portal_url", "http://localhost:4300/login")
 
 	_ = v.ReadInConfig() // Not fatal if config file is missing; env vars suffice
 
