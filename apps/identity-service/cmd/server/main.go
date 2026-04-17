@@ -165,6 +165,11 @@ func main() {
 	auth.Post("/login", middleware.LoginRateLimit(rdb), authHandler.Login)
 	auth.Post("/mfa/verify", mfaHandler.Verify)
 
+	// Logout is registered at /logout (outside the /auth prefix) to bypass TenantExtraction:
+	// the tenant is derived from the session cookie's sessions row, so clients shouldn't
+	// need to pass X-Tenant-ID. Idempotent — returns 204 even if there's nothing to revoke.
+	app.Post("/logout", authHandler.Logout)
+
 	// --- OAuth2 Token Routes (tenant required) ---
 	oauth2 := app.Group("/oauth2", middleware.TenantExtraction(pool))
 	oauth2.Post("/token", tokenHandler.Refresh)

@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0", "@nestjs/core": "^11.0.0", "@nestjs/platform-express": "^11.0.0",
+    "@sso-platform/nestjs-auth": "workspace:*",
+    "cookie-parser": "^1.4.7",
     "reflect-metadata": "^0.1.13", "rxjs": "^7.8.0", "tslib": "^2.3.0"
   },
   "devDependencies": { "@nestjs/testing": "^11.0.0" }

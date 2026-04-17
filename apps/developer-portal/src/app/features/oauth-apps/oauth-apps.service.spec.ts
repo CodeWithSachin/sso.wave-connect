@@ -15,7 +15,7 @@ describe('OAuthAppsService', () => {
     id: 'oa-001',
     clientId: 'client_abc123',
     name: 'My App',
-    redirectUris: ['http://localhost:4200/callback'],
+    redirectUris: ['http://localhost:4302/callback'],
     allowedScopes: ['openid', 'profile'],
     isActive: true,
     createdAt: '2026-04-01T10:00:00Z',
@@ -62,7 +62,7 @@ describe('OAuthAppsService', () => {
   it('should create an OAuth app and return client_id and client_secret', () => {
     const dto = {
       name: 'New App',
-      redirect_uris: ['http://localhost:4200/callback'],
+      redirect_uris: ['http://localhost:4302/callback'],
       allowed_scopes: ['openid'],
     };
     const mockResponse = {

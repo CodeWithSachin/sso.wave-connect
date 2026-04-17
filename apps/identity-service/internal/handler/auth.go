@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -339,6 +342,67 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		ExpiresIn:    tokens.ExpiresIn,
 		TokenType:    tokens.TokenType,
 	})
+}
+
+// Logout revokes the session identified by the sso_session cookie and clears the cookie.
+// Unlike DELETE /sessions/:id (which requires PASETO Bearer auth), this endpoint identifies
+// the session solely by the cookie value — so it works even after the access_token has been
+// discarded (the new session-cookie auth model).
+//
+// Returns 204 No Content on success or if there was nothing to revoke (idempotent).
+func (h *AuthHandler) Logout(c *fiber.Ctx) error {
+	cookieValue := c.Cookies("sso_session")
+	// Always clear the cookie, even if we can't find a matching session — the client
+	// reached here intending to log out, and we should respect that.
+	h.clearSSOCookie(c)
+
+	if cookieValue == "" {
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+
+	tokenHash, err := hashSessionCookie(cookieValue)
+	if err != nil {
+		// Malformed cookie — nothing to revoke, just report success (cookie already cleared).
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+
+	sess, err := h.sessionSvc.RevokeByTokenHash(c.Context(), tokenHash)
+	if err != nil {
+		// Session not found or already revoked — still success from the client's perspective.
+		h.log.Debug().Err(err).Msg("logout: session not found or already revoked")
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+
+	h.log.Info().
+		Str("session_id", sess.ID.String()).
+		Str("user_id", sess.UserID.String()).
+		Msg("session revoked via /auth/logout")
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// clearSSOCookie overwrites the sso_session cookie with an expired value so the browser drops it.
+func (h *AuthHandler) clearSSOCookie(c *fiber.Ctx) {
+	c.Cookie(&fiber.Cookie{
+		Name:     "sso_session",
+		Value:    "",
+		Path:     "/",
+		Domain:   h.cookieCfg.Domain,
+		HTTPOnly: true,
+		Secure:   h.cookieCfg.Secure,
+		SameSite: "Lax",
+		MaxAge:   -1,
+	})
+}
+
+// hashSessionCookie decodes the base64url raw token and returns its SHA-256 hex hash —
+// matching the storage format of sessions.token_hash.
+func hashSessionCookie(raw string) (string, error) {
+	b, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:]), nil
 }
 
 // setSSOCookie sets the HttpOnly sso_session cookie for cross-app SSO.

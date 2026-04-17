@@ -77,6 +77,26 @@ func (r *SessionRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.S
 	return s, nil
 }
 
+// GetByTokenHash returns an active, non-expired session matching the given SHA-256 hex hash
+// of the raw cookie token. Used by the /auth/logout endpoint to revoke the current session
+// without requiring the user to know their session ID.
+func (r *SessionRepository) GetByTokenHash(ctx context.Context, tokenHash string) (*model.Session, error) {
+	const q = `SELECT id, user_id, tenant_id, token_hash, status, ip_address::text, user_agent, last_activity_at, expires_at, revoked_at, created_at
+		FROM sessions WHERE token_hash = $1 AND status = 'active' AND expires_at > NOW() LIMIT 1`
+	s := &model.Session{}
+	err := r.pool.QueryRow(ctx, q, tokenHash).Scan(
+		&s.ID, &s.UserID, &s.TenantID, &s.TokenHash, &s.Status,
+		&s.IPAddress, &s.UserAgent, &s.LastActivityAt, &s.ExpiresAt, &s.RevokedAt, &s.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrSessionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get session by token hash: %w", err)
+	}
+	return s, nil
+}
+
 func (r *SessionRepository) Revoke(ctx context.Context, id uuid.UUID, reason string) error {
 	now := time.Now().UTC()
 	const q = `UPDATE sessions SET status = 'revoked', revoked_at = $2, revoke_reason = $3 WHERE id = $1 AND status = 'active'`

@@ -159,9 +159,9 @@ This starts all 11 services in parallel using Nx. You should see startup logs fo
 
 | Service              | URL / Port                     | Check                                 |
 |----------------------|-------------------------------|---------------------------------------|
-| Login Portal         | http://localhost:4200         | Open in browser                       |
-| Admin Console        | http://localhost:4300         | Open in browser                       |
-| Developer Portal     | http://localhost:4400         | Open in browser                       |
+| Login Portal         | http://localhost:4300         | Open in browser                       |
+| Admin Console        | http://localhost:4301         | Open in browser                       |
+| Developer Portal     | http://localhost:4302         | Open in browser                       |
 | Admin API            | http://localhost:3100/docs    | Swagger UI                            |
 | Directory Service    | http://localhost:3200/docs    | Swagger UI                            |
 | Webhook Service      | http://localhost:3300/docs    | Swagger UI                            |
@@ -330,9 +330,9 @@ npx prisma generate
 The NestJS services are configured to allow requests from the three Angular dev servers:
 
 ```
-http://localhost:4200
 http://localhost:4300
-http://localhost:4400
+http://localhost:4301
+http://localhost:4302
 ```
 
 If you are running a frontend on a different port, update the `enableCors()` call in the relevant service's `src/main.ts` file.

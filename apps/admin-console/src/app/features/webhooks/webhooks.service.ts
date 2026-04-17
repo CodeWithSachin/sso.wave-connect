@@ -37,10 +37,7 @@ export const WEBHOOK_EVENT_TYPES = [
 @Injectable({ providedIn: 'root' })
 export class WebhooksService {
   private http = inject(HttpClient);
-  private get baseUrl() {
-    const tid = sessionStorage.getItem('tenantId') ?? '';
-    return `${environment.webhookServiceUrl}/api/v1/tenants/${tid}/webhooks`;
-  }
+  private baseUrl = `${environment.webhookServiceUrl}/api/v1/webhooks`;
 
   list(page = 1, pageSize = 20) {
     return this.http.get<WebhooksResponse>(this.baseUrl, { params: { page, pageSize } });

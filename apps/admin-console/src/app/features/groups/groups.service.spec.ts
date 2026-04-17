@@ -11,16 +11,9 @@ describe('GroupsService', () => {
   let httpMock: HttpTestingController;
 
   const adminApiUrl = 'http://localhost:3100';
-  const tenantId = 'test-tenant-id';
-  const baseUrl = `${adminApiUrl}/api/v1/tenants/${tenantId}/groups`;
+  const baseUrl = `${adminApiUrl}/api/v1/groups`;
 
   beforeEach(() => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
-      if (key === 'tenantId') return tenantId;
-      if (key === 'accessToken') return 'mock-token';
-      return null;
-    });
-
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), GroupsService],
     });
@@ -30,7 +23,6 @@ describe('GroupsService', () => {
 
   afterEach(() => {
     httpMock.verify();
-    vi.restoreAllMocks();
   });
 
   it('should be created', () => {

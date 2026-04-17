@@ -51,7 +51,7 @@ This command:
 pnpm serve:frontend
 ```
 
-Starts: admin-console (:4300), developer-portal (:4400), login-portal (:4200).
+Starts: login-portal (:4300), admin-console (:4301), developer-portal (:4302).
 
 Does NOT export `.env` vars (frontends do not need them -- they use `environment.ts` for API URLs).
 
@@ -77,9 +77,9 @@ Exports `.env` vars first (backends need `DATABASE_URL`, etc.).
 | directory-service | 3300 | NestJS |
 | webhook-service | 3400 | NestJS |
 | developer-portal-api | 3500 | NestJS |
-| login-portal | 4200 | Angular |
-| admin-console | 4300 | Angular |
-| developer-portal | 4400 | Angular |
+| login-portal | 4300 | Angular |
+| admin-console | 4301 | Angular |
+| developer-portal | 4302 | Angular |
 | authz-service | 8082 | Go |
 | identity-service | 8083 | Go |
 
@@ -134,7 +134,7 @@ Then restart the service.
 
 **Symptom**: Browser console shows `Access to XMLHttpRequest ... has been blocked by CORS policy`.
 
-**Fix**: Each NestJS service has `enableCors({ origin: [...] })` in its `main.ts`. Verify that the frontend URL (e.g., `http://localhost:4300`) is included in the `origin` array.
+**Fix**: Each NestJS service has `enableCors({ origin: [...] })` in its `main.ts`. Verify that the frontend URL (e.g., `http://localhost:4301`) is included in the `origin` array.
 
 Common file locations:
 - `apps/admin-api/src/main.ts`
@@ -197,7 +197,7 @@ location.reload();
 
 **Important**: This only bypasses the Angular route guard. The backend APIs will still reject the mock token unless you also configure the backend to skip token validation in development mode.
 
-For a full end-to-end test, use the login portal at `http://localhost:4200` to authenticate and obtain real tokens.
+For a full end-to-end test, use the login portal at `http://localhost:4300` to authenticate and obtain real tokens.
 
 ---
 

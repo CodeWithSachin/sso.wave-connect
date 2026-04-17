@@ -36,10 +36,8 @@ export interface CreateUserDto {
 @Injectable({ providedIn: 'root' })
 export class UsersService {
   private http = inject(HttpClient);
-  private get baseUrl() {
-    const tid = sessionStorage.getItem('tenantId') ?? '';
-    return `${environment.adminApiUrl}/api/v1/tenants/${tid}/users`;
-  }
+  // Tenant is now derived server-side from the sso_session cookie by SessionCookieGuard.
+  private baseUrl = `${environment.adminApiUrl}/api/v1/users`;
 
   list(page = 1, pageSize = 20) {
     return this.http.get<UsersResponse>(this.baseUrl, { params: { page, pageSize } });

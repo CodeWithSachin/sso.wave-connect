@@ -7,21 +7,18 @@ export class DashboardService {
   private http = inject(HttpClient);
   private baseUrl = environment.adminApiUrl;
   private auditUrl = environment.auditServiceUrl;
-
-  private get tenantId() {
-    return sessionStorage.getItem('tenantId') ?? '';
-  }
+  // Tenant is derived server-side from the sso_session cookie.
 
   getUsers(pageSize = 1) {
     return this.http.get<{ data: unknown[]; total: number }>(
-      `${this.baseUrl}/api/v1/tenants/${this.tenantId}/users`,
+      `${this.baseUrl}/api/v1/users`,
       { params: { page: 1, pageSize } },
     );
   }
 
   getMemberships(pageSize = 1) {
     return this.http.get<{ data: unknown[]; total: number }>(
-      `${this.baseUrl}/api/v1/tenants/${this.tenantId}/memberships`,
+      `${this.baseUrl}/api/v1/memberships`,
       { params: { page: 1, pageSize } },
     );
   }
@@ -31,7 +28,7 @@ export class DashboardService {
     const endDate = new Date().toISOString();
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     return this.http.get<{ data: AuditEvent[]; total: number }>(
-      `${this.auditUrl}/api/v1/tenants/${this.tenantId}/audit-logs`,
+      `${this.auditUrl}/api/v1/audit-logs`,
       { params: { page: 1, pageSize: limit, startDate, endDate } },
     );
   }

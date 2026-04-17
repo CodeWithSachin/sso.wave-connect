@@ -1,10 +1,13 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { NgIcon } from '@ng-icons/core';
 import { Toast } from 'primeng/toast';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { MessageService } from 'primeng/api';
 import { ConfirmationService } from 'primeng/api';
+import { firstValueFrom } from 'rxjs';
+import { environment } from '../environments/environment';
 
 interface NavItem {
   path: string;
@@ -87,9 +90,17 @@ interface NavItem {
               <ng-icon [name]="isDark() ? 'heroSun' : 'heroMoon'" size="1.125rem" />
             </button>
             <div class="h-6 w-px bg-border"></div>
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold cursor-pointer hover:bg-primary/20 transition-colors">
+            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
               A
             </div>
+            <button
+              (click)="logout()"
+              class="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 transition-colors"
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <ng-icon name="heroArrowRightStartOnRectangle" size="1.125rem" />
+            </button>
           </div>
         </header>
 
@@ -107,6 +118,8 @@ interface NavItem {
   `,
 })
 export class LayoutComponent {
+  private readonly http = inject(HttpClient);
+
   collapsed = signal(false);
   isDark = signal(false);
 
@@ -123,5 +136,22 @@ export class LayoutComponent {
   toggleDarkMode() {
     this.isDark.update((v) => !v);
     document.documentElement.classList.toggle('dark');
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.post(
+          `${environment.identityServiceUrl}/auth/logout`,
+          {},
+          { withCredentials: true },
+        ),
+      );
+    } catch {
+      // /auth/logout is idempotent and clears the cookie on any outcome;
+      // swallow network/transport errors so we still drop local state.
+    }
+    sessionStorage.clear();
+    window.location.href = '/';
   }
 }

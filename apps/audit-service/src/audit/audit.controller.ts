@@ -1,21 +1,20 @@
 import {
   Controller,
   Get,
-  Param,
-  ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { TenantId } from '@sso-platform/nestjs-auth';
 import { AuditService } from './audit.service';
 
 @ApiTags('Audit Logs')
-@Controller('api/v1/tenants/:tenantId/audit-logs')
+@Controller('api/v1/audit-logs')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
   async query(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '50',
     @Query('startDate') startDate: string,

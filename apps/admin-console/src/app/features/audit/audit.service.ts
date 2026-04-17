@@ -33,10 +33,7 @@ export interface AuditFilters {
 @Injectable({ providedIn: 'root' })
 export class AuditService {
   private http = inject(HttpClient);
-  private get baseUrl() {
-    const tid = sessionStorage.getItem('tenantId') ?? '';
-    return `${environment.auditServiceUrl}/api/v1/tenants/${tid}/audit-logs`;
-  }
+  private baseUrl = `${environment.auditServiceUrl}/api/v1/audit-logs`;
 
   list(filters: AuditFilters, page = 1, pageSize = 20) {
     // Audit service requires date range for partition pruning — default to last 30 days

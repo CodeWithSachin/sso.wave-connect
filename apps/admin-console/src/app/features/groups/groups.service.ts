@@ -33,10 +33,7 @@ export interface GroupsResponse {
 @Injectable({ providedIn: 'root' })
 export class GroupsService {
   private http = inject(HttpClient);
-  private get baseUrl() {
-    const tid = sessionStorage.getItem('tenantId') ?? '';
-    return `${environment.adminApiUrl}/api/v1/tenants/${tid}/groups`;
-  }
+  private baseUrl = `${environment.adminApiUrl}/api/v1/groups`;
 
   list(page = 1, pageSize = 20) {
     return this.http.get<GroupsResponse>(this.baseUrl, { params: { page, pageSize } });

@@ -2,8 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Param,
-  ParseUUIDPipe,
   Patch,
 } from '@nestjs/common';
 import {
@@ -13,20 +11,21 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { TenantId } from '@sso-platform/nestjs-auth';
 import { PoliciesService } from './policies.service';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PolicyResponseDto } from './dto/policy-response.dto';
 
 @ApiTags('settings')
 @ApiBearerAuth()
-@Controller('api/v1/tenants/:tenantId/settings')
+@Controller('api/v1/settings')
 export class PoliciesController {
   constructor(private readonly policiesService: PoliciesService) {}
 
   @Get('policies')
   @ApiOperation({ summary: 'Get tenant security policy' })
   @ApiOkResponse({ type: PolicyResponseDto })
-  findOne(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
+  findOne(@TenantId() tenantId: string) {
     return this.policiesService.findOne(tenantId);
   }
 
@@ -35,7 +34,7 @@ export class PoliciesController {
   @ApiOkResponse({ type: PolicyResponseDto })
   @ApiConflictResponse({ description: 'Version conflict' })
   update(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Body() dto: UpdatePolicyDto,
   ) {
     return this.policiesService.update(tenantId, dto);

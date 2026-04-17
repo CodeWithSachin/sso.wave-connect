@@ -79,6 +79,31 @@ func (s *SessionService) ListForUser(ctx context.Context, userID, tenantID uuid.
 	return s.repo.ListByUser(ctx, userID, tenantID)
 }
 
+// RevokeByTokenHash revokes the session identified by the SHA-256 hex hash of the raw
+// cookie token. Used by /auth/logout to terminate the current session without requiring
+// the client to know the session's UUID.
+func (s *SessionService) RevokeByTokenHash(ctx context.Context, tokenHash string) (*model.Session, error) {
+	sess, err := s.repo.GetByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.Revoke(ctx, sess.ID, "user_logout"); err != nil {
+		return nil, err
+	}
+	_ = s.publisher.Publish(ctx, event.Event{
+		Type:      event.TypeSessionRevoked,
+		Timestamp: time.Now().UTC(),
+		TenantID:  sess.TenantID,
+		ActorID:   sess.UserID,
+		Payload: event.SessionRevokedPayload{
+			SessionID: sess.ID,
+			UserID:    sess.UserID,
+			Reason:    "user_logout",
+		},
+	})
+	return sess, nil
+}
+
 func (s *SessionService) Revoke(ctx context.Context, sessionID, userID, tenantID uuid.UUID) error {
 	sess, err := s.repo.GetByID(ctx, sessionID)
 	if err != nil {

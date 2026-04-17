@@ -298,7 +298,7 @@ export const environment = {
   adminApiUrl: 'http://localhost:3100',
   ssoServiceUrl: 'http://localhost:8083',
   oauthClientId: 'admin-console',
-  oauthRedirectUri: 'http://localhost:4300/callback',
+  oauthRedirectUri: 'http://localhost:4301/callback',
   // ...
 };
 ```

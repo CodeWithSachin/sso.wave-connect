@@ -10,16 +10,19 @@ import {
  * OAuth2 PKCE auth guard for the admin-console.
  *
  * Flow:
- * 1. Check sessionStorage for existing accessToken → allow if present
+ * 1. Check sessionStorage for existing idToken → allow if present.
+ *    The idToken's presence is a proxy for "OAuth flow completed"; the actual
+ *    per-request auth check is server-side via the sso_session HttpOnly cookie
+ *    validated by SessionCookieGuard on each NestJS API.
  * 2. Otherwise, generate PKCE verifier/challenge + state
  * 3. Store verifier + state in sessionStorage (survive the redirect round-trip)
  * 4. Redirect to sso-service /oauth2/authorize with PKCE params
  * 5. sso-service checks sso_session cookie → if valid, issues auth code silently
- * 6. Redirect back to /callback with code → callback exchanges for tokens
+ * 6. Redirect back to /callback with code → callback exchanges for id_token
  */
 export const authGuard: CanActivateFn = async () => {
-  const token = sessionStorage.getItem('accessToken');
-  if (token) {
+  const idToken = sessionStorage.getItem('idToken');
+  if (idToken) {
     return true;
   }
 

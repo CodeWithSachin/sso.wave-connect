@@ -1,6 +1,12 @@
 // Guards
 export { PasetoGuard, type AuthUser } from './paseto.guard.js';
 export { RebacGuard } from './rebac.guard.js';
+export {
+  SessionCookieGuard,
+  SESSION_DB_CLIENT,
+  type SessionDbClient,
+  type AuthSession,
+} from './session-cookie.guard.js';
 
 // Decorators
 export { CurrentUser } from './decorators/current-user.decorator.js';

@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { nxE2EPreset } from '@nx/playwright/preset';
 import { workspaceRoot } from '@nx/devkit';
 
-const baseURL = process.env['BASE_URL'] || 'http://localhost:4400';
+const baseURL = process.env['BASE_URL'] || 'http://localhost:4302';
 
 export default defineConfig({
   ...nxE2EPreset(__filename, { testDir: './src' }),
@@ -12,7 +12,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm exec nx run developer-portal:serve',
-    url: 'http://localhost:4400',
+    url: 'http://localhost:4302',
     reuseExistingServer: true,
     cwd: workspaceRoot,
   },

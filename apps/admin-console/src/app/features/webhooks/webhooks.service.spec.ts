@@ -11,16 +11,9 @@ describe('WebhooksService', () => {
   let httpMock: HttpTestingController;
 
   const webhookServiceUrl = 'http://localhost:3300';
-  const tenantId = 'test-tenant-id';
-  const baseUrl = `${webhookServiceUrl}/api/v1/tenants/${tenantId}/webhooks`;
+  const baseUrl = `${webhookServiceUrl}/api/v1/webhooks`;
 
   beforeEach(() => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
-      if (key === 'tenantId') return tenantId;
-      if (key === 'accessToken') return 'mock-token';
-      return null;
-    });
-
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), WebhooksService],
     });
@@ -30,7 +23,6 @@ describe('WebhooksService', () => {
 
   afterEach(() => {
     httpMock.verify();
-    vi.restoreAllMocks();
   });
 
   it('should be created', () => {

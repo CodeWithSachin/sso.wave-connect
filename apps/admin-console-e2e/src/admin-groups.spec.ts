@@ -1,9 +1,24 @@
 import { test, expect } from '@playwright/test';
+import { mockBackendAPIs } from './support/mock-backend';
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ context, page }) => {
+  await mockBackendAPIs(page);
+  // Inject a stub sso_session cookie — the real SessionCookieGuard in the NestJS
+  // backend will reject this, but these E2E tests only assert UI rendering and
+  // don't hit the live backend. The cookie just needs to exist so the Angular
+  // auth guard + credentialsInterceptor behave normally.
+  await context.addCookies([
+    {
+      name: 'sso_session',
+      value: 'e2e-mock-session-token',
+      domain: 'localhost',
+      path: '/',
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
+  // auth.guard.ts now checks for idToken (proxy for "OAuth flow completed")
   await page.addInitScript(() => {
-    sessionStorage.setItem('accessToken', 'e2e-mock-token');
-    sessionStorage.setItem('tenantId', '01473191-863b-4035-ac65-05782ca6159b');
     sessionStorage.setItem('idToken', 'e2e-mock-id-token');
   });
 });

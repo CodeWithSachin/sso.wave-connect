@@ -9,5 +9,5 @@ export const environment = {
   devPortalApiUrl: 'http://localhost:3500',
   // OAuth2 PKCE config for admin-console
   oauthClientId: 'admin-console',
-  oauthRedirectUri: 'http://localhost:4300/callback',
+  oauthRedirectUri: 'http://localhost:4301/callback',
 };

@@ -7,7 +7,7 @@ import (
 
 func CORS() fiber.Handler {
 	return cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:4200,http://localhost:4300,http://localhost:4400",
+		AllowOrigins:     "http://localhost:4300,http://localhost:4301,http://localhost:4302",
 		AllowMethods:     "GET,POST,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
 		AllowCredentials: true, // Required for sso_session cookie on cross-origin requests

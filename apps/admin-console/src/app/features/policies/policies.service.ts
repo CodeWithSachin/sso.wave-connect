@@ -29,10 +29,7 @@ export interface TenantPolicy {
 @Injectable({ providedIn: 'root' })
 export class PoliciesService {
   private http = inject(HttpClient);
-  private get baseUrl() {
-    const tid = sessionStorage.getItem('tenantId') ?? '';
-    return `${environment.adminApiUrl}/api/v1/tenants/${tid}/settings`;
-  }
+  private baseUrl = `${environment.adminApiUrl}/api/v1/settings`;
 
   getPolicy() {
     return this.http.get<TenantPolicy>(`${this.baseUrl}/policies`);

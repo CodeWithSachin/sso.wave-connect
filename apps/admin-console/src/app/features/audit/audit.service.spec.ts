@@ -11,16 +11,9 @@ describe('AuditService', () => {
   let httpMock: HttpTestingController;
 
   const auditServiceUrl = 'http://localhost:3400';
-  const tenantId = 'test-tenant-id';
-  const baseUrl = `${auditServiceUrl}/api/v1/tenants/${tenantId}/audit-logs`;
+  const baseUrl = `${auditServiceUrl}/api/v1/audit-logs`;
 
   beforeEach(() => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
-      if (key === 'tenantId') return tenantId;
-      if (key === 'accessToken') return 'mock-token';
-      return null;
-    });
-
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), AuditService],
     });
@@ -30,7 +23,6 @@ describe('AuditService', () => {
 
   afterEach(() => {
     httpMock.verify();
-    vi.restoreAllMocks();
   });
 
   it('should be created', () => {
@@ -45,7 +37,12 @@ describe('AuditService', () => {
       expect(res.total).toBe(0);
     });
 
-    const req = httpMock.expectOne(`${baseUrl}?page=1&pageSize=20`);
+    const req = httpMock.expectOne(
+      (r) =>
+        r.url === baseUrl &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '20',
+    );
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
   });
@@ -53,7 +50,12 @@ describe('AuditService', () => {
   it('should list audit events with custom pagination', () => {
     service.list({}, 2, 50).subscribe();
 
-    const req = httpMock.expectOne(`${baseUrl}?page=2&pageSize=50`);
+    const req = httpMock.expectOne(
+      (r) =>
+        r.url === baseUrl &&
+        r.params.get('page') === '2' &&
+        r.params.get('pageSize') === '50',
+    );
     expect(req.request.method).toBe('GET');
     req.flush({ data: [], total: 0, page: 2, pageSize: 50 });
   });
@@ -67,7 +69,12 @@ describe('AuditService', () => {
     service.list(filters).subscribe();
 
     const req = httpMock.expectOne(
-      `${baseUrl}?page=1&pageSize=20&startDate=2025-01-01&endDate=2025-01-31`,
+      (r) =>
+        r.url === baseUrl &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '20' &&
+        r.params.get('startDate') === '2025-01-01' &&
+        r.params.get('endDate') === '2025-01-31',
     );
     expect(req.request.method).toBe('GET');
     req.flush({ data: [], total: 0, page: 1, pageSize: 20 });
@@ -79,7 +86,11 @@ describe('AuditService', () => {
     service.list(filters).subscribe();
 
     const req = httpMock.expectOne(
-      `${baseUrl}?page=1&pageSize=20&action=user.created`,
+      (r) =>
+        r.url === baseUrl &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '20' &&
+        r.params.get('action') === 'user.created',
     );
     expect(req.request.method).toBe('GET');
     req.flush({ data: [], total: 0, page: 1, pageSize: 20 });
@@ -91,7 +102,11 @@ describe('AuditService', () => {
     service.list(filters).subscribe();
 
     const req = httpMock.expectOne(
-      `${baseUrl}?page=1&pageSize=20&resourceType=user`,
+      (r) =>
+        r.url === baseUrl &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '20' &&
+        r.params.get('resourceType') === 'user',
     );
     expect(req.request.method).toBe('GET');
     req.flush({ data: [], total: 0, page: 1, pageSize: 20 });
@@ -107,7 +122,13 @@ describe('AuditService', () => {
     service.list(filters, 1, 10).subscribe();
 
     const req = httpMock.expectOne(
-      `${baseUrl}?page=1&pageSize=10&startDate=2025-03-01&action=user.login&actorId=actor-1`,
+      (r) =>
+        r.url === baseUrl &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '10' &&
+        r.params.get('startDate') === '2025-03-01' &&
+        r.params.get('action') === 'user.login' &&
+        r.params.get('actorId') === 'actor-1',
     );
     expect(req.request.method).toBe('GET');
     req.flush({ data: [], total: 0, page: 1, pageSize: 10 });

@@ -137,7 +137,7 @@ func Load() (*Config, error) {
 	// WebAuthn defaults
 	v.SetDefault("webauthn.rp_id", "localhost")
 	v.SetDefault("webauthn.rp_display_name", "WaveConnect SSO")
-	v.SetDefault("webauthn.rp_origin", "http://localhost:4200")
+	v.SetDefault("webauthn.rp_origin", "http://localhost:4300")
 
 	_ = v.ReadInConfig() // Not fatal if config file is missing; env vars suffice
 

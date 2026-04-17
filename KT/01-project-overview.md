@@ -45,7 +45,7 @@ WaveConnect SSO is a **production-grade, multi-tenant Single Sign-On (SSO) platf
           +--------------+--------------+
           |              |              |
     Login Portal   Admin Console  Developer Portal
-    (Angular:4200) (Angular:4300) (Angular:4400)
+    (Angular:4300) (Angular:4301) (Angular:4302)
           |              |              |
           +--------------+--------------+
                          |
@@ -73,9 +73,9 @@ WaveConnect SSO is a **production-grade, multi-tenant Single Sign-On (SSO) platf
 ```
 sso.wave-connect/
 |-- apps/
-|   |-- login-portal/          # Angular - User-facing login/register (:4200)
-|   |-- admin-console/         # Angular - Tenant admin dashboard (:4300)
-|   |-- developer-portal/      # Angular - Developer tools & API keys (:4400)
+|   |-- login-portal/          # Angular - User-facing login/register (:4300)
+|   |-- admin-console/         # Angular - Tenant admin dashboard (:4301)
+|   |-- developer-portal/      # Angular - Developer tools & API keys (:4302)
 |   |-- identity-service/      # Go/Fiber - Auth, user CRUD, PASETO (:3000)
 |   |-- sso-service/           # Go/Fiber - OAuth2 flows, SSO (:8083)
 |   |-- authz-service/         # Go/Fiber - OpenFGA, permissions (:8082 + gRPC:50051)
@@ -99,18 +99,18 @@ sso.wave-connect/
 
 ## The Three Angular Apps
 
-### 1. Login Portal (:4200)
+### 1. Login Portal (:4300)
 - **Audience**: End users
 - **Features**: Login, Register, MFA enrollment, Password reset, WebAuthn
 - **Auth**: Direct interaction with identity-service and sso-service
 
-### 2. Admin Console (:4300)
+### 2. Admin Console (:4301)
 - **Audience**: Tenant administrators
 - **Features**: Dashboard, User management, Groups, Security policies, Webhooks, Audit log, SCIM config
 - **Auth**: OAuth2 PKCE via sso-service, talks to admin-api (:3100)
 - **7 pages**: Dashboard, Users, Groups, Policies, Webhooks, Audit Log, SCIM
 
-### 3. Developer Portal (:4400)
+### 3. Developer Portal (:4302)
 - **Audience**: Developers integrating with WaveConnect
 - **Features**: API key management, OAuth app registration, SDK docs, SCIM tokens
 - **Auth**: OAuth2 PKCE via sso-service, talks to developer-portal-api (:3500)
@@ -177,9 +177,9 @@ Every API request is scoped to a tenant:
 | 3300 | webhook-service | NestJS |
 | 3400 | audit-service | NestJS |
 | 3500 | developer-portal-api | NestJS |
-| 4200 | login-portal | Angular |
-| 4300 | admin-console | Angular |
-| 4400 | developer-portal | Angular |
+| 4300 | login-portal | Angular |
+| 4301 | admin-console | Angular |
+| 4302 | developer-portal | Angular |
 | 5433 | PostgreSQL | Docker |
 | 6379 | Redis | Docker |
 | 4222 | NATS | Docker |

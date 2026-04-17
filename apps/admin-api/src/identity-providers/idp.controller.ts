@@ -19,6 +19,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { TenantId } from '@sso-platform/nestjs-auth';
 import { IdpService } from './idp.service';
 import { CreateSamlIdpDto, CreateOidcIdpDto } from './dto/create-idp.dto';
 import { UpdateIdpDto } from './dto/update-idp.dto';
@@ -26,7 +27,7 @@ import { IdpResponseDto, PaginatedIdpsResponseDto } from './dto/idp-response.dto
 
 @ApiTags('identity-providers')
 @ApiBearerAuth()
-@Controller('api/v1/tenants/:tenantId/identity-providers')
+@Controller('api/v1/identity-providers')
 export class IdpController {
   constructor(private readonly idpService: IdpService) {}
 
@@ -34,7 +35,7 @@ export class IdpController {
   @ApiOperation({ summary: 'Create a SAML identity provider' })
   @ApiCreatedResponse({ type: IdpResponseDto })
   createSaml(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Body() dto: CreateSamlIdpDto,
   ) {
     return this.idpService.createSaml(tenantId, dto);
@@ -44,7 +45,7 @@ export class IdpController {
   @ApiOperation({ summary: 'Create an OIDC identity provider' })
   @ApiCreatedResponse({ type: IdpResponseDto })
   createOidc(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Body() dto: CreateOidcIdpDto,
   ) {
     return this.idpService.createOidc(tenantId, dto);
@@ -56,7 +57,7 @@ export class IdpController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   findAll(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
@@ -72,7 +73,7 @@ export class IdpController {
   @ApiOkResponse({ type: IdpResponseDto })
   @ApiNotFoundResponse({ description: 'IdP not found' })
   findOne(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.idpService.findOne(tenantId, id);
@@ -84,7 +85,7 @@ export class IdpController {
   @ApiNotFoundResponse({ description: 'IdP not found' })
   @ApiConflictResponse({ description: 'Version conflict' })
   update(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateIdpDto,
   ) {
@@ -96,7 +97,7 @@ export class IdpController {
   @ApiOkResponse({ type: IdpResponseDto })
   @ApiNotFoundResponse({ description: 'IdP not found' })
   remove(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.idpService.remove(tenantId, id);

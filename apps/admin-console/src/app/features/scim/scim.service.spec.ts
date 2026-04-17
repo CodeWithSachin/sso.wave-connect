@@ -10,16 +10,10 @@ describe('ScimService', () => {
   let service: ScimService;
   let httpMock: HttpTestingController;
 
-  const directoryServiceUrl = 'http://localhost:3200';
-  const baseUrl = `${directoryServiceUrl}/api/v1/scim-tokens`;
+  const devPortalApiUrl = 'http://localhost:3500';
+  const baseUrl = `${devPortalApiUrl}/api/v1/scim-tokens`;
 
   beforeEach(() => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
-      if (key === 'tenantId') return 'test-tenant-id';
-      if (key === 'accessToken') return 'mock-token';
-      return null;
-    });
-
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), ScimService],
     });
@@ -29,7 +23,6 @@ describe('ScimService', () => {
 
   afterEach(() => {
     httpMock.verify();
-    vi.restoreAllMocks();
   });
 
   it('should be created', () => {

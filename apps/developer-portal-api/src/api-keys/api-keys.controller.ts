@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CurrentUser, TenantId, type AuthSession } from '@sso-platform/nestjs-auth';
 import { ApiKeysService } from './api-keys.service';
 
 @ApiTags('API Keys')
@@ -23,6 +24,8 @@ export class ApiKeysController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new API key (full key shown only once)' })
   async create(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: AuthSession,
     @Body()
     body: {
       name: string;
@@ -31,13 +34,9 @@ export class ApiKeysController {
       expires_at?: string;
     },
   ) {
-    // TODO: Extract tenantId and userId from PASETO token via guard
-    const tenantId = '01473191-863b-4035-ac65-05782ca6159b'; // Placeholder
-    const userId = '00000000-0000-0000-0000-000000000001';
-
     return this.apiKeysService.create(
       tenantId,
-      userId,
+      user.id,
       body.name,
       body.scopes,
       body.rate_limit_per_min,
@@ -48,10 +47,10 @@ export class ApiKeysController {
   @Get()
   @ApiOperation({ summary: 'List API keys for the current tenant' })
   async list(
+    @TenantId() tenantId: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
   ) {
-    const tenantId = '01473191-863b-4035-ac65-05782ca6159b';
     return this.apiKeysService.list(
       tenantId,
       parseInt(page, 10),
@@ -61,26 +60,30 @@ export class ApiKeysController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get API key details (key hash never exposed)' })
-  async getById(@Param('id', ParseUUIDPipe) id: string) {
-    const tenantId = '01473191-863b-4035-ac65-05782ca6159b';
+  async getById(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.apiKeysService.getById(tenantId, id);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke an API key' })
-  async revoke(@Param('id', ParseUUIDPipe) id: string) {
-    const tenantId = '01473191-863b-4035-ac65-05782ca6159b';
+  async revoke(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.apiKeysService.revoke(tenantId, id);
   }
 
   @Get(':id/usage')
   @ApiOperation({ summary: 'Get usage metrics for an API key' })
   async getUsage(
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('days') days = '30',
   ) {
-    const tenantId = '01473191-863b-4035-ac65-05782ca6159b';
     return this.apiKeysService.getUsage(tenantId, id, parseInt(days, 10));
   }
 }

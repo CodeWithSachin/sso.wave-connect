@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { randomUUID, createHash } from 'crypto';
+import { TenantId } from '@sso-platform/nestjs-auth';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { CryptoService } from '../services/crypto.service';
 
@@ -29,7 +30,7 @@ interface WebhookEndpointRow {
 }
 
 @ApiTags('Webhook Endpoints')
-@Controller('api/v1/tenants/:tenantId/webhooks')
+@Controller('api/v1/webhooks')
 export class EndpointsController {
   constructor(
     private readonly prisma: PrismaService,
@@ -38,7 +39,7 @@ export class EndpointsController {
 
   @Get()
   async list(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
   ) {
@@ -69,7 +70,7 @@ export class EndpointsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Body() body: { url: string; description?: string; subscribedEvents: string[] },
   ) {
     const id = randomUUID();
@@ -99,7 +100,7 @@ export class EndpointsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
-    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @TenantId() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.prisma.$executeRaw`

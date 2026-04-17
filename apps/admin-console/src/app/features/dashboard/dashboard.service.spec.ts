@@ -12,15 +12,8 @@ describe('DashboardService', () => {
 
   const adminApiUrl = 'http://localhost:3100';
   const auditServiceUrl = 'http://localhost:3400';
-  const tenantId = 'test-tenant-id';
 
   beforeEach(() => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
-      if (key === 'tenantId') return tenantId;
-      if (key === 'accessToken') return 'mock-token';
-      return null;
-    });
-
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), DashboardService],
     });
@@ -30,7 +23,6 @@ describe('DashboardService', () => {
 
   afterEach(() => {
     httpMock.verify();
-    vi.restoreAllMocks();
   });
 
   it('should be created', () => {
@@ -46,7 +38,7 @@ describe('DashboardService', () => {
     });
 
     const req = httpMock.expectOne(
-      `${adminApiUrl}/api/v1/tenants/${tenantId}/users?page=1&pageSize=1`,
+      `${adminApiUrl}/api/v1/users?page=1&pageSize=1`,
     );
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
@@ -56,7 +48,7 @@ describe('DashboardService', () => {
     service.getUsers(5).subscribe();
 
     const req = httpMock.expectOne(
-      `${adminApiUrl}/api/v1/tenants/${tenantId}/users?page=1&pageSize=5`,
+      `${adminApiUrl}/api/v1/users?page=1&pageSize=5`,
     );
     expect(req.request.method).toBe('GET');
     req.flush({ data: [], total: 0 });
@@ -70,7 +62,7 @@ describe('DashboardService', () => {
     });
 
     const req = httpMock.expectOne(
-      `${adminApiUrl}/api/v1/tenants/${tenantId}/memberships?page=1&pageSize=1`,
+      `${adminApiUrl}/api/v1/memberships?page=1&pageSize=1`,
     );
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
@@ -84,7 +76,10 @@ describe('DashboardService', () => {
     });
 
     const req = httpMock.expectOne(
-      `${auditServiceUrl}/api/v1/tenants/${tenantId}/audit-logs?page=1&pageSize=10`,
+      (r) =>
+        r.url === `${auditServiceUrl}/api/v1/audit-logs` &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '10',
     );
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
@@ -94,7 +89,10 @@ describe('DashboardService', () => {
     service.getRecentAuditEvents(25).subscribe();
 
     const req = httpMock.expectOne(
-      `${auditServiceUrl}/api/v1/tenants/${tenantId}/audit-logs?page=1&pageSize=25`,
+      (r) =>
+        r.url === `${auditServiceUrl}/api/v1/audit-logs` &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '25',
     );
     expect(req.request.method).toBe('GET');
     req.flush({ data: [], total: 0 });

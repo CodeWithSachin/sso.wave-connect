@@ -11,16 +11,9 @@ describe('PoliciesService', () => {
   let httpMock: HttpTestingController;
 
   const adminApiUrl = 'http://localhost:3100';
-  const tenantId = 'test-tenant-id';
-  const policyUrl = `${adminApiUrl}/api/v1/tenants/${tenantId}/settings/policies`;
+  const policyUrl = `${adminApiUrl}/api/v1/settings/policies`;
 
   beforeEach(() => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
-      if (key === 'tenantId') return tenantId;
-      if (key === 'accessToken') return 'mock-token';
-      return null;
-    });
-
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), PoliciesService],
     });
@@ -30,7 +23,6 @@ describe('PoliciesService', () => {
 
   afterEach(() => {
     httpMock.verify();
-    vi.restoreAllMocks();
   });
 
   it('should be created', () => {
@@ -40,7 +32,7 @@ describe('PoliciesService', () => {
   it('should get the tenant policy', () => {
     const mockPolicy: Partial<TenantPolicy> = {
       id: 'p1',
-      tenantId,
+      tenantId: 'test-tenant-id',
       passwordMinLength: 8,
       passwordRequireUpper: true,
       passwordRequireLower: true,
