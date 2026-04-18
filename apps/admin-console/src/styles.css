@@ -1,89 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @source "./**/*.ts";
 @source "./**/*.html";
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * SnowUI design tokens
+ * Source: SnowUI Library by ByeWind (snowui.byewind.com)
+ * Mapped onto the existing Tailwind v4 CSS variables so every utility
+ * class in the app picks up the new palette without markup changes.
+ */
 :root {
-  --background: #f3f4f6;
-  --foreground: rgb(15, 20, 25);
-  --card: rgb(255, 255, 255);
-  --card-foreground: rgb(15, 20, 25);
-  --popover: rgb(255, 255, 255);
-  --popover-foreground: rgb(15, 20, 25);
-  --primary: rgb(30, 157, 241);
-  --primary-foreground: rgb(255, 255, 255);
-  --secondary: rgb(15, 20, 25);
-  --secondary-foreground: rgb(255, 255, 255);
-  --muted: rgb(229, 229, 230);
-  --muted-foreground: rgb(100, 116, 139);
-  --accent: rgb(227, 236, 246);
-  --accent-foreground: rgb(30, 157, 241);
-  --destructive: rgb(244, 33, 46);
-  --destructive-foreground: rgb(255, 255, 255);
-  --success: rgb(16, 185, 129);
-  --success-foreground: rgb(255, 255, 255);
-  --warning: rgb(245, 158, 11);
-  --warning-foreground: rgb(255, 255, 255);
-  --border: rgb(229, 231, 235);
-  --input: rgb(249, 250, 251);
-  --ring: rgb(29, 161, 242);
-  --chart-1: rgb(30, 157, 241);
-  --chart-2: rgb(16, 185, 129);
-  --chart-3: rgb(245, 158, 11);
-  --chart-4: rgb(139, 92, 246);
-  --chart-5: rgb(236, 72, 153);
-  --sidebar: rgb(255, 255, 255);
-  --sidebar-foreground: rgb(15, 20, 25);
-  --sidebar-primary: rgb(30, 157, 241);
-  --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(243, 244, 246);
-  --sidebar-accent-foreground: rgb(30, 157, 241);
-  --sidebar-border: rgb(243, 244, 246);
-  --sidebar-ring: rgb(29, 161, 242);
-  --sidebar-muted: rgb(100, 116, 139);
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
-  --radius: 0.75rem;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  /* SnowUI raw tokens */
+  --sui-ink: rgb(28, 28, 28);
+  --sui-ink-80: rgba(28, 28, 28, 0.8);
+  --sui-ink-60: rgba(28, 28, 28, 0.6);
+  --sui-ink-40: rgba(28, 28, 28, 0.4);
+  --sui-ink-10: rgba(28, 28, 28, 0.1);
+  --sui-paper: rgb(255, 255, 255);
+  --sui-paper-alt: rgb(247, 249, 251);
+  --sui-paper-ice: rgb(229, 236, 246);
+  --sui-void: rgb(26, 27, 29);
+  --sui-lilac: rgb(198, 199, 248);
+  --sui-periwinkle: rgb(149, 164, 252);
+  --sui-indigo: rgb(93, 109, 192);
+  --sui-violet: rgb(151, 71, 255);
+  --sui-danger: rgb(255, 79, 79);
+  --sui-success: rgb(0, 185, 0);
+  --sui-info: rgb(38, 132, 255);
+  --sui-warning: rgb(226, 185, 134);
+
+  /* Tailwind tokens — remapped to SnowUI */
+  --background: var(--sui-paper-alt);
+  --foreground: var(--sui-ink);
+  --card: var(--sui-paper);
+  --card-foreground: var(--sui-ink);
+  --popover: var(--sui-paper);
+  --popover-foreground: var(--sui-ink);
+  --primary: var(--sui-ink);
+  --primary-foreground: var(--sui-paper-ice);
+  --secondary: var(--sui-periwinkle);
+  --secondary-foreground: var(--sui-ink);
+  --muted: var(--sui-paper-alt);
+  --muted-foreground: var(--sui-ink-60);
+  --accent: var(--sui-lilac);
+  --accent-foreground: var(--sui-ink);
+  --destructive: var(--sui-danger);
+  --destructive-foreground: #fff;
+  --success: var(--sui-success);
+  --success-foreground: #fff;
+  --warning: var(--sui-warning);
+  --warning-foreground: var(--sui-ink);
+  --border: var(--sui-ink-10);
+  --input: var(--sui-paper);
+  --ring: var(--sui-periwinkle);
+  --chart-1: var(--sui-periwinkle);
+  --chart-2: var(--sui-success);
+  --chart-3: var(--sui-warning);
+  --chart-4: var(--sui-violet);
+  --chart-5: var(--sui-info);
+  --sidebar: var(--sui-ink);
+  --sidebar-foreground: var(--sui-paper-ice);
+  --sidebar-primary: var(--sui-lilac);
+  --sidebar-primary-foreground: var(--sui-ink);
+  --sidebar-accent: rgba(198, 199, 248, 0.15);
+  --sidebar-accent-foreground: var(--sui-lilac);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: var(--sui-periwinkle);
+  --sidebar-muted: rgba(229, 236, 246, 0.5);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Manrope", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius: 1rem; /* SnowUI button radius = 16 */
+  --shadow-sm: 0 1px 2px rgba(28, 28, 28, 0.04);
+  --shadow: 0 4px 12px rgba(28, 28, 28, 0.06);
+  --shadow-md: 0 8px 20px rgba(28, 28, 28, 0.07);
+  --shadow-lg: 0 12px 32px rgba(28, 28, 28, 0.08);
 }
 
 .dark {
-  --background: rgb(17, 24, 39);
-  --foreground: rgb(243, 244, 246);
-  --card: rgb(31, 41, 55);
-  --card-foreground: rgb(243, 244, 246);
-  --popover: rgb(31, 41, 55);
-  --popover-foreground: rgb(243, 244, 246);
-  --primary: rgb(59, 130, 246);
-  --primary-foreground: rgb(255, 255, 255);
-  --secondary: rgb(243, 244, 246);
-  --secondary-foreground: rgb(17, 24, 39);
-  --muted: rgb(55, 65, 81);
-  --muted-foreground: rgb(156, 163, 175);
-  --accent: rgb(30, 58, 138);
-  --accent-foreground: rgb(147, 197, 253);
-  --destructive: rgb(239, 68, 68);
-  --destructive-foreground: rgb(255, 255, 255);
-  --success: rgb(34, 197, 94);
-  --success-foreground: rgb(255, 255, 255);
-  --warning: rgb(234, 179, 8);
-  --warning-foreground: rgb(17, 24, 39);
-  --border: rgb(55, 65, 81);
-  --input: rgb(55, 65, 81);
-  --ring: rgb(59, 130, 246);
-  --sidebar: rgb(17, 24, 39);
-  --sidebar-foreground: rgb(243, 244, 246);
-  --sidebar-primary: rgb(59, 130, 246);
-  --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(31, 41, 55);
-  --sidebar-accent-foreground: rgb(147, 197, 253);
-  --sidebar-border: rgb(55, 65, 81);
-  --sidebar-ring: rgb(59, 130, 246);
-  --sidebar-muted: rgb(156, 163, 175);
+  /* On-dark tokens use the SnowUI void/ice ramp. */
+  --background: var(--sui-void);
+  --foreground: var(--sui-paper-ice);
+  --card: rgb(34, 35, 38);
+  --card-foreground: var(--sui-paper-ice);
+  --popover: rgb(34, 35, 38);
+  --popover-foreground: var(--sui-paper-ice);
+  --primary: var(--sui-lilac);
+  --primary-foreground: var(--sui-ink);
+  --secondary: var(--sui-periwinkle);
+  --secondary-foreground: var(--sui-ink);
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: rgba(229, 236, 246, 0.6);
+  --accent: rgba(198, 199, 248, 0.18);
+  --accent-foreground: var(--sui-lilac);
+  --destructive: var(--sui-danger);
+  --destructive-foreground: #fff;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.04);
+  --ring: var(--sui-periwinkle);
+  --sidebar: var(--sui-void);
+  --sidebar-foreground: var(--sui-paper-ice);
+  --sidebar-primary: var(--sui-lilac);
+  --sidebar-primary-foreground: var(--sui-ink);
+  --sidebar-accent: rgba(198, 199, 248, 0.15);
+  --sidebar-accent-foreground: var(--sui-lilac);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: var(--sui-periwinkle);
+  --sidebar-muted: rgba(229, 236, 246, 0.5);
 }
 
 @theme inline {
@@ -140,6 +164,7 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
 }
 
 *,
@@ -150,4 +175,29 @@ body {
 
 *:focus-visible {
   outline-color: var(--ring);
+}
+
+/* SnowUI aurora gradient — used for hero / featured callouts */
+.sui-aurora {
+  background:
+    linear-gradient(rgb(11, 15, 36) 0%, rgba(28, 28, 28, 0) 100%),
+    conic-gradient(
+      rgb(128, 84, 255) 0%,
+      rgb(11, 62, 244) 30%,
+      rgb(208, 89, 238) 71%,
+      rgb(222, 229, 255) 83%,
+      rgb(141, 166, 255) 95%
+    );
+  color: #fff;
+}
+
+/* SnowUI link styling — action links in periwinkle w/ arrow glyph */
+.sui-link {
+  color: var(--sui-periwinkle);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 160ms ease-out;
+}
+.sui-link:hover {
+  color: var(--sui-indigo);
 }
