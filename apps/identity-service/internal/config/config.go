@@ -19,6 +19,42 @@ type Config struct {
 	Cookie            CookieConfig
 	WebhookServiceURL string `mapstructure:"webhook_service_url"`
 	NATS              NATSConfig
+	Email             EmailConfig
+	DNS               DNSConfig
+	Authz             AuthzConfig
+}
+
+// AuthzConfig wires identity-service to authz-service over gRPC so Phase 4
+// admin endpoints can enforce ReBAC checks (OpenFGA-backed). Empty URL disables
+// the client; middleware that requires it will fail closed with 503.
+//
+// Insecure=true is the dev/localhost path. In prod, set Insecure=false and
+// deploy with a service-mesh mTLS sidecar, or wire cert material through
+// TLSCreds — leaving Insecure=true will log a Warn at boot so it's visible.
+type AuthzConfig struct {
+	GRPCURL  string `mapstructure:"grpc_url"`
+	Insecure bool   `mapstructure:"insecure"`
+}
+
+// EmailConfig controls transactional-email delivery. Provider is env-keyed via
+// EMAIL_PROVIDER (console | ses); anything else fails at boot.
+// See `internal/email/email.go`.
+type EmailConfig struct {
+	Provider          string `mapstructure:"provider"`            // "console" | "ses"
+	SenderAddress     string `mapstructure:"sender_address"`      // default From
+	VerifyLinkBaseURL string `mapstructure:"verify_link_base_url"` // e.g. http://localhost:4300
+	// Phase 1 verify-email token lifetime; 24h matches the plan default.
+	VerifyTokenTTL time.Duration `mapstructure:"verify_token_ttl"`
+}
+
+// DNSConfig controls the DNS resolver used by the tenant-domain verification
+// worker. When ResolverAddress is empty, /etc/resolv.conf is used. Set to a
+// specific "host:port" (e.g. "10.96.0.10:53") to force all lookups through
+// a known resolver — matters in containerized deploys where the default DNS
+// can't resolve public zones. Phase 2 review fix #9.
+type DNSConfig struct {
+	ResolverAddress string        `mapstructure:"resolver_address"`
+	LookupTimeout   time.Duration `mapstructure:"lookup_timeout"`
 }
 
 type NATSConfig struct {
@@ -139,6 +175,32 @@ func Load() (*Config, error) {
 	v.SetDefault("webauthn.rp_display_name", "WaveConnect SSO")
 	v.SetDefault("webauthn.rp_origin", "http://localhost:4300")
 
+	// Email defaults: console provider sends nothing over the wire (dev/test).
+	v.SetDefault("email.provider", "console")
+	v.SetDefault("email.sender_address", "noreply@wave-connect.local")
+	v.SetDefault("email.verify_link_base_url", "http://localhost:4300")
+	v.SetDefault("email.verify_token_ttl", 24*time.Hour)
+	// Bind env var overrides — EMAIL_PROVIDER, EMAIL_SENDER_ADDRESS, etc.
+	_ = v.BindEnv("email.provider", "EMAIL_PROVIDER")
+	_ = v.BindEnv("email.sender_address", "EMAIL_SENDER_ADDRESS")
+	_ = v.BindEnv("email.verify_link_base_url", "EMAIL_VERIFY_LINK_BASE_URL")
+	_ = v.BindEnv("email.verify_token_ttl", "EMAIL_VERIFY_TOKEN_TTL")
+
+	// DNS defaults: empty resolver_address means use /etc/resolv.conf.
+	v.SetDefault("dns.resolver_address", "")
+	v.SetDefault("dns.lookup_timeout", 3*time.Second)
+	_ = v.BindEnv("dns.resolver_address", "DNS_RESOLVER_ADDRESS")
+	_ = v.BindEnv("dns.lookup_timeout", "DNS_LOOKUP_TIMEOUT")
+
+	// Authz service gRPC. Dev default points at authz-service on localhost.
+	// Empty string disables the client; routes that need ReBAC will fail closed.
+	// Insecure=true is the dev default; flip to false and supply TLS creds
+	// (via service-mesh sidecar or explicit cert config) for prod.
+	v.SetDefault("authz.grpc_url", "localhost:50051")
+	v.SetDefault("authz.insecure", true)
+	_ = v.BindEnv("authz.grpc_url", "AUTHZ_GRPC_URL")
+	_ = v.BindEnv("authz.insecure", "AUTHZ_INSECURE")
+
 	_ = v.ReadInConfig() // Not fatal if config file is missing; env vars suffice
 
 	cfg := &Config{}
@@ -166,6 +228,15 @@ func Load() (*Config, error) {
 
 	if err := v.UnmarshalKey("nats", &cfg.NATS); err != nil {
 		return nil, fmt.Errorf("unmarshal nats config: %w", err)
+	}
+	if err := v.UnmarshalKey("email", &cfg.Email); err != nil {
+		return nil, fmt.Errorf("unmarshal email config: %w", err)
+	}
+	if err := v.UnmarshalKey("dns", &cfg.DNS); err != nil {
+		return nil, fmt.Errorf("unmarshal dns config: %w", err)
+	}
+	if err := v.UnmarshalKey("authz", &cfg.Authz); err != nil {
+		return nil, fmt.Errorf("unmarshal authz config: %w", err)
 	}
 
 	cfg.WebhookServiceURL = v.GetString("webhook_service_url")

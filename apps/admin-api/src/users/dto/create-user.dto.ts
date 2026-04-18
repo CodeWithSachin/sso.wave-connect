@@ -9,11 +9,14 @@ import {
   MinLength,
 } from 'class-validator';
 
+// Mirrors the Postgres `user_status` enum and the Prisma `UserStatus` enum.
+// Keep the three in sync — `libs/shared-types/src/lib/enums.ts` is the Angular-side
+// mirror.
 export enum UserStatus {
   active = 'active',
-  inactive = 'inactive',
   suspended = 'suspended',
-  pending = 'pending',
+  deactivated = 'deactivated',
+  pending_verification = 'pending_verification',
 }
 
 export class CreateUserDto {
@@ -60,7 +63,7 @@ export class CreateUserDto {
   @IsString()
   timezone?: string;
 
-  @ApiPropertyOptional({ enum: UserStatus, default: UserStatus.pending })
+  @ApiPropertyOptional({ enum: UserStatus, default: UserStatus.pending_verification })
   @IsOptional()
   @IsEnum(UserStatus)
   status?: UserStatus;

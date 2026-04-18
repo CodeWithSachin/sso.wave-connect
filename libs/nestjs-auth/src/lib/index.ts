@@ -7,6 +7,12 @@ export {
   type SessionDbClient,
   type AuthSession,
 } from './session-cookie.guard.js';
+export {
+  PlatformAdminGuard,
+  AllowPlatformRole,
+  PLATFORM_ROLE_KEY,
+  type PlatformAdminRole,
+} from './platform-admin.guard.js';
 
 // Decorators
 export { CurrentUser } from './decorators/current-user.decorator.js';

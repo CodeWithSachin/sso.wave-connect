@@ -109,3 +109,22 @@ func (r *SessionRepository) Revoke(ctx context.Context, id uuid.UUID, reason str
 	}
 	return nil
 }
+
+// RevokeAllByUserTx bulk-revokes every active session for a user inside the
+// caller's transaction. Used by the Phase 4 accept/force-move flow: after
+// moving a user's membership from personal → org, their existing cookie ties
+// them to the stale tenant context and must be killed so the next request
+// re-authenticates into the org tenant.
+//
+// Returns the number of sessions revoked — handlers use this for audit log
+// detail ("revoked N sessions during migration").
+func (r *SessionRepository) RevokeAllByUserTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, reason string) (int, error) {
+	const q = `UPDATE sessions
+		SET status = 'revoked', revoked_at = NOW(), revoke_reason = $2
+		WHERE user_id = $1 AND status = 'active'`
+	tag, err := tx.Exec(ctx, q, userID, reason)
+	if err != nil {
+		return 0, fmt.Errorf("revoke all sessions: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
