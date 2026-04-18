@@ -134,10 +134,21 @@ func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 		})
 	}
 
-	tenantIDStr, _ := c.Locals("tenantID").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
+	// Phase 5 followup: pin the tenant at first /authorize touch. The query
+	// may already carry `tenant_id` — that happens when the user comes back
+	// from consent. In that case we trust the form-supplied value, not the
+	// session's current active tenant. This closes the race where the user
+	// switches their active tenant between the initial /authorize redirect
+	// (to consent) and the eventual authorization-code issuance: without
+	// this, the code would be minted for the new active tenant, leaking
+	// old-tenant data to the OAuth client.
+	//
+	// On first touch (no tenant_id in the query), we anchor at the session's
+	// current active tenant — same as pre-Phase-5 behavior — then carry
+	// that value forward through consent.
+	tenantID, err := resolveFlowTenant(c, client)
 	if err != nil {
-		tenantID = client.TenantID
+		return redirectWithError(c, req.RedirectURI, req.State, "server_error", "tenant resolution failed")
 	}
 
 	// Check consent: skip for first-party clients
@@ -145,17 +156,7 @@ func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 		consent, err := h.consentRepo.GetConsent(c.Context(), tenantID, userID, client.ID)
 		if err != nil {
 			if errors.Is(err, repository.ErrConsentNotFound) {
-				// Redirect to consent page
-				consentURL := fmt.Sprintf("/oauth2/consent?client_id=%s&scope=%s&redirect_uri=%s&state=%s&code_challenge=%s&code_challenge_method=%s&nonce=%s",
-					url.QueryEscape(req.ClientID),
-					url.QueryEscape(req.Scope),
-					url.QueryEscape(req.RedirectURI),
-					url.QueryEscape(req.State),
-					url.QueryEscape(req.CodeChallenge),
-					url.QueryEscape(req.CodeChallengeMethod),
-					url.QueryEscape(req.Nonce),
-				)
-				return c.Redirect(consentURL, fiber.StatusFound)
+				return c.Redirect(buildConsentURL(req, tenantID), fiber.StatusFound)
 			}
 			h.log.Error().Err(err).Msg("failed to check consent")
 			return redirectWithError(c, req.RedirectURI, req.State, "server_error", "internal error")
@@ -163,16 +164,7 @@ func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 
 		// Check that all requested scopes are covered by the consent
 		if !scopesCovered(scopes, consent.GrantedScopes) {
-			consentURL := fmt.Sprintf("/oauth2/consent?client_id=%s&scope=%s&redirect_uri=%s&state=%s&code_challenge=%s&code_challenge_method=%s&nonce=%s",
-				url.QueryEscape(req.ClientID),
-				url.QueryEscape(req.Scope),
-				url.QueryEscape(req.RedirectURI),
-				url.QueryEscape(req.State),
-				url.QueryEscape(req.CodeChallenge),
-				url.QueryEscape(req.CodeChallengeMethod),
-				url.QueryEscape(req.Nonce),
-			)
-			return c.Redirect(consentURL, fiber.StatusFound)
+			return c.Redirect(buildConsentURL(req, tenantID), fiber.StatusFound)
 		}
 	}
 
@@ -480,6 +472,50 @@ func authenticateClient(client *model.OAuthClient, secret string) bool {
 		return false
 	}
 	return *client.ClientSecretHash == secret
+}
+
+// resolveFlowTenant picks the tenant to pin on an OAuth2 auth-code flow.
+//
+// Order of precedence:
+//  1. Query param `tenant_id` (present when the user comes back from consent;
+//     this is the value pinned at first /authorize touch).
+//  2. Session's active_tenant_id from c.Locals("tenantID").
+//  3. Client's own TenantID (fall-back; only hit when the session has no
+//     tenant context, e.g. an unauthenticated request that's about to
+//     redirect to login anyway).
+//
+// Returning a non-nil error reserved for future validation hooks (e.g.
+// rejecting a tenant the user doesn't belong to). Currently always returns
+// nil but the signature future-proofs the handler.
+func resolveFlowTenant(c *fiber.Ctx, client *model.OAuthClient) (uuid.UUID, error) {
+	if pinnedStr := c.Query("tenant_id"); pinnedStr != "" {
+		if pinned, err := uuid.Parse(pinnedStr); err == nil {
+			return pinned, nil
+		}
+	}
+	if sessionStr, ok := c.Locals("tenantID").(string); ok && sessionStr != "" {
+		if parsed, err := uuid.Parse(sessionStr); err == nil {
+			return parsed, nil
+		}
+	}
+	return client.TenantID, nil
+}
+
+// buildConsentURL constructs the /oauth2/consent redirect URL with the
+// pinned tenant_id preserved across the round-trip. The consent page
+// re-renders this value as a hidden form field so the POST /oauth2/consent
+// handler gets the same tenant that /authorize pinned.
+func buildConsentURL(req *model.AuthorizeRequest, tenantID uuid.UUID) string {
+	return fmt.Sprintf("/oauth2/consent?client_id=%s&scope=%s&redirect_uri=%s&state=%s&code_challenge=%s&code_challenge_method=%s&nonce=%s&tenant_id=%s",
+		url.QueryEscape(req.ClientID),
+		url.QueryEscape(req.Scope),
+		url.QueryEscape(req.RedirectURI),
+		url.QueryEscape(req.State),
+		url.QueryEscape(req.CodeChallenge),
+		url.QueryEscape(req.CodeChallengeMethod),
+		url.QueryEscape(req.Nonce),
+		url.QueryEscape(tenantID.String()),
+	)
 }
 
 func parseBasicAuth(header string) (user, pass string, ok bool) {

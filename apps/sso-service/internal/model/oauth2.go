@@ -96,6 +96,12 @@ type ConsentFormData struct {
 	RequestedScopes []string `json:"requested_scopes"`
 	RedirectURI     string   `json:"redirect_uri"`
 	State           string   `json:"state"`
+	// TenantID is the tenant the OAuth2 flow was pinned to at first
+	// /authorize touch (Phase 5). The consent UI must echo this back in
+	// the POST body so the code is minted for the same tenant, not the
+	// session's current active_tenant_id (which may have drifted if the
+	// user switched tenants mid-flow).
+	TenantID string `json:"tenant_id,omitempty"`
 }
 
 // ConsentDecision is submitted by POST /oauth2/consent.

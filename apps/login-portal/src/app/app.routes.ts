@@ -70,6 +70,15 @@ export const appRoutes: Routes = [
     loadComponent: () =>
       import('./migration/migration.component').then((m) => m.MigrationComponent),
   },
+  // Phase 5: multi-tenant session switcher picker. Post-login redirect when
+  // memberships > 1 and ad-hoc "switch workspace" entry.
+  {
+    path: 'select-tenant',
+    loadComponent: () =>
+      import('./select-tenant/select-tenant.component').then(
+        (m) => m.SelectTenantComponent,
+      ),
+  },
   // OAuth2 Consent
   {
     path: 'consent',

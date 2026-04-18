@@ -260,6 +260,14 @@ func main() {
 	domainsHandler := handler.NewDomainsHandler(domainVerifySvc, membershipRepo, validate, log)
 	discoverHandler := handler.NewDiscoverHandler(discoverSvc, validate, log)
 	migrationHandler := handler.NewMigrationHandler(migrationSvc, migrationRepo, pool, log)
+	// Phase 5: multi-tenant session switcher. Rotate deps (userRepo,
+	// familyRepo, tokenSvc, refreshTTL) optional — nil-safe.
+	activeTenantSvc := service.NewActiveTenantService(
+		membershipRepo, sessionRepo,
+		userRepo, familyRepo, tokenSvc, cfg.Token.RefreshTTL,
+		log,
+	)
+	activeTenantHandler := handler.NewActiveTenantHandler(activeTenantSvc, validate, log)
 
 	// --- Fiber App ---
 	app := fiber.New(fiber.Config{
@@ -304,6 +312,20 @@ func main() {
 	publicAuth.Get("/migration/:token", migrationHandler.Lookup)
 	publicAuth.Post("/migration/:token/accept", migrationHandler.Accept)
 	publicAuth.Post("/migration/:token/decline", migrationHandler.Decline)
+
+	// Cookie-auth middleware for all browser-facing endpoints (Phase 2
+	// domain mgmt, Phase 4 migrations admin, Phase 5 session switcher).
+	// Declared here and re-used below to avoid shadowing surprises from
+	// multiple short-var decls.
+	sessionAuth := middleware.SessionCookieAuth(sessionRepo)
+
+	// Phase 5: multi-tenant session switcher. Registered BEFORE the `/auth`
+	// group so TenantExtraction on `/auth/*` does not also cover these —
+	// switching tenants is the operation that changes the session's live
+	// tenant, so a tenant header requirement would be chicken-and-egg.
+	app.Get("/auth/session/memberships", sessionAuth, activeTenantHandler.ListMemberships)
+	app.Patch("/auth/session/active-tenant", sessionAuth, activeTenantHandler.SwitchActive)
+	app.Post("/auth/session/rotate", sessionAuth, activeTenantHandler.Rotate)
 
 	// --- Public Auth Routes (tenant required, policy enforced, rate-limited) ---
 	auth := app.Group("/auth", middleware.TenantExtraction(pool), middleware.TenantPolicyEnforcement(policySvc, log))
@@ -351,7 +373,6 @@ func main() {
 	// Browser-facing (sso_session cookie only). Registered directly on `app`
 	// with inline middleware — must NOT share the PASETO chain above.
 	// Verify endpoint additionally rate-limited per tenant (fix #3).
-	sessionAuth := middleware.SessionCookieAuth(sessionRepo)
 	verifyLimit := middleware.DomainVerifyRateLimit(rdb)
 	app.Get("/tenants/:tenantId/domains", sessionAuth, domainsHandler.List)
 	app.Post("/tenants/:tenantId/domains", sessionAuth, domainsHandler.Add)

@@ -100,6 +100,11 @@ assert "migrations list"           GET    /tenants/$TENANT/migrations           
 assert "migrations notify-force"   POST   /tenants/$TENANT/migrations/$MIGRATION_ID/notify-force       401
 assert "migrations force"          POST   /tenants/$TENANT/migrations/$MIGRATION_ID/force              401
 
+# Phase 5: multi-tenant session switcher. Cookie-authed; no cookie → 401.
+assert "session memberships"       GET    /auth/session/memberships       401
+assert "session active-tenant"     PATCH  /auth/session/active-tenant     401
+assert "session rotate"            POST   /auth/session/rotate            401
+
 echo ""
 if [ "$FAIL" -eq 0 ]; then
     echo "ALL PASS"

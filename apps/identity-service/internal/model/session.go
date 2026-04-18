@@ -11,9 +11,18 @@ import (
 )
 
 type Session struct {
-	ID             uuid.UUID  `json:"id"`
-	UserID         uuid.UUID  `json:"user_id"`
-	TenantID       uuid.UUID  `json:"tenant_id"`
+	ID uuid.UUID `json:"id"`
+	// UserID is who owns the session.
+	UserID uuid.UUID `json:"user_id"`
+	// TenantID is the anchor — the tenant this session was minted for at
+	// login. Never mutates; used for audit trails and forensic queries.
+	TenantID uuid.UUID `json:"tenant_id"`
+	// ActiveTenantID is the live tenant context — the tenant the session is
+	// currently acting on behalf of. Starts equal to TenantID; flipped by
+	// PATCH /auth/session/active-tenant when the user switches between orgs
+	// they belong to. All RLS-sensitive reads should scope on this, not on
+	// TenantID (Phase 5 switcher).
+	ActiveTenantID uuid.UUID  `json:"active_tenant_id"`
 	TokenHash      string     `json:"token_hash"`
 	RawToken       string     `json:"-"` // Transient: only set at creation time for SSO cookie
 	Status         string     `json:"status"`

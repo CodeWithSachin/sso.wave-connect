@@ -80,10 +80,34 @@ export const AuthStore = signalStore(
      * (e.g. sso-service sent user here during an OAuth2 flow for admin-console).
      * The sso_session cookie (set by identity-service) handles cross-app auth —
      * no tokens are passed in the URL.
+     *
+     * Phase 5: if the user holds >1 membership, divert to /select-tenant
+     * first so they can pick which workspace to land in. The picker then
+     * redirects onwards using the original return_to. Single-membership
+     * users skip the detour entirely. On memberships API failure we
+     * fall through to the old behavior — ReBAC / multi-tenant UX is
+     * best-effort; it should never block a successful login.
      */
-    function redirectAfterAuth(): void {
+    async function redirectAfterAuth(): Promise<void> {
       const params = new URLSearchParams(window.location.search);
-      const returnTo = params.get('return_to') || params.get('returnUrl');
+      const returnTo = params.get('return_to') || params.get('returnUrl') || '';
+
+      try {
+        const resp = await firstValueFrom(
+          http.get<{
+            memberships: Array<{ tenant_id: string }>;
+            active_tenant_id: string;
+          }>(`${baseUrl}/auth/session/memberships`, { withCredentials: true }),
+        );
+        if (resp.memberships.length > 1) {
+          const qp = returnTo ? `?return_to=${encodeURIComponent(returnTo)}` : '';
+          window.location.href = `/select-tenant${qp}`;
+          return;
+        }
+      } catch {
+        // Non-fatal; fall through to the legacy redirect.
+      }
+
       if (returnTo) {
         window.location.href = returnTo;
       } else {
@@ -124,7 +148,7 @@ export const AuthStore = signalStore(
             sessionStorage.setItem('idToken', authResp.id_token);
           }
           patchState(store, { currentUser: authResp.user, loading: false });
-          redirectAfterAuth();
+          await redirectAfterAuth();
         } catch (err: unknown) {
           const message =
             (err as { error?: { error?: string } })?.error?.error ||
@@ -156,7 +180,7 @@ export const AuthStore = signalStore(
             mfaChallengeToken: '',
             mfaAllowedMethods: [],
           });
-          redirectAfterAuth();
+          await redirectAfterAuth();
         } catch (err: unknown) {
           const message =
             (err as { error?: { error?: string } })?.error?.error ||
@@ -189,7 +213,7 @@ export const AuthStore = signalStore(
             mfaChallengeToken: '',
             mfaAllowedMethods: [],
           });
-          redirectAfterAuth();
+          await redirectAfterAuth();
         } catch (err: unknown) {
           const message =
             (err as { error?: { error?: string } })?.error?.error ||
@@ -388,6 +412,109 @@ export const AuthStore = signalStore(
             'Verification check failed. Try again in a minute.';
           patchState(store, { loading: false, error: message });
           return 'error';
+        }
+      },
+
+      /**
+       * Phase 5: list every tenant the current session holds a membership
+       * in. Powers the /select-tenant picker. Returns null on any failure
+       * (network / 401 / etc.) so callers can fall back to a single-tenant
+       * flow without surfacing opaque errors.
+       */
+      async getMemberships(): Promise<{
+        memberships: Array<{
+          tenant_id: string;
+          tenant_slug: string;
+          tenant_name: string;
+          tenant_kind: string;
+          role: string;
+          is_active: boolean;
+        }>;
+        active_tenant_id: string;
+      } | null> {
+        try {
+          return await firstValueFrom(
+            http.get<{
+              memberships: Array<{
+                tenant_id: string;
+                tenant_slug: string;
+                tenant_name: string;
+                tenant_kind: string;
+                role: string;
+                is_active: boolean;
+              }>;
+              active_tenant_id: string;
+            }>(`${baseUrl}/auth/session/memberships`, {
+              withCredentials: true,
+            }),
+          );
+        } catch {
+          return null;
+        }
+      },
+
+      /**
+       * Phase 5: switch the session's active tenant + rotate tokens.
+       *
+       * Two-step flow:
+       *  1. PATCH /auth/session/active-tenant — flips sessions.active_tenant_id.
+       *  2. POST /auth/session/rotate — revokes the prior family and mints
+       *     a fresh token set for the new tenant. Without step 2 the user
+       *     keeps a stale-tenant access token for up to 15 min (its TTL),
+       *     which can leak old-tenant data into UIs that don't check
+       *     session-vs-token staleness.
+       *
+       * Step 2 failing doesn't fail the whole flow — the user is still
+       * switched per sessions.active_tenant_id, just without immediate
+       * token rotation. The natural /oauth2/token call at the next refresh
+       * cycle will bring tokens in line.
+       *
+       * Returns the new active tenant_id on success, null on failure.
+       */
+      async switchActiveTenant(tenantId: string): Promise<string | null> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          const resp = await firstValueFrom(
+            http.patch<{ active_tenant_id: string }>(
+              `${baseUrl}/auth/session/active-tenant`,
+              { tenant_id: tenantId },
+              { withCredentials: true },
+            ),
+          );
+          sessionStorage.setItem('tenantId', resp.active_tenant_id);
+
+          // Best-effort token rotation. Soft-fail: a 5xx here shouldn't
+          // block the user from navigating; the stored tenantId is already
+          // updated and the next /oauth2/token call will rotate naturally.
+          try {
+            const rotated = await firstValueFrom(
+              http.post<{
+                access_token: string;
+                refresh_token: string;
+                id_token?: string;
+                expires_in: number;
+                token_type: string;
+              }>(`${baseUrl}/auth/session/rotate`, {}, { withCredentials: true }),
+            );
+            sessionStorage.setItem('accessToken', rotated.access_token);
+            sessionStorage.setItem('refreshToken', rotated.refresh_token);
+            if (rotated.id_token) {
+              sessionStorage.setItem('idToken', rotated.id_token);
+            }
+          } catch {
+            // Swallow — rotation is a staleness mitigation, not a
+            // correctness requirement. The backend already flipped
+            // active_tenant_id.
+          }
+
+          patchState(store, { loading: false });
+          return resp.active_tenant_id;
+        } catch (err: unknown) {
+          const message =
+            (err as { error?: { message?: string } })?.error?.message ||
+            'We couldn\'t switch tenants. Please try again.';
+          patchState(store, { loading: false, error: message });
+          return null;
         }
       },
 

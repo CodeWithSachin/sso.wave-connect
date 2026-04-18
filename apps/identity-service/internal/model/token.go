@@ -25,17 +25,22 @@ type TokenSet struct {
 }
 
 type RefreshTokenFamily struct {
-	FamilyID      string    `json:"family_id"`
-	UserID        uuid.UUID `json:"user_id"`
-	TenantID      uuid.UUID `json:"tenant_id"`
-	ClientID      uuid.UUID `json:"client_id"`
-	CurrentJTI    string    `json:"current_jti"`
-	Generation    int       `json:"generation"`
-	IsRevoked     bool      `json:"is_revoked"`
-	RevokedReason string    `json:"revoked_reason,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	LastRotatedAt time.Time `json:"last_rotated_at"`
-	ExpiresAt     time.Time `json:"expires_at"`
+	FamilyID string    `json:"family_id"`
+	UserID   uuid.UUID `json:"user_id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	ClientID uuid.UUID `json:"client_id"`
+	// SessionID (Phase 5, migration 000028) ties the family back to the
+	// session that minted it, so the rotate endpoint can revoke this
+	// session's family in isolation. nil for legacy families predating the
+	// column; behaves as before.
+	SessionID     *uuid.UUID `json:"session_id,omitempty"`
+	CurrentJTI    string     `json:"current_jti"`
+	Generation    int        `json:"generation"`
+	IsRevoked     bool       `json:"is_revoked"`
+	RevokedReason string     `json:"revoked_reason,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	LastRotatedAt time.Time  `json:"last_rotated_at"`
+	ExpiresAt     time.Time  `json:"expires_at"`
 }
 
 type TokenDenyEntry struct {
