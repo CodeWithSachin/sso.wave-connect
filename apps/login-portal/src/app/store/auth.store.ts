@@ -110,9 +110,17 @@ export const AuthStore = signalStore(
 
       if (returnTo) {
         window.location.href = returnTo;
-      } else {
-        router.navigateByUrl('/');
+        return;
       }
+      // No return_to in the URL — happens on direct /login visits, bookmarks,
+      // or old email links. Navigating to '/' here would bounce back to /login
+      // (per app.routes.ts: '' redirectTo 'login'), leaving a signed-in user
+      // staring at the sign-in form. Send them to the configured default app.
+      if (environment.defaultPostLoginUrl) {
+        window.location.href = environment.defaultPostLoginUrl;
+        return;
+      }
+      router.navigateByUrl('/');
     }
 
     return {

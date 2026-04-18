@@ -201,6 +201,16 @@ export class LayoutComponent {
       // swallow network/transport errors so we still drop local state.
     }
     sessionStorage.clear();
-    window.location.href = '/';
+    // Hard-navigate to the login portal. Going to '/' would hit the SSO
+    // auth guard, and if the sso_session cookie is still live (stale cache,
+    // different origin, slow revocation propagation) the guard would silently
+    // re-auth the user and bounce them straight back to the dashboard — which
+    // is what "logout is broken" looked like. The login portal has no guard
+    // and is the canonical signed-out surface.
+    //
+    // We pass ?return_to=<current URL> so that after a successful re-login
+    // the login portal sends the user back to where they were.
+    const returnTo = encodeURIComponent(`${window.location.origin}/dashboard`);
+    window.location.href = `${environment.loginPortalUrl}?return_to=${returnTo}`;
   }
 }
