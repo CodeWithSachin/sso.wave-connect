@@ -119,9 +119,19 @@ func (r *AuthzOutboxRepository) EnqueueTx(ctx context.Context, tx pgx.Tx, e Auth
 }
 
 // TenantStoreIDTx fetches the openfga_store_id for a tenant inside a tx.
-// Returns empty string (not an error) when the column is NULL — signup
-// flows run before the per-tenant store is provisioned and we want to
-// queue the tuple anyway so the reconciler can backfill.
+// Returns empty string (not an error) when the column is NULL.
+//
+// Current semantics (Phase 6 as of migration 000028): the authz-service
+// reconciler IGNORES this stored value and uses its config-level
+// `openfga.store_id` because we run one platform-wide store. The column
+// persists because admin-api still writes it (see
+// apps/admin-api/src/memberships/memberships.service.ts) and dropping it
+// would require a coordinated admin-api migration.
+//
+// If/when we move to per-tenant OpenFGA stores, flip authz-service to
+// honor this column and the existing writes become meaningful without a
+// schema change. Until then, treat this as load-bearing comment — don't
+// "clean up" the column thinking it's dead.
 func TenantStoreIDTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID) (string, error) {
 	var storeID *string
 	if err := tx.QueryRow(ctx, `SELECT openfga_store_id FROM tenants WHERE id = $1`, tenantID).Scan(&storeID); err != nil {

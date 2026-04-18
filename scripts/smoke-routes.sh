@@ -105,6 +105,12 @@ assert "session memberships"       GET    /auth/session/memberships       401
 assert "session active-tenant"     PATCH  /auth/session/active-tenant     401
 assert "session rotate"            POST   /auth/session/rotate            401
 
+# Phase 6: tenant invitation accept/decline. Token-bound; enumeration-
+# resistant (all token-invalid paths collapse to 410).
+assert "invitation lookup 410"     GET    /auth/public/invitation/bogus-token          410
+assert "invitation accept 410"     POST   /auth/public/invitation/bogus-token/accept   410
+assert "invitation decline 410"    POST   /auth/public/invitation/bogus-token/decline  410
+
 echo ""
 if [ "$FAIL" -eq 0 ]; then
     echo "ALL PASS"

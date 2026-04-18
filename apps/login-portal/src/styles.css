@@ -1,104 +1,100 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * SnowUI design tokens for the login portal.
- * Shares the palette with admin-console / developer-portal.
+ * Wave Connect design tokens for the login portal.
+ * Palette: coral #fb513b · cream #f6f4ee · deep teal #1d3a44.
  */
 :root {
-  --sui-ink: rgb(28, 28, 28);
-  --sui-ink-80: rgba(28, 28, 28, 0.8);
-  --sui-ink-60: rgba(28, 28, 28, 0.6);
-  --sui-ink-40: rgba(28, 28, 28, 0.4);
-  --sui-ink-10: rgba(28, 28, 28, 0.1);
-  --sui-paper: rgb(255, 255, 255);
-  --sui-paper-alt: rgb(247, 249, 251);
-  --sui-paper-ice: rgb(229, 236, 246);
-  --sui-void: rgb(26, 27, 29);
-  --sui-lilac: rgb(198, 199, 248);
-  --sui-periwinkle: rgb(149, 164, 252);
-  --sui-indigo: rgb(93, 109, 192);
-  --sui-violet: rgb(151, 71, 255);
-  --sui-danger: rgb(255, 79, 79);
+  --wc-coral: #fb513b;
+  --wc-coral-hover: #e63a24;
+  --wc-coral-soft: #fae0dc;
+  --wc-cream: #f6f4ee;
+  --wc-cream-paper: #fbfaf4;
+  --wc-cream-muted: #ede8d9;
+  --wc-teal: #1d3a44;
+  --wc-teal-muted: #4e6b74;
+  --wc-border: #e2dccd;
 
-  --background: var(--sui-paper-alt);
-  --foreground: var(--sui-ink);
-  --card: var(--sui-paper);
-  --card-foreground: var(--sui-ink);
-  --popover: var(--sui-paper);
-  --popover-foreground: var(--sui-ink);
-  --primary: var(--sui-ink);
-  --primary-foreground: var(--sui-paper-ice);
-  --secondary: var(--sui-periwinkle);
-  --secondary-foreground: var(--sui-ink);
-  --muted: var(--sui-paper-alt);
-  --muted-foreground: var(--sui-ink-60);
-  --accent: var(--sui-lilac);
-  --accent-foreground: var(--sui-ink);
-  --destructive: var(--sui-danger);
-  --destructive-foreground: #fff;
-  --border: var(--sui-ink-10);
-  --input: var(--sui-paper);
-  --ring: var(--sui-periwinkle);
-  --chart-1: var(--sui-periwinkle);
-  --chart-2: rgb(0, 185, 0);
-  --chart-3: rgb(226, 185, 134);
-  --chart-4: var(--sui-violet);
-  --chart-5: rgb(38, 132, 255);
-  --sidebar: var(--sui-ink);
-  --sidebar-foreground: var(--sui-paper-ice);
-  --sidebar-primary: var(--sui-lilac);
-  --sidebar-primary-foreground: var(--sui-ink);
-  --sidebar-accent: rgba(198, 199, 248, 0.15);
-  --sidebar-accent-foreground: var(--sui-lilac);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: var(--sui-periwinkle);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --background: var(--wc-cream);
+  --foreground: var(--wc-teal);
+  --card: var(--wc-cream-paper);
+  --card-foreground: var(--wc-teal);
+  --popover: var(--wc-cream-paper);
+  --popover-foreground: var(--wc-teal);
+  --primary: var(--wc-coral);
+  --primary-foreground: #ffffff;
+  --secondary: var(--wc-teal);
+  --secondary-foreground: var(--wc-cream);
+  --muted: var(--wc-cream-muted);
+  --muted-foreground: var(--wc-teal-muted);
+  --accent: var(--wc-cream-muted);
+  --accent-foreground: var(--wc-teal);
+  --destructive: var(--wc-coral);
+  --destructive-foreground: #ffffff;
+  --border: var(--wc-border);
+  --input: var(--wc-cream-paper);
+  --ring: var(--wc-coral);
+  --chart-1: var(--wc-coral);
+  --chart-2: #1b986d;
+  --chart-3: #f5a809;
+  --chart-4: var(--wc-teal);
+  --chart-5: var(--wc-teal-muted);
+  --sidebar: var(--wc-cream-paper);
+  --sidebar-foreground: var(--wc-teal);
+  --sidebar-primary: var(--wc-coral);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--wc-cream-muted);
+  --sidebar-accent-foreground: var(--wc-teal);
+  --sidebar-border: var(--wc-border);
+  --sidebar-ring: var(--wc-coral);
+
+  --font-sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: "Manrope", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --radius: 1rem;
-  --shadow-2xs: 0 1px 2px rgba(28, 28, 28, 0.03);
-  --shadow-xs: 0 1px 2px rgba(28, 28, 28, 0.04);
-  --shadow-sm: 0 2px 4px rgba(28, 28, 28, 0.04);
-  --shadow: 0 4px 12px rgba(28, 28, 28, 0.06);
-  --shadow-md: 0 8px 20px rgba(28, 28, 28, 0.07);
-  --shadow-lg: 0 12px 32px rgba(28, 28, 28, 0.08);
-  --shadow-xl: 0 20px 48px rgba(28, 28, 28, 0.1);
-  --shadow-2xl: 0 28px 64px rgba(28, 28, 28, 0.12);
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 0.5rem;
+  --shadow-2xs: 0 1px 2px rgb(0 0 0 / 0.03);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 }
 
 .dark {
-  --background: var(--sui-void);
-  --foreground: var(--sui-paper-ice);
-  --card: rgb(34, 35, 38);
-  --card-foreground: var(--sui-paper-ice);
-  --popover: rgb(34, 35, 38);
-  --popover-foreground: var(--sui-paper-ice);
-  --primary: var(--sui-lilac);
-  --primary-foreground: var(--sui-ink);
-  --secondary: var(--sui-periwinkle);
-  --secondary-foreground: var(--sui-ink);
-  --muted: rgba(255, 255, 255, 0.06);
-  --muted-foreground: rgba(229, 236, 246, 0.6);
-  --accent: rgba(198, 199, 248, 0.18);
-  --accent-foreground: var(--sui-lilac);
-  --destructive: var(--sui-danger);
-  --destructive-foreground: #fff;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.04);
-  --ring: var(--sui-periwinkle);
-  --sidebar: var(--sui-void);
-  --sidebar-foreground: var(--sui-paper-ice);
-  --sidebar-primary: var(--sui-lilac);
-  --sidebar-primary-foreground: var(--sui-ink);
-  --sidebar-accent: rgba(198, 199, 248, 0.15);
-  --sidebar-accent-foreground: var(--sui-lilac);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: var(--sui-periwinkle);
+  --background: #0f1e23;
+  --foreground: var(--wc-cream);
+  --card: #14262c;
+  --card-foreground: var(--wc-cream);
+  --popover: #14262c;
+  --popover-foreground: var(--wc-cream);
+  --primary: var(--wc-coral);
+  --primary-foreground: #ffffff;
+  --secondary: var(--wc-cream);
+  --secondary-foreground: var(--wc-teal);
+  --muted: #1f3740;
+  --muted-foreground: #aeb7b8;
+  --accent: #1f3740;
+  --accent-foreground: var(--wc-cream);
+  --destructive: var(--wc-coral);
+  --destructive-foreground: #ffffff;
+  --border: #26444e;
+  --input: #14262c;
+  --ring: var(--wc-coral);
+  --sidebar: #14262c;
+  --sidebar-foreground: var(--wc-cream);
+  --sidebar-primary: var(--wc-coral);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1f3740;
+  --sidebar-accent-foreground: var(--wc-cream);
+  --sidebar-border: #26444e;
+  --sidebar-ring: var(--wc-coral);
 }
 
 @theme inline {
@@ -158,37 +154,20 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* SnowUI aurora gradient — signature conic for hero / featured callouts. */
-.sui-aurora {
-  background:
-    linear-gradient(rgb(11, 15, 36) 0%, rgba(28, 28, 28, 0) 100%),
-    conic-gradient(
-      rgb(128, 84, 255) 0%,
-      rgb(11, 62, 244) 30%,
-      rgb(208, 89, 238) 71%,
-      rgb(222, 229, 255) 83%,
-      rgb(141, 166, 255) 95%
-    );
-  color: #fff;
+/* Wave Connect — subtle dotted grid texture reserved for auth surfaces. */
+.wc-dot-grid {
+  background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+  background-size: 24px 24px;
 }
 
-/* Dark hero cover — used behind the login panel. */
-.sui-hero-cover {
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.5) 0%, rgba(52, 60, 72, 0) 100%),
-    linear-gradient(rgb(26, 27, 29), rgb(26, 27, 29));
-}
-
-.sui-link {
-  color: var(--sui-periwinkle);
-  font-weight: 600;
-  text-decoration: none;
-  transition: color 160ms ease-out;
-}
-.sui-link:hover {
-  color: var(--sui-indigo);
+/* Brand wordmark separator — JetBrains Mono middle-dot in coral. */
+.wc-dot {
+  font-family: var(--font-mono);
+  color: var(--primary);
+  margin: 0 2px;
 }

@@ -21,46 +21,53 @@ interface NavItem {
   imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIcon, Toast, ConfirmDialog],
   providers: [MessageService, ConfirmationService],
   template: `
-    <div class="flex h-screen gap-4 overflow-hidden bg-background p-4 text-foreground">
-      <!-- Sidebar — SnowUI dark rounded panel -->
+    <div class="flex min-h-screen bg-background text-foreground">
+      <!-- Sidebar — light cream panel, 240px, border-right -->
       <aside
-        class="flex shrink-0 flex-col rounded-[28px] bg-sidebar text-sidebar-foreground shadow-lg transition-[width] duration-200 ease-out"
-        [class.w-64]="!collapsed()"
-        [class.w-[84px]]="collapsed()"
+        class="sticky top-0 flex h-screen shrink-0 flex-col overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-150"
+        [class.w-60]="!collapsed()"
+        [class.w-16]="collapsed()"
       >
         <!-- Logo -->
         <div
-          class="flex items-center gap-3 border-b border-sidebar-border px-5 py-6"
+          class="flex h-14 items-center gap-2 border-b border-sidebar-border px-4"
           [class.justify-center]="collapsed()"
           [class.px-3]="collapsed()"
         >
-          <img src="snowui-mark.svg" alt="SnowUI" class="h-7 w-7 shrink-0" />
-          @if (!collapsed()) {
-            <div class="leading-tight">
-              <div class="text-[15px] font-bold tracking-tight text-sidebar-foreground">WaveConnect</div>
-              <div class="text-[11px] text-sidebar-muted">Developer Portal</div>
-            </div>
+          @if (collapsed()) {
+            <img src="logo-mark.svg" alt="Wave Connect" class="h-7 w-7 shrink-0" />
+          } @else {
+            <img src="logo-mark.svg" alt="" class="h-7 w-7 shrink-0" />
+            <span class="text-[15px] font-semibold tracking-tight text-sidebar-foreground">
+              wave<span class="wc-dot">·</span>connect
+            </span>
           }
         </div>
 
-        <!-- Navigation -->
-        <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          @if (!collapsed()) {
-            <div class="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-muted">
-              Build
+        <!-- Developer surface indicator -->
+        @if (!collapsed()) {
+          <div class="mx-3 mt-3 rounded-md border border-sidebar-border bg-sidebar-accent/60 px-2.5 py-2">
+            <div class="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-sidebar-muted">
+              <ng-icon name="heroCodeBracket" size="0.75rem" />
+              Developer
             </div>
-          }
+            <div class="mt-0.5 text-[13px] font-medium text-sidebar-foreground">API & Apps</div>
+          </div>
+        }
+
+        <!-- Navigation -->
+        <nav class="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
           @for (item of navItems; track item.path) {
             <a
               [routerLink]="item.path"
-              routerLinkActive="!bg-sidebar-accent !text-sidebar-accent-foreground"
+              routerLinkActive="!bg-sidebar-accent !text-sidebar-accent-foreground font-medium"
               [ariaCurrentWhenActive]="'page'"
-              class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-sidebar-foreground/80 transition-colors hover:bg-white/5 hover:text-sidebar-foreground"
+              class="flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-[13px] text-sidebar-muted transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
               [class.justify-center]="collapsed()"
               [class.px-0]="collapsed()"
               [title]="collapsed() ? item.label : null"
             >
-              <ng-icon [name]="item.icon" class="shrink-0" size="1.15rem" />
+              <ng-icon [name]="item.icon" class="shrink-0" size="0.95rem" />
               @if (!collapsed()) {
                 <span>{{ item.label }}</span>
               }
@@ -68,86 +75,80 @@ interface NavItem {
           }
         </nav>
 
-        <!-- Footer: user chip + collapse toggle -->
+        <!-- Footer: user chip + collapse -->
         <div class="border-t border-sidebar-border p-3">
           <div
-            class="flex items-center gap-3 rounded-xl px-2 py-2"
+            class="flex items-center gap-2.5 rounded-md px-1.5 py-1"
             [class.justify-center]="collapsed()"
           >
             <div
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-[13px] font-semibold text-sidebar-primary-foreground"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground"
             >
-              D
+              DV
             </div>
             @if (!collapsed()) {
               <div class="min-w-0 flex-1 leading-tight">
-                <div class="truncate text-[13px] font-semibold text-sidebar-foreground">Developer</div>
+                <div class="truncate text-[12px] font-medium text-sidebar-foreground">Developer</div>
                 <div class="truncate text-[11px] text-sidebar-muted">Signed in</div>
               </div>
               <button
-                (click)="collapsed.set(true)"
-                class="rounded-lg p-1.5 text-sidebar-muted transition-colors hover:bg-white/5 hover:text-sidebar-foreground"
-                aria-label="Collapse sidebar"
+                (click)="logout()"
+                class="rounded-sm p-1.5 text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                title="Sign out"
+                aria-label="Sign out"
               >
-                <ng-icon name="heroChevronLeft" size="1rem" />
-              </button>
-            } @else {
-              <button
-                (click)="collapsed.set(false)"
-                class="rounded-lg p-1.5 text-sidebar-muted transition-colors hover:bg-white/5 hover:text-sidebar-foreground"
-                aria-label="Expand sidebar"
-              >
-                <ng-icon name="heroChevronRight" size="1rem" />
+                <ng-icon name="heroArrowRightStartOnRectangle" size="0.85rem" />
               </button>
             }
           </div>
+          <button
+            (click)="collapsed.set(!collapsed())"
+            class="mt-2 flex w-full items-center justify-center rounded-sm p-1.5 text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            [title]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+            [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+          >
+            <ng-icon [name]="collapsed() ? 'heroChevronRight' : 'heroChevronLeft'" size="0.8rem" />
+          </button>
         </div>
       </aside>
 
       <!-- Main Content -->
-      <div class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] bg-card shadow-sm">
+      <div class="flex min-w-0 flex-1 flex-col">
         <!-- Top Bar -->
-        <header class="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
-          <div class="flex items-center gap-3">
-            <button
-              (click)="collapsed.set(!collapsed())"
-              class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted lg:hidden"
-              aria-label="Toggle sidebar"
-            >
-              <ng-icon name="heroBars3" size="1.25rem" />
-            </button>
-            <div class="leading-tight">
-              <div class="text-[11px] uppercase tracking-wider text-muted-foreground">Developer</div>
-              <h1 class="text-[15px] font-semibold text-foreground">Developer Portal</h1>
-            </div>
+        <header class="sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-3.5 border-b border-border bg-background/80 px-6 backdrop-blur-sm">
+          <div class="relative max-w-[400px] flex-1">
+            <ng-icon
+              name="heroMagnifyingGlass"
+              class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              size="0.85rem"
+            />
+            <input
+              type="search"
+              placeholder="Search API keys, apps, docs…"
+              class="h-8 w-full rounded-md border border-border bg-muted pl-8 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/35"
+            />
+            <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              ⌘K
+            </span>
           </div>
-          <div class="flex items-center gap-1.5">
-            <button
-              (click)="toggleDarkMode()"
-              class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted"
-              [title]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
-              [attr.aria-label]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
-            >
-              <ng-icon [name]="isDark() ? 'heroSun' : 'heroMoon'" size="1.125rem" />
-            </button>
-            <div class="mx-1 h-6 w-px bg-border"></div>
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-[12px] font-semibold text-accent-foreground">
-              D
-            </div>
-            <button
-              (click)="logout()"
-              class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted"
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <ng-icon name="heroArrowRightStartOnRectangle" size="1.125rem" />
-            </button>
-          </div>
+          <div class="flex-1"></div>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[12px] font-medium text-foreground">
+            <span class="h-1.5 w-1.5 rounded-full bg-[color:var(--wc-success)]"></span>
+            API healthy
+          </span>
+          <button
+            (click)="toggleDarkMode()"
+            class="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            [title]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
+            [attr.aria-label]="isDark() ? 'Switch to light mode' : 'Switch to dark mode'"
+          >
+            <ng-icon [name]="isDark() ? 'heroSun' : 'heroMoon'" size="0.95rem" />
+          </button>
         </header>
 
         <!-- Page Content -->
-        <main class="flex-1 overflow-y-auto">
-          <div class="p-6 md:p-8">
+        <main class="flex-1">
+          <div class="mx-auto max-w-[1200px] px-6 py-6 md:px-8 md:py-8">
             <router-outlet />
           </div>
         </main>
@@ -165,7 +166,7 @@ export class LayoutComponent {
   isDark = signal(false);
 
   navItems: NavItem[] = [
-    { path: 'dashboard', label: 'Dashboard', icon: 'heroHome' },
+    { path: 'dashboard', label: 'Overview', icon: 'heroHome' },
     { path: 'api-keys', label: 'API Keys', icon: 'heroKey' },
     { path: 'oauth-apps', label: 'OAuth Apps', icon: 'heroFingerPrint' },
     { path: 'docs', label: 'Documentation', icon: 'heroBookOpen' },

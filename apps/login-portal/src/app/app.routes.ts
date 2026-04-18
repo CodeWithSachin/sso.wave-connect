@@ -79,6 +79,14 @@ export const appRoutes: Routes = [
         (m) => m.SelectTenantComponent,
       ),
   },
+  // Phase 6: tenant-invitation accept/decline landing.
+  {
+    path: 'invitation/:token',
+    loadComponent: () =>
+      import('./invitation/invitation.component').then(
+        (m) => m.InvitationComponent,
+      ),
+  },
   // OAuth2 Consent
   {
     path: 'consent',

@@ -24,8 +24,12 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 }
 
 func (r *UserRepository) Create(ctx context.Context, u *model.User) error {
+	// NULLIF('',NULL) collapses the empty-string case back to a real NULL so
+	// existing signup flows that pass AvatarURL="" (the historical
+	// placeholder) match the schema's nullable intent instead of inserting
+	// a zero-length string that trips downstream "has avatar?" checks.
 	const q = `INSERT INTO users (id, email, password_hash, display_name, avatar_url, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8)`
 	_, err := r.pool.Exec(ctx, q,
 		u.ID, u.Email, u.PasswordHash, u.DisplayName, u.AvatarURL, u.Status, u.CreatedAt, u.UpdatedAt,
 	)
@@ -42,8 +46,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 	const q = `SELECT id, email, password_hash, display_name, avatar_url, status, created_at, updated_at, deleted_at
 		FROM users WHERE email = $1 AND deleted_at IS NULL`
 	u := &model.User{}
+	var avatarURL *string
 	err := r.pool.QueryRow(ctx, q, email).Scan(
-		&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.AvatarURL,
+		&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &avatarURL,
 		&u.Status, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -52,6 +57,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 	if err != nil {
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
+	if avatarURL != nil {
+		u.AvatarURL = *avatarURL
+	}
 	return u, nil
 }
 
@@ -59,8 +67,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 	const q = `SELECT id, email, password_hash, display_name, avatar_url, status, created_at, updated_at, deleted_at
 		FROM users WHERE id = $1 AND deleted_at IS NULL`
 	u := &model.User{}
+	var avatarURL *string
 	err := r.pool.QueryRow(ctx, q, id).Scan(
-		&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &u.AvatarURL,
+		&u.ID, &u.Email, &u.PasswordHash, &u.DisplayName, &avatarURL,
 		&u.Status, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -68,6 +77,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+	if avatarURL != nil {
+		u.AvatarURL = *avatarURL
 	}
 	return u, nil
 }

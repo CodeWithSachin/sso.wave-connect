@@ -35,192 +35,194 @@ import { AuthStore } from '../store/auth.store';
   selector: 'app-login',
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="min-h-screen bg-background p-4 md:p-6 lg:p-8 font-sans">
-      <div class="mx-auto grid min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] lg:min-h-[calc(100vh-4rem)] w-full max-w-[1400px] overflow-hidden rounded-[32px] bg-card shadow-lg lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)]">
-        <!-- Hero cover (SnowUI dark panel with diagonal hairlines) -->
-        <aside class="relative hidden overflow-hidden sui-hero-cover lg:block">
-          <svg class="absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden="true">
-            <g stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none">
-              <line x1="20%" y1="0" x2="80%" y2="100%" />
-              <line x1="40%" y1="0" x2="100%" y2="80%" />
-              <line x1="60%" y1="0" x2="120%" y2="60%" />
-              <line x1="0" y1="50%" x2="100%" y2="130%" />
-            </g>
-          </svg>
-
-          <div class="relative flex h-full flex-col justify-between p-12 xl:p-16 text-[#E5ECF6]">
-            <div class="flex items-center gap-3">
-              <img src="snowui-mark.svg" alt="" class="h-9 w-9" />
-              <span class="text-[15px] font-bold tracking-tight">WaveConnect</span>
-            </div>
-
-            <div class="max-w-xl">
-              <h2 class="text-5xl xl:text-6xl font-bold leading-[1.02] tracking-tight text-[#E5ECF6]">
-                Welcome<br />back.
-              </h2>
-              <p class="mt-6 text-lg leading-relaxed text-[#E5ECF6]/70">
-                Sign in to your workspace to manage identities, access, and the apps your teams
-                depend on.
-              </p>
-              <a
-                href="https://snowui.byewind.com"
-                target="_blank"
-                rel="noreferrer"
-                class="sui-link mt-10 inline-flex items-center gap-1.5 text-base"
-              >
-                Made with SnowUI <span aria-hidden="true">→</span>
-              </a>
-            </div>
-
-            <div class="flex items-center justify-between text-xs text-white/40">
-              <span>© {{ year }} WaveConnect. All rights reserved.</span>
-              <div class="flex items-center gap-4">
-                <a href="#" class="transition-colors hover:text-white/70">Privacy</a>
-                <a href="#" class="transition-colors hover:text-white/70">Terms</a>
-              </div>
-            </div>
+    <div class="wc-dot-grid flex min-h-screen flex-col items-center bg-background px-5 pt-12 pb-8">
+      <div class="w-full max-w-[400px]">
+        <!-- Wordmark -->
+        <div class="mb-8 flex justify-center">
+          <div class="inline-flex items-center gap-2">
+            <img src="logo-mark.svg" alt="" class="h-[22px] w-[22px]" />
+            <span class="text-[16px] font-semibold tracking-tight text-foreground">
+              wave<span class="wc-dot">·</span>connect
+            </span>
           </div>
-        </aside>
+        </div>
 
-        <!-- Form panel -->
-        <section class="flex items-center justify-center p-8 sm:p-12">
-          <div class="w-full max-w-sm">
-            <!-- Mobile-only brand row -->
-            <div class="mb-8 flex items-center gap-2 lg:hidden">
-              <img src="snowui-mark.svg" alt="" class="h-7 w-7" />
-              <span class="text-[14px] font-bold tracking-tight text-foreground">WaveConnect</span>
-            </div>
-
-            <!-- Step indicator: email entry OR password entry -->
-            <div class="mb-8">
-              @if (step() === 'email') {
-                <h1 class="text-3xl font-bold tracking-tight text-foreground">Sign in</h1>
-                <p class="mt-2 text-sm text-muted-foreground">
-                  Enter your email to continue to your workspace.
-                </p>
+        <!-- Auth card -->
+        <div class="rounded-lg border border-border bg-card px-7 pt-7 pb-6 shadow-sm">
+          <!-- Step indicator: email entry OR password entry -->
+          @if (step() === 'email') {
+            <h1 class="text-[24px] font-semibold leading-tight tracking-tight text-foreground">
+              Sign in
+            </h1>
+            <p class="mt-1.5 mb-6 text-[14px] text-muted-foreground">
+              Enter your email to continue.
+            </p>
+          } @else {
+            <button
+              type="button"
+              (click)="backToEmail()"
+              data-testid="login-back-to-email"
+              class="mb-3 -ml-2 inline-flex h-7 items-center gap-1 rounded-md px-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <span aria-hidden="true">←</span>
+              Back
+            </button>
+            @if (branding()?.logoUrl) {
+              <img
+                [src]="branding()!.logoUrl"
+                [alt]="branding()!.name"
+                class="mb-3 h-8 w-auto"
+              />
+            }
+            <h1 class="text-[24px] font-semibold leading-tight tracking-tight text-foreground">
+              @if (branding()) {
+                Sign in to {{ branding()!.displayName || branding()!.name }}
               } @else {
-                <div class="flex flex-col items-start gap-3">
-                  @if (branding()?.logoUrl) {
-                    <img
-                      [src]="branding()!.logoUrl"
-                      [alt]="branding()!.name"
-                      class="h-10 w-auto"
-                    />
-                  }
-                  <h1 class="text-3xl font-bold tracking-tight text-foreground">
-                    @if (branding()) {
-                      Sign in to {{ branding()!.displayName || branding()!.name }}
-                    } @else {
-                      Welcome back
-                    }
-                  </h1>
-                  <p class="text-sm text-muted-foreground">{{ email() }}</p>
-                  <button
-                    type="button"
-                    (click)="backToEmail()"
-                    data-testid="login-back-to-email"
-                    class="sui-link cursor-pointer text-xs"
-                  >
-                    Use a different email <span aria-hidden="true">→</span>
-                  </button>
+                Welcome back
+              }
+            </h1>
+            <p class="mt-1.5 mb-4 font-mono text-[13px] text-muted-foreground">
+              {{ email() }}
+            </p>
+          }
+
+          <!-- Tenant chip for discovered tenants -->
+          @if (step() === 'password' && branding()) {
+            <div class="mb-[18px] flex items-center gap-2.5 rounded-md bg-muted px-3 py-2.5">
+              @if (branding()!.logoUrl) {
+                <img
+                  [src]="branding()!.logoUrl"
+                  [alt]="branding()!.name"
+                  class="h-7 w-7 rounded-[6px] object-cover"
+                />
+              } @else {
+                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] bg-primary text-[12px] font-semibold text-primary-foreground">
+                  {{ (branding()!.displayName || branding()!.name).charAt(0) }}
                 </div>
               }
-            </div>
-
-            @if (store.error()) {
-              <div
-                class="mb-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
-                data-testid="login-error"
-                role="alert"
-              >
-                {{ store.error() }}
-              </div>
-            }
-
-            @if (step() === 'email') {
-              <form
-                (submit)="onContinue(); $event.preventDefault()"
-                class="space-y-5"
-                data-testid="login-email-form"
-              >
-                <div>
-                  <label
-                    for="login-email"
-                    class="mb-1.5 block text-sm font-medium text-foreground"
-                  >
-                    Email
-                  </label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    required
-                    autocomplete="email"
-                    [(ngModel)]="emailInput"
-                    name="email"
-                    placeholder="you@example.com"
-                    class="w-full rounded-xl border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-4 focus:ring-ring/20"
-                  />
+              <div class="min-w-0 leading-tight">
+                <div class="truncate text-[13px] font-medium text-foreground">
+                  {{ branding()!.displayName || branding()!.name }}
                 </div>
-                <button
-                  type="submit"
-                  [disabled]="discovering() || !emailInput.trim()"
-                  data-testid="login-email-submit"
-                  class="w-full cursor-pointer rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition-colors hover:bg-[#000] disabled:cursor-not-allowed disabled:opacity-50"
+                @if (branding()!.name) {
+                  <div class="truncate font-mono text-[11px] text-muted-foreground">
+                    {{ branding()!.name }}
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (store.error()) {
+            <div
+              class="mb-4 rounded-md border border-transparent bg-destructive/10 px-3.5 py-3 text-[13px] text-destructive"
+              data-testid="login-error"
+              role="alert"
+            >
+              {{ store.error() }}
+            </div>
+          }
+
+          @if (step() === 'email') {
+            <form
+              (submit)="onContinue(); $event.preventDefault()"
+              class="space-y-4"
+              data-testid="login-email-form"
+            >
+              <div>
+                <label
+                  for="login-email"
+                  class="mb-1.5 block text-[13px] font-medium text-foreground"
                 >
-                  {{ discovering() ? 'Checking…' : 'Continue' }}
-                </button>
-              </form>
-            } @else {
-              <form
-                (submit)="onSignIn(); $event.preventDefault()"
-                class="space-y-5"
-                data-testid="login-password-form"
+                  Email address
+                </label>
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  autocomplete="email"
+                  autofocus
+                  [(ngModel)]="emailInput"
+                  name="email"
+                  placeholder="you@example.com"
+                  class="block h-9 w-full rounded-md border border-input bg-background px-3 font-sans text-[14px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/35"
+                />
+              </div>
+              <button
+                type="submit"
+                [disabled]="discovering() || !emailInput.trim()"
+                data-testid="login-email-submit"
+                class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-3.5 text-[14px] font-medium text-primary-foreground transition-colors hover:bg-[color:var(--wc-coral-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <!-- Hidden email field so password managers see the pair -->
-                <input type="email" [value]="email()" autocomplete="email" hidden />
-                <div>
+                {{ discovering() ? 'Checking…' : 'Continue' }}
+                @if (!discovering()) {
+                  <span aria-hidden="true">→</span>
+                }
+              </button>
+            </form>
+          } @else {
+            <form
+              (submit)="onSignIn(); $event.preventDefault()"
+              class="space-y-4"
+              data-testid="login-password-form"
+            >
+              <input type="email" [value]="email()" autocomplete="email" hidden />
+              <div>
+                <div class="mb-1.5 flex items-center justify-between">
                   <label
                     for="login-password"
-                    class="mb-1.5 block text-sm font-medium text-foreground"
+                    class="block text-[13px] font-medium text-foreground"
                   >
                     Password
                   </label>
-                  <input
-                    id="login-password"
-                    type="password"
-                    required
-                    minlength="8"
-                    autocomplete="current-password"
-                    [(ngModel)]="passwordInput"
-                    name="password"
-                    placeholder="Enter your password"
-                    class="w-full rounded-xl border border-border bg-input px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-4 focus:ring-ring/20"
-                  />
-                </div>
-                <div class="flex justify-end">
-                  <a routerLink="/forgot-password" class="sui-link text-sm">
-                    Forgot password? <span aria-hidden="true">→</span>
+                  <a
+                    routerLink="/forgot-password"
+                    class="text-[13px] font-medium text-primary transition-colors hover:text-[color:var(--wc-coral-hover)]"
+                  >
+                    Forgot?
                   </a>
                 </div>
-                <button
-                  type="submit"
-                  [disabled]="store.loading()"
-                  data-testid="login-password-submit"
-                  class="w-full cursor-pointer rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground transition-colors hover:bg-[#000] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {{ store.loading() ? 'Signing in…' : 'Sign in' }}
-                </button>
-              </form>
-            }
+                <input
+                  id="login-password"
+                  type="password"
+                  required
+                  minlength="8"
+                  autocomplete="current-password"
+                  autofocus
+                  [(ngModel)]="passwordInput"
+                  name="password"
+                  placeholder="Enter your password"
+                  class="block h-9 w-full rounded-md border border-input bg-background px-3 font-sans text-[14px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/35"
+                />
+              </div>
+              <button
+                type="submit"
+                [disabled]="store.loading()"
+                data-testid="login-password-submit"
+                class="inline-flex h-9 w-full cursor-pointer items-center justify-center rounded-md bg-primary px-3.5 text-[14px] font-medium text-primary-foreground transition-colors hover:bg-[color:var(--wc-coral-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {{ store.loading() ? 'Signing in…' : 'Sign in' }}
+              </button>
+            </form>
+          }
+        </div>
 
-            <p class="mt-8 text-center text-sm text-muted-foreground">
-              Don't have an account?
-              <a routerLink="/signup" class="sui-link">
-                Create one <span aria-hidden="true">→</span>
-              </a>
-            </p>
-          </div>
-        </section>
+        <!-- Footer below card -->
+        <p class="mt-5 text-center text-[13px] text-muted-foreground">
+          No account yet?
+          <a
+            routerLink="/signup"
+            class="font-medium text-primary transition-colors hover:text-[color:var(--wc-coral-hover)]"
+          >
+            Create one
+          </a>
+        </p>
+
+        <div class="mt-10 flex items-center justify-center gap-4 text-[12px] text-muted-foreground">
+          <a href="#" class="transition-colors hover:text-foreground">Privacy</a>
+          <a href="#" class="transition-colors hover:text-foreground">Terms</a>
+          <a href="#" class="transition-colors hover:text-foreground">Status</a>
+        </div>
       </div>
     </div>
   `,
@@ -254,8 +256,6 @@ export class LoginComponent {
       logoUrl: d.tenant.logo_url,
     };
   });
-
-  readonly year = new Date().getFullYear();
 
   /**
    * Step 1 submit: call discover, branch by mode. SSO → full redirect.

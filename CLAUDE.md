@@ -21,3 +21,24 @@
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
 
 <!-- nx configuration end-->
+
+## Project-specific notes
+
+### Zoneless Angular (login-portal)
+
+- `login-portal` runs with `provideZonelessChangeDetection()` (Angular 21.2 + ngrx/signals 21.1, no Zone.js). Change detection is driven entirely by signals + the consumer graph.
+- **Preview testing quirk:** `preview_click` over CDP dispatches mouse events that don't always synthesize a real `click` event Angular's `(click)` binding picks up. When verifying a click handler via the browser preview, dispatch the event from JavaScript instead:
+  ```js
+  document.querySelector('[data-testid="..."]').click();
+  ```
+  Called via `preview_eval`. `btn.click()` synthesizes a real `click` event that traverses the event listeners Angular installs. Tracked in the Phase 5 verification writeup.
+- Prefer `httpResource` / `toSignal` / `computed` for new async-reactive code. The migration / select-tenant / invitation components are reference implementations.
+
+### OpenFGA bootstrap
+
+- Fresh environments must have an OpenFGA store + model before authz-service boots. `./openfga/scripts/bootstrap.sh` is idempotent — run it once per env, it writes the resolved store id to `openfga/.store-id`. Copy that value into `apps/authz-service/config.yaml:openfga.store_id` (or set `OPENFGA_STORE_ID` env).
+
+### Docker Desktop instability (local only)
+
+- Docker Desktop on the dev machine cycles down under combined Go + Node + Angular load. Pattern: pre-compile Go binaries (`go build -o /tmp/... ./cmd/server`) rather than `go run`, and keep the build-pool interaction short. The `sso-postgres` container at `localhost:5433` is the primary state; pool resets show up as connection-refused on `::1:5433` in service logs.
+

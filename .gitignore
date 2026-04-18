@@ -50,3 +50,4 @@ coverage/
 
 __screenshots__/
 .logs/
+openfga/.store-id

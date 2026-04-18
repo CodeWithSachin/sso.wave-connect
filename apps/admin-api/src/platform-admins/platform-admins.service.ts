@@ -52,6 +52,14 @@ export class PlatformAdminsService {
       include: { user: { select: { email: true } } },
     });
 
+    await this.writeAuditLog({
+      action: 'platform_admin.granted',
+      actorId: grantedBy,
+      resourceId: result.userId,
+      description: `platform-admin granted: role=${result.role}`,
+      newValues: { role: result.role, notes: result.notes },
+    });
+
     this.logger.log(
       `platform-admin granted: user=${result.userId} role=${result.role} by=${grantedBy}`,
     );
@@ -98,11 +106,70 @@ export class PlatformAdminsService {
       include: { user: { select: { email: true } } },
     });
 
+    await this.writeAuditLog({
+      action: 'platform_admin.revoked',
+      actorId: actingUserId,
+      resourceId: userId,
+      description: `platform-admin revoked: previousRole=${row.role}`,
+      oldValues: { role: row.role },
+    });
+
     this.logger.warn(
       `platform-admin revoked: user=${userId} previousRole=${row.role} by=${actingUserId}`,
     );
 
     return this.toResponse(updated);
+  }
+
+  /**
+   * Write an immutable audit_logs row for a platform-admin action.
+   *
+   * Platform-admin grants are tenant-less by nature — the action affects
+   * global platform state, not any individual tenant. `audit_logs.tenant_id`
+   * is NOT NULL at the schema level (the column doesn't FK to tenants so
+   * arbitrary UUIDs are accepted), so we use the zero-UUID sentinel to
+   * mark "platform scope". Dashboards filtering by real tenant will see
+   * these as unscoped and can surface them under a separate "platform
+   * activity" tab.
+   *
+   * Errors swallow intentionally: an audit write failure must not poison
+   * the surrounding grant/revoke, which is the source of truth. The
+   * Logger.log/warn lines above preserve the breadcrumb even if the DB
+   * insert fails.
+   */
+  private async writeAuditLog(args: {
+    action: string;
+    actorId: string;
+    resourceId: string;
+    description: string;
+    oldValues?: Record<string, unknown>;
+    newValues?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.prisma.$executeRaw`
+        INSERT INTO audit_logs (
+          tenant_id, actor_id, actor_type, action,
+          resource_type, resource_id, description,
+          old_values, new_values, metadata, created_at
+        ) VALUES (
+          '00000000-0000-0000-0000-000000000000'::uuid,
+          ${args.actorId}::uuid,
+          'user'::audit_actor_type,
+          ${args.action},
+          'platform_admin',
+          ${args.resourceId},
+          ${args.description},
+          ${args.oldValues ? JSON.stringify(args.oldValues) : null}::jsonb,
+          ${args.newValues ? JSON.stringify(args.newValues) : null}::jsonb,
+          '{}'::jsonb,
+          NOW()
+        )
+      `;
+    } catch (err) {
+      this.logger.warn(
+        `audit log write failed (grant/revoke still persisted): action=${args.action} resource=${args.resourceId} err=${(err as Error).message}`,
+      );
+    }
   }
 
   private toResponse(row: {
