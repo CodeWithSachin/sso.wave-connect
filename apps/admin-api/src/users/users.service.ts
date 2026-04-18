@@ -27,7 +27,7 @@ export class UsersService {
         phoneNumber: userData.phoneNumber,
         locale: userData.locale ?? 'en',
         timezone: userData.timezone ?? 'UTC',
-        status: userData.status ?? 'pending',
+        status: userData.status ?? 'pending_verification',
         emailVerified: userData.emailVerified ?? false,
         // passwordHash is set by the identity-service, not the admin-api
       },

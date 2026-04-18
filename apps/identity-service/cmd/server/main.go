@@ -11,19 +11,25 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/authz"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
+	dnsresolver "github.com/wave-connect/sso-platform/apps/identity-service/internal/dns"
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/email"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/event"
 	identitygrpc "github.com/wave-connect/sso-platform/apps/identity-service/internal/grpc"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/handler"
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/id"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/middleware"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/worker"
 	ssonats "github.com/wave-connect/sso-platform/libs/nats"
 	pb "github.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1"
 )
@@ -74,6 +80,10 @@ func main() {
 	denyRepo := repository.NewTokenDenyRepository(rdb)
 	familyRepo := repository.NewRefreshFamilyRepository(pool)
 	policyRepo := repository.NewPolicyRepository(pool)
+	emailVerifyRepo := repository.NewEmailVerificationRepository(pool)
+	tenantDomainRepo := repository.NewTenantDomainRepository(pool)
+	migrationRepo := repository.NewTenantDomainMigrationRepository(pool)
+	authzOutboxRepo := repository.NewAuthzOutboxRepository()
 
 	// --- NATS ---
 	var natsClient interface{}
@@ -85,11 +95,33 @@ func main() {
 		natsClient = natsConn
 	}
 
+	// --- Authz client (OpenFGA via authz-service gRPC) ---
+	// Used by ReBAC middlewares on admin routes. Nil client is tolerated —
+	// middlewares fail closed with 503 so a misconfig is visible, not silent.
+	authzClient, err := authz.Dial(cfg.Authz.GRPCURL, authz.DialOptions{
+		Insecure: cfg.Authz.Insecure,
+	}, log)
+	if err != nil {
+		log.Warn().Err(err).Msg("authz-service dial failed; ReBAC-gated routes will 502")
+	}
+	if authzClient == nil {
+		log.Warn().Msg("authz client nil — admin migration routes will 503 until AUTHZ_GRPC_URL is set")
+	}
+	if authzClient != nil {
+		defer authzClient.Close()
+	}
+
 	// --- Services ---
 	passwordSvc := service.NewPasswordService(cfg.Argon2)
 	policySvc := service.NewPolicyService(policyRepo, rdb, log)
 
 	publisher := event.NewPublisher(cfg.WebhookServiceURL, natsClient, log)
+
+	// Phase 4: durable event outbox. Domain events that need at-least-once
+	// delivery (tenant.domain.verified, user.migration.*) are written to the
+	// `event_outbox` table in the same transaction as their state change,
+	// then drained by `eventOutboxWorker` to the publisher above.
+	outbox := event.NewOutbox(pool)
 
 	tokenSvc, err := service.NewTokenService(cfg.Token, denyRepo, familyRepo, log)
 	if err != nil {
@@ -97,6 +129,97 @@ func main() {
 	}
 
 	sessionSvc := service.NewSessionService(sessionRepo, publisher, log, cfg.Token.RefreshTTL)
+
+	// --- Email provider (console default in dev; SES stub until Phase 2) ---
+	emailKind, err := email.FromEnv(cfg.Email.Provider)
+	if err != nil {
+		log.Fatal().Err(err).Str("raw", cfg.Email.Provider).Msg("invalid EMAIL_PROVIDER")
+	}
+	var emailProvider email.Provider
+	switch emailKind {
+	case email.KindConsole:
+		emailProvider = email.NewConsoleProvider(log, cfg.Email.SenderAddress)
+	case email.KindSES:
+		emailProvider = email.NewSESProvider(log, cfg.Email.SenderAddress)
+	}
+	log.Info().Str("provider", emailProvider.Name()).Msg("email provider initialized")
+
+	// --- Signup (tenantless public onboarding) ---
+	signupSvc := service.NewSignupService(service.SignupServiceDeps{
+		Pool:              pool,
+		UserRepo:          userRepo,
+		SessionSvc:        sessionSvc,
+		VerificationRepo:  emailVerifyRepo,
+		PasswordSvc:       passwordSvc,
+		Publisher:         publisher,
+		EmailProvider:     emailProvider,
+		AuthzOutboxRepo:   authzOutboxRepo,
+		Log:               log,
+		VerifyLinkBaseURL: cfg.Email.VerifyLinkBaseURL,
+		RefreshTTL:        cfg.Token.RefreshTTL,
+		TokenTTL:          cfg.Email.VerifyTokenTTL,
+		SenderAddress:     cfg.Email.SenderAddress,
+	})
+
+	// --- Org signup + domain claim (Phase 2) ---
+	signupOrgSvc := service.NewSignupOrgService(service.SignupOrgServiceDeps{
+		Pool:              pool,
+		UserRepo:          userRepo,
+		SessionSvc:        sessionSvc,
+		VerificationRepo:  emailVerifyRepo,
+		DomainRepo:        tenantDomainRepo,
+		PasswordSvc:       passwordSvc,
+		Publisher:         publisher,
+		EmailProvider:     emailProvider,
+		AuthzOutboxRepo:   authzOutboxRepo,
+		Log:               log,
+		VerifyLinkBaseURL: cfg.Email.VerifyLinkBaseURL,
+		RefreshTTL:        cfg.Token.RefreshTTL,
+		TokenTTL:          cfg.Email.VerifyTokenTTL,
+		SenderAddress:     cfg.Email.SenderAddress,
+	})
+	dnsResolver := dnsresolver.NewNetResolver(cfg.DNS.LookupTimeout, cfg.DNS.ResolverAddress)
+	log.Info().
+		Str("resolver_address", cfg.DNS.ResolverAddress).
+		Dur("lookup_timeout", cfg.DNS.LookupTimeout).
+		Msg("dns resolver initialized")
+
+	// --- Discover service (Phase 3: email-first login routing) ---
+	// Install the typeid formatter so cached tenant IDs are UI-facing.
+	service.SetTenantTypeIDFormatter(func(raw string) string {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			return raw
+		}
+		return id.Format(id.PrefixTenant, parsed)
+	})
+	discoverSvc := service.NewDiscoverService(pool, rdb, service.DiscoverServiceConfig{
+		// No explicit sso-service URL in this env; relative path is fine
+		// because login-portal does a full top-level redirect.
+	}, log)
+	domainVerifySvc := service.NewDomainVerifyService(pool, tenantDomainRepo, dnsResolver, outbox, log)
+	domainVerifyWorker := worker.NewDomainVerifyWorker(domainVerifySvc, 10*time.Minute, 200, log)
+	eventOutboxWorker := worker.NewEventOutboxWorker(outbox, publisher, 2*time.Second, 50, log)
+	// Phase 4: post-claim user migration. NATS-driven; if NATS isn't wired,
+	// the worker no-ops and the rest of the service stays healthy.
+	migrationWorker := worker.NewMigrationWorker(
+		natsConn, pool, migrationRepo, outbox, emailProvider,
+		worker.MigrationWorkerDeps{
+			LinkBaseURL:   cfg.Email.VerifyLinkBaseURL,
+			SenderAddress: cfg.Email.SenderAddress,
+		},
+		log,
+	)
+	migrationSvc := service.NewMigrationService(service.MigrationServiceDeps{
+		Pool:            pool,
+		MigrationRepo:   migrationRepo,
+		SessionRepo:     sessionRepo,
+		Outbox:          outbox,
+		AuthzOutboxRepo: authzOutboxRepo,
+		EmailProvider:   emailProvider,
+		SenderAddress:   cfg.Email.SenderAddress,
+		Log:             log,
+	})
 
 	// --- MFA ---
 	mfaRepo := repository.NewMfaRepository(pool)
@@ -132,6 +255,11 @@ func main() {
 	sessionHandler := handler.NewSessionHandler(sessionSvc, log)
 	healthHandler := handler.NewHealthHandler(pool, rdb)
 	wellKnownHandler := handler.NewWellKnownHandler(tokenSvc, cfg.Token)
+	signupHandler := handler.NewSignupHandler(signupSvc, validate, log, cfg.Cookie)
+	signupOrgHandler := handler.NewSignupOrgHandler(signupOrgSvc, validate, log, cfg.Cookie)
+	domainsHandler := handler.NewDomainsHandler(domainVerifySvc, membershipRepo, validate, log)
+	discoverHandler := handler.NewDiscoverHandler(discoverSvc, validate, log)
+	migrationHandler := handler.NewMigrationHandler(migrationSvc, migrationRepo, pool, log)
 
 	// --- Fiber App ---
 	app := fiber.New(fiber.Config{
@@ -159,6 +287,24 @@ func main() {
 	app.Get("/.well-known/openid-configuration", wellKnownHandler.OpenIDConfiguration)
 	app.Get("/.well-known/paseto-keys", wellKnownHandler.PASETOKeys)
 
+	// --- Tenantless Public Auth Routes (NO tenant/auth; self-rate-limited) ---
+	// Registered BEFORE the /auth group so the TenantExtraction middleware on
+	// /auth doesn't also cover these paths. Consumer signup can't carry a
+	// tenant header — the tenant is what signup CREATES.
+	publicAuth := app.Group("/auth/public")
+	publicAuth.Post("/signup", middleware.SignupRateLimit(rdb), signupHandler.Signup)
+	publicAuth.Post("/signup-org", middleware.SignupRateLimit(rdb), signupOrgHandler.SignupOrg)
+	publicAuth.Post("/verify-email", middleware.VerifyEmailRateLimit(rdb), signupHandler.VerifyEmail)
+	publicAuth.Post("/verify-email/resend", middleware.ResendVerificationRateLimit(rdb), signupHandler.ResendVerification)
+	// Phase 3: email-first login discovery. Hot path, aggressively rate-limited.
+	publicAuth.Get("/discover", middleware.DiscoverRateLimit(rdb), discoverHandler.Discover)
+	// Phase 4: post-claim user migration. Token-bound; lookup is idempotent,
+	// accept/decline are single-use (idempotency is per migration row, not
+	// per HTTP request).
+	publicAuth.Get("/migration/:token", migrationHandler.Lookup)
+	publicAuth.Post("/migration/:token/accept", migrationHandler.Accept)
+	publicAuth.Post("/migration/:token/decline", migrationHandler.Decline)
+
 	// --- Public Auth Routes (tenant required, policy enforced, rate-limited) ---
 	auth := app.Group("/auth", middleware.TenantExtraction(pool), middleware.TenantPolicyEnforcement(policySvc, log))
 	auth.Post("/register", middleware.RegisterRateLimit(rdb), authHandler.Register)
@@ -176,18 +322,51 @@ func main() {
 	oauth2.Post("/revoke", tokenHandler.Revoke)
 
 	// --- Protected Routes (tenant + auth required) ---
-	protected := app.Group("", middleware.TenantExtraction(pool), middleware.PASETOAuth(tokenSvc))
-	protected.Get("/sessions", sessionHandler.List)
-	protected.Delete("/sessions/:id", sessionHandler.Revoke)
-	protected.Post("/auth/mfa/enroll", mfaHandler.Enroll)
-	protected.Post("/auth/mfa/enroll/:id/verify", mfaHandler.VerifyEnrollment)
-	protected.Get("/auth/mfa/enrollments", mfaHandler.ListEnrollments)
-	protected.Delete("/auth/mfa/enrollments/:id", mfaHandler.DeleteEnrollment)
-	protected.Post("/auth/mfa/backup-codes/regenerate", mfaHandler.RegenerateBackupCodes)
-	protected.Post("/auth/mfa/webauthn/register/begin", mfaHandler.BeginWebAuthnRegistration)
-	protected.Post("/auth/mfa/webauthn/register/complete", mfaHandler.CompleteWebAuthnRegistration)
-	protected.Post("/auth/mfa/webauthn/login/begin", mfaHandler.BeginWebAuthnLogin)
-	protected.Post("/auth/mfa/webauthn/login/complete", mfaHandler.CompleteWebAuthnLogin)
+	// Fiber note: `app.Group("", mw)` is internally `app.Use(mw)` and applies
+	// middleware globally to every subsequent route. To scope
+	// TenantExtraction + PASETOAuth to just the intended paths, use two
+	// specific-prefix groups instead of a single empty-prefix group. This
+	// leaves /tenants/:tenantId/domains/* free to use its own auth.
+	pasetoChain := []fiber.Handler{middleware.TenantExtraction(pool), middleware.PASETOAuth(tokenSvc)}
+	sessions := app.Group("/sessions", pasetoChain...)
+	sessions.Get("/", sessionHandler.List)
+	sessions.Delete("/:id", sessionHandler.Revoke)
+	// Alias for clients using the no-trailing-slash form. Fiber's default
+	// StrictRouting=false would already match both, but registering
+	// explicitly insulates us from that default ever flipping. Fix #6.
+	app.Get("/sessions", append(pasetoChain, sessionHandler.List)...)
+
+	mfaProtected := app.Group("/auth/mfa", pasetoChain...)
+	mfaProtected.Post("/enroll", mfaHandler.Enroll)
+	mfaProtected.Post("/enroll/:id/verify", mfaHandler.VerifyEnrollment)
+	mfaProtected.Get("/enrollments", mfaHandler.ListEnrollments)
+	mfaProtected.Delete("/enrollments/:id", mfaHandler.DeleteEnrollment)
+	mfaProtected.Post("/backup-codes/regenerate", mfaHandler.RegenerateBackupCodes)
+	mfaProtected.Post("/webauthn/register/begin", mfaHandler.BeginWebAuthnRegistration)
+	mfaProtected.Post("/webauthn/register/complete", mfaHandler.CompleteWebAuthnRegistration)
+	mfaProtected.Post("/webauthn/login/begin", mfaHandler.BeginWebAuthnLogin)
+	mfaProtected.Post("/webauthn/login/complete", mfaHandler.CompleteWebAuthnLogin)
+
+	// --- Tenant domain management (Phase 2) ---
+	// Browser-facing (sso_session cookie only). Registered directly on `app`
+	// with inline middleware — must NOT share the PASETO chain above.
+	// Verify endpoint additionally rate-limited per tenant (fix #3).
+	sessionAuth := middleware.SessionCookieAuth(sessionRepo)
+	verifyLimit := middleware.DomainVerifyRateLimit(rdb)
+	app.Get("/tenants/:tenantId/domains", sessionAuth, domainsHandler.List)
+	app.Post("/tenants/:tenantId/domains", sessionAuth, domainsHandler.Add)
+	app.Post("/tenants/:tenantId/domains/:id/verify", sessionAuth, verifyLimit, domainsHandler.Verify)
+	app.Delete("/tenants/:tenantId/domains/:id", sessionAuth, domainsHandler.Delete)
+
+	// Phase 4: admin-facing migration controls. Guarded by ReBAC (OpenFGA via
+	// authz-service) — caller must hold `admin` on organization:<tenantId>,
+	// which per openfga/model.fga covers both `owner` and explicit `admin`.
+	// The admin check deliberately runs AFTER SessionCookieAuth so we can pull
+	// user_id from locals and pass it to authz.CheckOrgRelation.
+	adminOrgGate := middleware.RequireOrgRelation(authzClient, authz.RelAdmin)
+	app.Get("/tenants/:tenantId/migrations", sessionAuth, adminOrgGate, migrationHandler.List)
+	app.Post("/tenants/:tenantId/migrations/:id/notify-force", sessionAuth, adminOrgGate, migrationHandler.NotifyForce)
+	app.Post("/tenants/:tenantId/migrations/:id/force", sessionAuth, adminOrgGate, migrationHandler.Force)
 
 	// --- Start gRPC Server ---
 	grpcServer := grpc.NewServer()
@@ -215,12 +394,25 @@ func main() {
 		}
 	}()
 
+	// --- Start Background Workers ---
+	// Domain-verification cron (Phase 2) + generic event-outbox dispatcher
+	// (Phase 4). Lifecycles tied to workerCtx so they exit cleanly on SIGTERM.
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	go domainVerifyWorker.Start(workerCtx)
+	go eventOutboxWorker.Start(workerCtx)
+	go func() {
+		if err := migrationWorker.Start(workerCtx); err != nil {
+			log.Warn().Err(err).Msg("migration worker exited with error")
+		}
+	}()
+
 	// --- Graceful Shutdown ---
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Info().Msg("shutting down identity-service")
+	workerCancel()
 	grpcServer.GracefulStop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

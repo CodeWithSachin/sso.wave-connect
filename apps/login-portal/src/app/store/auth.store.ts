@@ -224,6 +224,279 @@ export const AuthStore = signalStore(
         }
       },
 
+      /**
+       * Tenantless consumer signup (Phase 1). Hits /auth/public/signup on
+       * identity-service, which atomically creates a personal tenant + user +
+       * owner membership + session, sets the sso_session cookie, and emails a
+       * verification link. The returned user's status is 'pending_verification'
+       * until the link is clicked.
+       *
+       * Note: the session cookie means the user is effectively "signed in" even
+       * before verification — we redirect them straight to the post-auth
+       * landing page with a "please verify your email" banner hint in the URL.
+       */
+      async signup(
+        emailValue: string,
+        password: string,
+        displayName: string,
+      ): Promise<void> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          const resp = await firstValueFrom(
+            http.post<{
+              user: { id: string; email: string; display_name: string; status: string };
+              tenant: { id: string; slug: string; name: string; tenant_kind: string };
+              session_id: string;
+            }>(
+              `${baseUrl}/auth/public/signup`,
+              { email: emailValue, password, display_name: displayName },
+              { withCredentials: true },
+            ),
+          );
+          patchState(store, {
+            currentUser: {
+              id: resp.user.id,
+              email: resp.user.email,
+              display_name: resp.user.display_name,
+            },
+            loading: false,
+          });
+          // Send them to the portal landing with a "verify your email" hint;
+          // actual dashboards are external apps that rely on sso_session.
+          router.navigate(['/verify-email'], {
+            queryParams: { pending: '1', email: emailValue },
+          });
+        } catch (err: unknown) {
+          const status = (err as { status?: number })?.status;
+          let message =
+            (err as { error?: { error?: string; message?: string } })?.error?.error ||
+            'Signup failed. Please try again.';
+          if (status === 409) {
+            message =
+              (err as { error?: { error?: string; message?: string } })?.error?.message ||
+              'This email is already registered — try signing in instead.';
+          }
+          patchState(store, { loading: false, error: message });
+        }
+      },
+
+      /** Submit the raw token from the /verify-email?token=… URL. */
+      async verifyEmail(token: string): Promise<boolean> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          await firstValueFrom(
+            http.post(`${baseUrl}/auth/public/verify-email`, { token }),
+          );
+          patchState(store, { loading: false });
+          return true;
+        } catch (err: unknown) {
+          const message =
+            (err as { error?: { message?: string } })?.error?.message ||
+            'This verification link is invalid or has expired.';
+          patchState(store, { loading: false, error: message });
+          return false;
+        }
+      },
+
+      /**
+       * Org signup (Phase 2). Creates an organization tenant + admin user +
+       * pending DNS domain claim, sets sso_session cookie. The response carries
+       * the TXT record the admin must publish; the caller routes to the
+       * /signup-org/verify-domain page to display it.
+       *
+       * Response shape (backend):
+       *   { user, tenant, session_id, domain: {id, domain, status, expires_at},
+       *     dns_instructions: {host, type, value, nonce} }
+       */
+      async signupOrg(payload: {
+        org_name: string;
+        org_slug: string;
+        domain: string;
+        email: string;
+        password: string;
+        full_name: string;
+      }): Promise<{
+        domainId: string;
+        domain: string;
+        host: string;
+        value: string;
+        nonce: string;
+        tenantId: string;
+      } | null> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          const resp = await firstValueFrom(
+            http.post<{
+              user: { id: string; email: string; display_name: string; status: string };
+              tenant: { id: string; slug: string; name: string; tenant_kind: string };
+              session_id: string;
+              domain: { id: string; domain: string; status: string; expires_at: string };
+              dns_instructions: { host: string; type: string; value: string; nonce: string };
+            }>(`${baseUrl}/auth/public/signup-org`, payload, { withCredentials: true }),
+          );
+          patchState(store, {
+            currentUser: {
+              id: resp.user.id,
+              email: resp.user.email,
+              display_name: resp.user.display_name,
+            },
+            loading: false,
+          });
+          return {
+            domainId: resp.domain.id,
+            domain: resp.domain.domain,
+            host: resp.dns_instructions.host,
+            value: resp.dns_instructions.value,
+            nonce: resp.dns_instructions.nonce,
+            tenantId: resp.tenant.id,
+          };
+        } catch (err: unknown) {
+          const errObj = (err as { error?: { error?: string; message?: string; field?: string } })?.error;
+          const status = (err as { status?: number })?.status;
+          let message = errObj?.message || errObj?.error || 'Org signup failed. Please try again.';
+          if (status === 409 && errObj?.error === 'domain_already_claimed') {
+            message = 'This domain is already verified by another workspace.';
+          } else if (status === 409 && errObj?.error === 'slug already taken') {
+            message = 'That workspace URL is already taken — pick a different slug.';
+          }
+          patchState(store, { loading: false, error: message });
+          return null;
+        }
+      },
+
+      /**
+       * On-demand domain verification (the "Verify now" button on the TXT
+       * instructions page). Hits the authenticated endpoint; relies on the
+       * sso_session cookie already set by signupOrg.
+       */
+      async verifyDomain(tenantId: string, domainId: string): Promise<string> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          const resp = await firstValueFrom(
+            http.post<{ outcome: string }>(
+              `${baseUrl}/tenants/${tenantId}/domains/${domainId}/verify`,
+              {},
+              { withCredentials: true },
+            ),
+          );
+          patchState(store, { loading: false });
+          return resp.outcome;
+        } catch (err: unknown) {
+          const message =
+            (err as { error?: { message?: string; error?: string } })?.error?.message ||
+            (err as { error?: { error?: string } })?.error?.error ||
+            'Verification check failed. Try again in a minute.';
+          patchState(store, { loading: false, error: message });
+          return 'error';
+        }
+      },
+
+      /**
+       * Phase 4 post-claim migration. Fetches the offer metadata for a token
+       * so /migration/:token can render "join <domain> or keep your personal
+       * workspace". Returns null on any error — the server collapses 410/400/
+       * 404 into a single "unavailable" response for enumeration resistance.
+       */
+      async migrationLookup(token: string): Promise<{
+        id: string;
+        domain: string;
+        organization: string;
+        status: string;
+        expires_at: string;
+        offered_at: string;
+      } | null> {
+        try {
+          return await firstValueFrom(
+            http.get<{
+              id: string;
+              domain: string;
+              organization: string;
+              status: string;
+              expires_at: string;
+              offered_at: string;
+            }>(`${baseUrl}/auth/public/migration/${encodeURIComponent(token)}`),
+          );
+        } catch {
+          return null;
+        }
+      },
+
+      /**
+       * Accept the migration offer. On success the server moves the user's
+       * membership to the org, soft-deletes the personal tenant, and revokes
+       * all active sessions — so any stale sso_session cookie in this browser
+       * becomes invalid. Returns true on 204.
+       */
+      async migrationAccept(token: string): Promise<boolean> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          await firstValueFrom(
+            http.post(
+              `${baseUrl}/auth/public/migration/${encodeURIComponent(token)}/accept`,
+              {},
+            ),
+          );
+          // Server revoked all active sessions for this user; the sso_session
+          // cookie is now dead. Clear local auth material too so nothing in
+          // this tab reads a stale token on the way to /login.
+          sessionStorage.removeItem('accessToken');
+          sessionStorage.removeItem('refreshToken');
+          sessionStorage.removeItem('idToken');
+          sessionStorage.removeItem('tenantId');
+          patchState(store, { loading: false, currentUser: null });
+          return true;
+        } catch (err: unknown) {
+          const status = (err as { status?: number })?.status;
+          const message =
+            status === 410
+              ? 'This migration link is no longer valid.'
+              : (err as { error?: { message?: string } })?.error?.message ||
+                'We couldn\'t accept this migration. Please try again.';
+          patchState(store, { loading: false, error: message });
+          return false;
+        }
+      },
+
+      /** Decline the migration offer; user keeps their personal workspace. */
+      async migrationDecline(token: string): Promise<boolean> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          await firstValueFrom(
+            http.post(
+              `${baseUrl}/auth/public/migration/${encodeURIComponent(token)}/decline`,
+              {},
+            ),
+          );
+          patchState(store, { loading: false });
+          return true;
+        } catch (err: unknown) {
+          const status = (err as { status?: number })?.status;
+          const message =
+            status === 410
+              ? 'This migration link is no longer valid.'
+              : (err as { error?: { message?: string } })?.error?.message ||
+                'We couldn\'t record your response. Please try again.';
+          patchState(store, { loading: false, error: message });
+          return false;
+        }
+      },
+
+      /** Ask backend to re-issue a verification email. Always succeeds visibly. */
+      async resendVerification(emailValue: string): Promise<void> {
+        patchState(store, { loading: true, error: '' });
+        try {
+          await firstValueFrom(
+            http.post(`${baseUrl}/auth/public/verify-email/resend`, {
+              email: emailValue,
+            }),
+          );
+        } catch {
+          // Resend is enumeration-resistant server-side; swallow errors and
+          // show the same confirmation UX as success.
+        }
+        patchState(store, { loading: false });
+      },
+
       logout(): void {
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('refreshToken');

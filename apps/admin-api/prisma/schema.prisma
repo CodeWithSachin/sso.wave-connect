@@ -25,13 +25,27 @@ enum DataResidency {
   @@map("data_residency")
 }
 
+// Values MUST mirror the Postgres `user_status` enum exactly
+// (`database/migrations/000002_create_enums.up.sql`). Drift between the two was
+// the source of silent Prisma deserialization failures — if you add a value
+// here, add it to the SQL enum in a new migration first.
 enum UserStatus {
   active
-  inactive
   suspended
-  pending
+  deactivated
+  pending_verification
 
   @@map("user_status")
+}
+
+// Cross-tenant platform-staff role. Distinct from `MembershipRole` which is
+// tenant-scoped. See migration 000018_platform_admins.
+enum PlatformAdminRole {
+  superadmin
+  support
+  readonly
+
+  @@map("platform_admin_role")
 }
 
 enum MembershipRole {
@@ -147,6 +161,10 @@ model Tenant {
   metadata       Json?          @db.JsonB
   maxUsers       Int?           @map("max_users")
   maxApps        Int?           @map("max_apps")
+  // Billing columns reserved by migration 000020 — wired in a later phase.
+  billingCustomerId     String? @map("billing_customer_id") @db.VarChar(128)
+  billingSubscriptionId String? @map("billing_subscription_id") @db.VarChar(128)
+  billingProvider       String? @map("billing_provider") @db.VarChar(32)
   isActive       Boolean        @default(true) @map("is_active")
   version        Int            @default(1)
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
@@ -209,7 +227,7 @@ model User {
   phoneVerified     Boolean    @default(false) @map("phone_verified")
   locale            String?    @default("en")
   timezone          String?    @default("UTC")
-  status            UserStatus @default(pending)
+  status            UserStatus @default(pending_verification)
   metadata          Json?      @db.JsonB
   lastLoginAt       DateTime?  @map("last_login_at") @db.Timestamptz
   lastLoginIp       String?    @map("last_login_ip")
@@ -230,8 +248,26 @@ model User {
   federatedIdentities FederatedIdentity[]
   groupMemberships    GroupMembership[]
   apiKeys             ApiKey[]
+  platformAdmin       PlatformAdmin?
+  grantedPlatformAdmins PlatformAdmin[]   @relation("PlatformAdminGrantedBy")
 
   @@map("users")
+}
+
+// Cross-tenant role grants for platform staff. One row per user; existence +
+// revoked_at IS NULL means "is a platform admin." See migration 000018.
+model PlatformAdmin {
+  userId     String             @id @map("user_id") @db.Uuid
+  role       PlatformAdminRole
+  grantedBy  String?            @map("granted_by") @db.Uuid
+  grantedAt  DateTime           @default(now()) @map("granted_at") @db.Timestamptz
+  revokedAt  DateTime?          @map("revoked_at") @db.Timestamptz
+  notes      String?
+
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  granter User? @relation("PlatformAdminGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+
+  @@map("platform_admins")
 }
 
 model Membership {
