@@ -28,9 +28,9 @@ import { WEBHOOK_EVENT_TYPES } from './webhooks.service';
 
       <!-- Secret Banner -->
       @if (store.newSecret(); as secret) {
-        <div class="rounded-lg border border-success/30 bg-success/5 p-4">
+        <div class="rounded-lg border border-(--wc-success)/30 bg-(--wc-success)/5 p-4">
           <div class="flex items-start gap-3">
-            <ng-icon name="heroKey" size="1.25rem" class="text-success shrink-0 mt-0.5" />
+            <ng-icon name="heroKey" size="1.25rem" class="text-(--wc-success) shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-foreground">Webhook signing secret created</p>
               <p class="text-xs text-muted-foreground mt-1">Copy this secret now. It won't be shown again.</p>
@@ -88,7 +88,7 @@ import { WEBHOOK_EVENT_TYPES } from './webhooks.service';
                   </td>
                   <td class="px-4 py-3">
                     <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
-                      [class]="ep.isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'">
+                      [class]="ep.isActive ? 'bg-(--wc-success)/10 text-(--wc-success)' : 'bg-muted text-muted-foreground'">
                       {{ ep.isActive ? 'Active' : 'Disabled' }}
                     </span>
                   </td>

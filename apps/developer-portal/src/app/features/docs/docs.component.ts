@@ -21,7 +21,7 @@ import { DocsStore } from './docs.store';
             <div class="rounded-xl border border-border bg-card p-6 shadow-sm">
               <div class="flex items-center gap-3 mb-4">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold"
-                  [class]="sdk.language === 'node' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'">
+                  [class]="sdk.language === 'node' ? 'bg-(--wc-success)/10 text-(--wc-success)' : 'bg-primary/10 text-primary'">
                   {{ sdk.language === 'node' ? 'JS' : 'Go' }}
                 </div>
                 <div>
@@ -42,7 +42,7 @@ import { DocsStore } from './docs.store';
           <!-- Static fallback cards -->
           <div class="rounded-xl border border-border bg-card p-6 shadow-sm">
             <div class="flex items-center gap-3 mb-4">
-              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10 text-success font-bold text-sm">JS</div>
+              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-(--wc-success)/10 text-(--wc-success) font-bold text-sm">JS</div>
               <div>
                 <h3 class="font-semibold text-foreground">Node.js / TypeScript</h3>
                 <p class="text-xs text-muted-foreground">&#64;wave-connect/sso-sdk</p>

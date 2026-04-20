@@ -27,9 +27,9 @@ import { OAuthAppsStore } from './oauth-apps.store';
 
       <!-- Credentials Banner -->
       @if (store.newCredentials(); as creds) {
-        <div class="rounded-lg border border-success/30 bg-success/5 p-4">
+        <div class="rounded-lg border border-(--wc-success)/30 bg-(--wc-success)/5 p-4">
           <div class="flex items-start gap-3">
-            <ng-icon name="heroFingerPrint" size="1.25rem" class="text-success shrink-0 mt-0.5" />
+            <ng-icon name="heroFingerPrint" size="1.25rem" class="text-(--wc-success) shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0 space-y-2">
               <p class="text-sm font-medium text-foreground">OAuth credentials created</p>
               <p class="text-xs text-muted-foreground">Copy these credentials now. The client secret won't be shown again.</p>

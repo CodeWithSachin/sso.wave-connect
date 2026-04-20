@@ -176,9 +176,34 @@ export class MembershipsService {
     }
   }
 
-  async findAll(tenantId: string, page = 1, pageSize = 20) {
+  /**
+   * List tenant memberships, optionally filtered by status. Status is derived
+   * (no DB column) so the filter translates to a `where` shape on each branch:
+   *
+   *   accepted  → joinedAt IS NOT NULL
+   *   pending   → joinedAt IS NULL AND invitationExpires > NOW()
+   *   expired   → joinedAt IS NULL AND invitationExpires <= NOW()
+   *
+   * Soft-deleted rows are always excluded — revocation is a delete, not a
+   * status. Phase 6 added the filter to back the Invitations page tabs.
+   */
+  async findAll(
+    tenantId: string,
+    page = 1,
+    pageSize = 20,
+    status?: 'pending' | 'accepted' | 'expired',
+  ) {
     const skip = (page - 1) * pageSize;
-    const where = { tenantId, deletedAt: null };
+    const now = new Date();
+    const baseWhere = { tenantId, deletedAt: null } as const;
+    const where =
+      status === 'accepted'
+        ? { ...baseWhere, joinedAt: { not: null } }
+        : status === 'pending'
+          ? { ...baseWhere, joinedAt: null, invitationExpires: { gt: now } }
+          : status === 'expired'
+            ? { ...baseWhere, joinedAt: null, invitationExpires: { lte: now } }
+            : baseWhere;
 
     const [data, total] = await Promise.all([
       this.prisma.membership.findMany({
@@ -196,6 +221,35 @@ export class MembershipsService {
     ]);
 
     return { data, total, page, pageSize };
+  }
+
+  /**
+   * Resend the invitation email for a pending membership. Loads the row,
+   * confirms it's still pending, then delegates to `invite()` which rotates
+   * the token, extends the expiry, and resends.
+   *
+   * Throws `ConflictException` (HTTP 409) when the membership has already
+   * been accepted — by definition there is nothing to resend, and silently
+   * succeeding would mislead the operator. The call is therefore safe to
+   * retry on a pending row (token rotation always favours the latest send)
+   * but is **not** idempotent across the pending → accepted boundary.
+   *
+   * Per plan v2 D7 (Resend auth): the caller must currently hold
+   * `manage_invitations`. Backend enforcement is the SessionCookieGuard at
+   * the controller; this method only needs the email to be addressable.
+   */
+  async resend(tenantId: string, membershipId: string, actorId?: string) {
+    const existing = await this.findOne(tenantId, membershipId);
+    if (existing.joinedAt) {
+      throw new ConflictException(
+        'Membership is already accepted; nothing to resend',
+      );
+    }
+    return this.invite(
+      tenantId,
+      { email: existing.user.email, role: existing.role },
+      actorId ?? existing.invitedBy ?? undefined,
+    );
   }
 
   async findOne(tenantId: string, id: string) {

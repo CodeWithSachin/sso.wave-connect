@@ -1,6 +1,6 @@
 // SSO Platform — Audit Log Types
 
-import type { AuditActorType } from './enums';
+import type { AuditActorType } from './enums.js';
 
 export interface AuditEntry {
   id: string;

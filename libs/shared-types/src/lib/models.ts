@@ -7,7 +7,7 @@ import type {
   MembershipRole,
   SessionStatus,
   MfaMethod,
-} from './enums';
+} from './enums.js';
 
 export interface Tenant {
   id: string;

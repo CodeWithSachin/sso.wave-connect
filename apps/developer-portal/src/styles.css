@@ -1,30 +1,21 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
+/*
+ * Wave Connect raw color tokens — single source of truth in libs/ui-components.
+ * Phase 9 of the admin role surfaces plan lifted these out of the three apps.
+ */
+@import "../../../libs/ui-components/src/lib/styles/wc-tokens.css";
 @source "./**/*.ts";
 @source "./**/*.html";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Wave Connect design tokens — shared with admin-console and login-portal.
- * Palette: coral #fb513b · cream #f6f4ee · deep teal #1d3a44.
+ * Tailwind tokens — remapped to Wave Connect raw tokens. Same shape as
+ * admin-console; keep the two in sync until we factor a shared semantic
+ * mapping out as well.
  */
 :root {
-  --wc-coral: #fb513b;
-  --wc-coral-hover: #e63a24;
-  --wc-coral-soft: #fae0dc;
-  --wc-cream: #f6f4ee;
-  --wc-cream-paper: #fbfaf4;
-  --wc-cream-muted: #ede8d9;
-  --wc-teal: #1d3a44;
-  --wc-teal-muted: #4e6b74;
-  --wc-border: #e2dccd;
-  --wc-success: #1b986d;
-  --wc-success-soft: #cee7de;
-  --wc-warning: #f5a809;
-  --wc-warning-soft: #f7e9be;
-  --wc-info-soft: #d9e5e8;
-
   --background: var(--wc-cream);
   --foreground: var(--wc-teal);
   --card: var(--wc-cream-paper);

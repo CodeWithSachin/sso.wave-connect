@@ -36,8 +36,8 @@ import { DashboardStore } from './dashboard.store';
         <div class="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-muted-foreground">Active Members</span>
-            <div class="rounded-lg bg-success/10 p-2">
-              <ng-icon name="heroGlobeAlt" class="text-success" size="1.25rem" />
+            <div class="rounded-lg bg-(--wc-success)/10 p-2">
+              <ng-icon name="heroGlobeAlt" class="text-(--wc-success)" size="1.25rem" />
             </div>
           </div>
           <div class="mt-3">
@@ -52,8 +52,8 @@ import { DashboardStore } from './dashboard.store';
         <div class="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-muted-foreground">Session Rate</span>
-            <div class="rounded-lg bg-warning/10 p-2">
-              <ng-icon name="heroChartBar" class="text-warning" size="1.25rem" />
+            <div class="rounded-lg bg-(--wc-warning)/10 p-2">
+              <ng-icon name="heroChartBar" class="text-(--wc-warning)" size="1.25rem" />
             </div>
           </div>
           <div class="mt-3">

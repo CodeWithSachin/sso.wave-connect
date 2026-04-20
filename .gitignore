@@ -43,6 +43,11 @@ apps/admin-api/prisma/*.db
 # Test coverage
 coverage/
 
+# Playwright artifacts (per-app outputDir + report; keep specs, drop output)
+apps/*/test-output/
+test-results/
+playwright-report/
+
 # Claude Code
 .claude/launch.json
 

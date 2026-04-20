@@ -1,5 +1,7 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -52,22 +54,32 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
     </div>
   `,
 })
-export class ErrorComponent implements OnInit {
+export class ErrorComponent {
   private readonly route = inject(ActivatedRoute);
 
-  readonly errorCode = signal('unknown_error');
-  readonly errorDescription = signal(
-    'An unexpected error occurred. Please try again.',
+  /**
+   * Query params are reactive: callers can navigate with `replaceUrl: true`
+   * and the displayed error updates without re-mounting the component. We
+   * use `toSignal` (with the route's seeded snapshot as the initial value)
+   * to keep the template signal-driven and the OnInit subscription gone.
+   */
+  readonly errorCode = toSignal(
+    this.route.queryParamMap.pipe(map((p) => p.get('error') ?? 'unknown_error')),
+    { initialValue: this.route.snapshot.queryParamMap.get('error') ?? 'unknown_error' },
   );
 
-  ngOnInit(): void {
-    this.route.queryParams.subscribe((params: any) => {
-      if (params['error']) {
-        this.errorCode.set(params['error']);
-      }
-      if (params['error_description']) {
-        this.errorDescription.set(params['error_description']);
-      }
-    });
-  }
+  readonly errorDescription = toSignal(
+    this.route.queryParamMap.pipe(
+      map(
+        (p) =>
+          p.get('error_description') ??
+          'An unexpected error occurred. Please try again.',
+      ),
+    ),
+    {
+      initialValue:
+        this.route.snapshot.queryParamMap.get('error_description') ??
+        'An unexpected error occurred. Please try again.',
+    },
+  );
 }

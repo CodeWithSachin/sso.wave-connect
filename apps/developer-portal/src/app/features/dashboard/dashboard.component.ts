@@ -36,8 +36,8 @@ import { DashboardStore } from './dashboard.store';
         <div class="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-muted-foreground">OAuth Applications</span>
-            <div class="rounded-lg bg-success/10 p-2">
-              <ng-icon name="heroFingerPrint" class="text-success" size="1.25rem" />
+            <div class="rounded-lg bg-(--wc-success)/10 p-2">
+              <ng-icon name="heroFingerPrint" class="text-(--wc-success)" size="1.25rem" />
             </div>
           </div>
           <div class="mt-3">
@@ -52,8 +52,8 @@ import { DashboardStore } from './dashboard.store';
         <div class="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-muted-foreground">API Requests (30d)</span>
-            <div class="rounded-lg bg-warning/10 p-2">
-              <ng-icon name="heroChartBar" class="text-warning" size="1.25rem" />
+            <div class="rounded-lg bg-(--wc-warning)/10 p-2">
+              <ng-icon name="heroChartBar" class="text-(--wc-warning)" size="1.25rem" />
             </div>
           </div>
           <div class="mt-3">
@@ -80,8 +80,8 @@ import { DashboardStore } from './dashboard.store';
           </a>
           <a routerLink="/docs"
             class="flex items-center gap-4 rounded-lg border border-border p-4 hover:bg-muted/20 transition-colors">
-            <div class="rounded-lg bg-success/10 p-3">
-              <ng-icon name="heroBookOpen" size="1.5rem" class="text-success" />
+            <div class="rounded-lg bg-(--wc-success)/10 p-3">
+              <ng-icon name="heroBookOpen" size="1.5rem" class="text-(--wc-success)" />
             </div>
             <div>
               <p class="font-medium text-foreground">View SDK Docs</p>

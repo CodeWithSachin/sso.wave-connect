@@ -20,7 +20,8 @@
     "baseUrl": ".",
     "paths": {
       "@sso-platform/nestjs-auth": ["libs/nestjs-auth/src/lib/index.ts"],
-      "@sso-platform/nestjs-email": ["libs/nestjs-email/src/lib/index.ts"]
+      "@sso-platform/nestjs-email": ["libs/nestjs-email/src/lib/index.ts"],
+      "@sso-platform/shared-types": ["libs/shared-types/src/index.ts"]
     }
   }
 }

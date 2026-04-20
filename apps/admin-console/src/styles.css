@@ -1,35 +1,24 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
+/*
+ * Wave Connect raw color tokens — single source of truth lives in
+ * libs/ui-components. Phase 9 of the admin role surfaces plan lifted
+ * these out of the three apps to kill drift.
+ */
+@import "../../../libs/ui-components/src/lib/styles/wc-tokens.css";
 @source "./**/*.ts";
 @source "./**/*.html";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Wave Connect design tokens
- * Source: Wave Connect Design System (shadcn-flavored, coral / cream / deep teal)
- * Palette: #fb513b primary · #f6f4ee background · #1d3a44 foreground.
- * Mapped onto the existing Tailwind v4 CSS variables so every utility
- * class in the app picks up the new palette without markup changes.
+ * Tailwind tokens — remapped to Wave Connect raw tokens.
+ *
+ * Mapping the Tailwind v4 CSS variables (--background, --primary, …) to
+ * the --wc-* tokens means every utility class in the app picks up the
+ * Wave Connect palette without markup changes.
  */
 :root {
-  /* Wave Connect raw tokens */
-  --wc-coral: #fb513b;
-  --wc-coral-hover: #e63a24;
-  --wc-coral-soft: #fae0dc;
-  --wc-cream: #f6f4ee;
-  --wc-cream-paper: #fbfaf4;
-  --wc-cream-muted: #ede8d9;
-  --wc-teal: #1d3a44;
-  --wc-teal-muted: #4e6b74;
-  --wc-border: #e2dccd;
-  --wc-success: #1b986d;
-  --wc-success-soft: #cee7de;
-  --wc-warning: #f5a809;
-  --wc-warning-soft: #f7e9be;
-  --wc-info-soft: #d9e5e8;
-
-  /* Tailwind tokens — remapped to Wave Connect */
   --background: var(--wc-cream);
   --foreground: var(--wc-teal);
   --card: var(--wc-cream-paper);

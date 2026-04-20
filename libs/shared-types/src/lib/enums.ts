@@ -28,3 +28,26 @@ export type ConsentStatus = 'granted' | 'revoked';
 export type DataResidency = 'us' | 'eu' | 'ap' | 'global';
 
 export type AuditActorType = 'user' | 'system' | 'api_key' | 'scim_token' | 'service';
+
+// --- Admin role surfaces (plan v2) ---
+// Mirror of the `platform_admin_role` Postgres enum (migration 000018).
+export type PlatformAdminRole = 'superadmin' | 'support' | 'readonly';
+
+// Mirror of the `tenant_kind` Postgres enum (migration 000021). Distinguishes
+// auto-created single-user "personal" tenants from real organizations.
+export type TenantKind = 'personal' | 'organization';
+
+// UI-facing capability vocabulary. Computed server-side from (membership role,
+// tenant_kind, platform-admin role) — see apps/admin-api/src/session/capabilities.ts.
+// Frontend never re-derives; it only checks `capabilities.includes(c)`.
+export type Capability =
+  | 'view_platform_admins'
+  | 'manage_platform_admins'
+  | 'view_tenant_settings'
+  | 'manage_members'
+  | 'manage_domains'
+  | 'manage_identity_providers'
+  | 'manage_invitations'
+  | 'view_migrations'
+  | 'force_migration'
+  | 'view_audit_log';

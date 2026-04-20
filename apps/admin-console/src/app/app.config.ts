@@ -1,4 +1,9 @@
-import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  inject,
+  provideAppInitializer,
+  provideZonelessChangeDetection,
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
 import {
   provideHttpClient,
@@ -42,11 +47,15 @@ import {
   heroGlobeAlt,
   heroCog6Tooth,
   heroArrowRightStartOnRectangle,
+  heroEnvelope,
+  heroArrowsRightLeft,
+  heroChevronUpDown,
 } from '@ng-icons/heroicons/outline';
 import { appRoutes } from './app.routes';
 import { HttpInterceptorFn } from '@angular/common/http';
 import { snowPassThrough } from '../../../../libs/ui-components/src/lib/primeng-passthrough';
 import { environment } from './environments/environment';
+import { SessionStore } from './core/session/session.store';
 
 // Browser auth uses the sso_session HttpOnly cookie set by identity-service on login.
 // This interceptor ensures every cross-origin API call sends that cookie; the backend
@@ -81,6 +90,17 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(
       withInterceptors([credentialsInterceptor, unauthorizedInterceptor]),
     ),
+    /**
+     * Hydrate SessionStore before any route resolves. `hydrate()` races a 3s
+     * deadline so a slow or down admin-api doesn't block the shell from
+     * rendering — on timeout the capability guard redirects any protected
+     * route to /dashboard (the cap-less fallback). The returned promise is
+     * what Angular awaits before bootstrap completes.
+     *
+     * `APP_INITIALIZER` was deprecated in Angular 19 and removed in 20;
+     * `provideAppInitializer` is the supported replacement.
+     */
+    provideAppInitializer(() => inject(SessionStore).hydrate()),
     provideAnimationsAsync(),
     providePrimeNG({
       theme: {
@@ -124,6 +144,9 @@ export const appConfig: ApplicationConfig = {
       heroGlobeAlt,
       heroCog6Tooth,
       heroArrowRightStartOnRectangle,
+      heroEnvelope,
+      heroArrowsRightLeft,
+      heroChevronUpDown,
     }),
     provideNgIconsConfig({ size: '1.25rem' }),
   ],

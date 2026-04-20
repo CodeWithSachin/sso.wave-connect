@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthStore } from '../store/auth.store';
 
@@ -113,26 +113,21 @@ import { AuthStore } from '../store/auth.store';
     </div>
   `,
 })
-export class VerifyDomainComponent implements OnInit {
+export class VerifyDomainComponent {
   private readonly route = inject(ActivatedRoute);
   readonly store = inject(AuthStore);
 
-  readonly domain = signal('');
-  readonly host = signal('');
-  readonly value = signal('');
-  readonly domainId = signal('');
-  readonly tenantId = signal('');
+  // Query params are seeded once at construction — this component is a leaf
+  // landing page, so the params never change while it's mounted. Reading the
+  // snapshot at field-init time replaces an `ngOnInit` of `signal.set` calls.
+  private readonly params = this.route.snapshot.queryParamMap;
+  readonly domain = signal(this.params.get('domain') ?? '');
+  readonly host = signal(this.params.get('host') ?? '');
+  readonly value = signal(this.params.get('value') ?? '');
+  readonly domainId = signal(this.params.get('domainId') ?? '');
+  readonly tenantId = signal(this.params.get('tenantId') ?? '');
 
   readonly status = signal<'waiting' | 'checking' | 'verified' | 'still_pending' | 'error'>('waiting');
-
-  ngOnInit(): void {
-    const p = this.route.snapshot.queryParamMap;
-    this.domain.set(p.get('domain') ?? '');
-    this.host.set(p.get('host') ?? '');
-    this.value.set(p.get('value') ?? '');
-    this.domainId.set(p.get('domainId') ?? '');
-    this.tenantId.set(p.get('tenantId') ?? '');
-  }
 
   async onCheck(): Promise<void> {
     if (!this.domainId() || !this.tenantId()) return;
