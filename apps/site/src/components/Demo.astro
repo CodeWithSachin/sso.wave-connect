@@ -1,0 +1,66 @@
+---
+/**
+ * Live demo widget — three tabs (Consumer / Workspace / SAML) with a
+ * fake submit that simulates an authentication round-trip. Behavior in
+ * `~/scripts/demo-widget.ts`.
+ */
+import BrandMark from './BrandMark.astro';
+---
+
+<section class="demo" id="demo">
+  <div class="sec-head">
+    <div class="sec-kicker">Live demo</div>
+    <h2 class="sec-title" data-r>Try <em>signing in</em>.</h2>
+    <p class="sec-sub" data-r>
+      This is an actual Wave Connect widget — not a screenshot. Switch tabs, submit. Nothing installed.
+    </p>
+  </div>
+
+  <div class="demo-grid">
+    <div class="demo-copy" data-r>
+      <h3>A login page,<br />rendered <em>from one config</em>.</h3>
+      <p>
+        Pick your providers, upload a logo, ship it to <span class="mono coral">sso.yourapp.com</span>.
+        Sessions shared across every tenant the user belongs to. No frontend code required.
+      </p>
+      <ul>
+        <li>6 SDK languages · 148 integrations</li>
+        <li>SAML, OIDC, passkeys, social — unified</li>
+        <li>Admin console + audit log out of the box</li>
+        <li>99.995% uptime · 42 ms p99 · SOC 2 Type II</li>
+      </ul>
+    </div>
+
+    <div class="widget" data-r>
+      <div class="w-head">
+        <div class="w-logo"><BrandMark size={16} title="" /></div>
+        <div class="w-brand">Acme</div>
+      </div>
+      <div class="w-title">Sign in to <em>Acme</em></div>
+      <div class="w-hint">continue to your dashboard →</div>
+
+      <div class="w-tabs" id="w-tabs" role="tablist">
+        <button class="on" data-tab="consumer" role="tab" aria-selected="true">Consumer</button>
+        <button data-tab="workspace" role="tab" aria-selected="false">Workspace</button>
+        <button data-tab="saml" role="tab" aria-selected="false">SAML</button>
+      </div>
+
+      <div class="w-field">
+        <div class="w-lbl">Email</div>
+        <input class="w-input" id="w-email" placeholder="you@acme.com" autocomplete="off" />
+      </div>
+      <div class="w-field" id="w-pw">
+        <div class="w-lbl">Password</div>
+        <input class="w-input" type="password" placeholder="••••••••" autocomplete="off" />
+      </div>
+      <button class="w-submit" id="w-submit" type="button">Continue →</button>
+      <div class="w-provs">
+        <button type="button">◆ Google</button>
+        <button type="button">◆ Microsoft</button>
+        <button type="button">◆ GitHub</button>
+        <button type="button">◆ Passkey</button>
+      </div>
+      <div class="w-state" id="w-state">ready · session will persist across 3 tenants</div>
+    </div>
+  </div>
+</section>

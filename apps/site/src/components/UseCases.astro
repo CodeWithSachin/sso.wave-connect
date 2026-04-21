@@ -1,0 +1,54 @@
+---
+/**
+ * Big-row use-case list. Each row tracks the cursor for a coral-glow
+ * spotlight effect — handler in `~/scripts/bento.client.ts`.
+ */
+const rows = [
+  {
+    tag: '01 / SAAS',
+    title: '<em>Multi-workspace</em> B2B SaaS',
+    desc:
+      "Your customers' employees move between orgs without re-authenticating. Sessions propagate. Permissions don't.",
+  },
+  {
+    tag: '02 / ENTERPRISE',
+    title: '<em>SAML-as-a-service</em>',
+    desc:
+      "Your customers bring their own IdP. You write zero SAML code. We handle every edge case of the spec, every IdP's quirks.",
+  },
+  {
+    tag: '03 / CONSUMER',
+    title: '<em>Consumer</em> + workspace crossover',
+    desc:
+      'Personal accounts that graduate into team workspaces, Google-style. Same user, new context — with a clean migration UX.',
+  },
+  {
+    tag: '04 / PLATFORMS',
+    title: '<em>Marketplaces &amp; platforms</em>',
+    desc:
+      'Every seller, buyer, partner gets their own tenant view. Full audit trail. Tenant-scoped API keys. SSO-for-SSO for the big accounts.',
+  },
+];
+---
+
+<section class="uses" id="cases">
+  <div class="sec-head">
+    <div class="sec-kicker">Use cases</div>
+    <h2 class="sec-title" data-r>
+      Built for apps<br />with <em>more than one</em> tenant.
+    </h2>
+  </div>
+
+  <div style="height: 60px"></div>
+
+  {
+    rows.map((r) => (
+      <div class="use-row" data-hover>
+        <div class="use-tag">{r.tag}</div>
+        <h3 class="use-title" set:html={r.title} />
+        <p class="use-desc" set:html={r.desc} />
+        <div class="use-cta">↗</div>
+      </div>
+    ))
+  }
+</section>

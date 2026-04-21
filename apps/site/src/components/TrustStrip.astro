@@ -1,0 +1,28 @@
+---
+/**
+ * Single horizontal row of customer wordmarks. Pure CSS, no JS.
+ * Names are placeholder fictional brands matching the design source.
+ */
+const logos: { name: string; italic?: boolean }[] = [
+  { name: 'Acme' },
+  { name: 'Hooli', italic: true },
+  { name: 'Initech' },
+  { name: 'Pied Piper', italic: true },
+  { name: 'Umbrella' },
+  { name: 'Tyrell', italic: true },
+  { name: 'Soylent' },
+];
+---
+
+<div class="trust">
+  <div class="trust-inner">
+    <span class="trust-lab">Trusted by teams at</span>
+    {
+      logos.map((logo) => (
+        <span class="trust-logo" style={logo.italic ? 'font-style: italic' : undefined}>
+          {logo.name}
+        </span>
+      ))
+    }
+  </div>
+</div>

@@ -1,0 +1,24 @@
+---
+import Marketing from '~/layouts/Marketing.astro';
+import PageHeader from '~/components/PageHeader.astro';
+import BentoGrid from '~/components/BentoGrid.astro';
+import HowItWorks from '~/components/HowItWorks.astro';
+import Demo from '~/components/Demo.astro';
+import Finale from '~/components/Finale.astro';
+---
+
+<Marketing
+  current="/product"
+  title="Product — Wave Connect"
+  description="Hosted SSO portal, session mesh, SCIM + SAML + OIDC, audit log. The identity mesh for multi-tenant apps."
+>
+  <PageHeader
+    kicker="Product"
+    title="One login, <em>every</em> workspace."
+    sub="Drop-in hosted portal, session mesh across tenants, policies-as-data, and an audit log wired to every auth event. Everything in one place."
+  />
+  <BentoGrid />
+  <HowItWorks />
+  <Demo />
+  <Finale />
+</Marketing>

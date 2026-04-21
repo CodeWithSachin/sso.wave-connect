@@ -1,0 +1,46 @@
+---
+/**
+ * /signup → login-portal signup.
+ *
+ * Same meta+JS redirect pattern as /login — see that file for the
+ * rationale. We use this path for the primary CTA target so bookmarks,
+ * billing-email links, and affiliate-campaign URLs all hit a stable
+ * marketing-side URL even as the auth portal moves.
+ */
+import { links } from '~/lib/links';
+import { brand, site } from '~/lib/colors';
+const target = links.signup();
+
+// See login.astro — stub can't reach the main stylesheet's CSS vars,
+// so we interpolate hex from the TS color mirror at build time.
+const styleCss = `
+  body {
+    background: ${site.bg};
+    color: ${brand.cream};
+    font: 14px/1.5 Inter, system-ui, sans-serif;
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+  }
+  a { color: ${brand.coral}; }
+`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <link rel="canonical" href={target} />
+    <title>Redirecting to sign up — Wave Connect</title>
+    <script is:inline set:html={`location.replace(${JSON.stringify(target)});`} />
+    <style is:inline set:html={styleCss}></style>
+  </head>
+  <body>
+    <p>
+      Redirecting to <a href={target}>{target}</a>…
+    </p>
+  </body>
+</html>

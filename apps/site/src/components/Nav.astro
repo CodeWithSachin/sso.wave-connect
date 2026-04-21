@@ -1,0 +1,52 @@
+---
+/**
+ * Sticky top nav. Adds `.scrolled` past 40px to render the blurred
+ * background — the toggle is in `~/scripts/nav-scroll.ts`.
+ *
+ * Cross-app destinations (Log in, Get started) flow through `links()`
+ * so a port / subdomain change in env is a one-line edit. Internal
+ * marketing pages (Product, Pricing) are real Astro routes, not
+ * anchors — gives users a real Back button + crawlable URLs.
+ */
+import { links } from '~/lib/links';
+import BrandMark from './BrandMark.astro';
+
+interface Props {
+  /** Active route path; used to highlight the corresponding nav link. */
+  current?: string;
+}
+const { current = '/' } = Astro.props;
+
+const items: { href: string; label: string }[] = [
+  { href: links.product(), label: 'Product' },
+  { href: links.pricing(), label: 'Pricing' },
+  { href: links.customers(), label: 'Customers' },
+  { href: links.security(), label: 'Security' },
+  { href: links.docs(), label: 'Docs' },
+];
+---
+
+<nav class="nav" id="nav">
+  <a class="nav-brand" href={links.home()}>
+    <span class="mk"><BrandMark size={16} title="" /></span>
+    Wave Connect
+  </a>
+  <div class="nav-links">
+    {
+      items.map((item) => (
+        <a
+          href={item.href}
+          aria-current={current === item.href ? 'page' : undefined}
+          class:list={[{ 'is-active': current === item.href }]}
+        >
+          {item.label}
+        </a>
+      ))
+    }
+  </div>
+  <div class="nav-cta">
+    <a class="login" href={links.login()}>Log in</a>
+    <a class="btn btn-ghost" href={links.contactSales()}>Talk to us</a>
+    <a class="btn btn-coral" href={links.signup()}>Get started <span class="arr">↗</span></a>
+  </div>
+</nav>

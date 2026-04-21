@@ -1,0 +1,107 @@
+/*
+ * Wave Connect — marketing-site design tokens.
+ *
+ * The marketing site lives on a dark canvas (designed to dramatize the
+ * 3D hero). The three Angular apps live on the cream brand surface and
+ * consume `wc-tokens.css` directly; this file is site-only.
+ *
+ * Source hierarchy:
+ *   wc-tokens.css                  → brand primitives (coral, cream, teal)
+ *   site-tokens.css  ← this file   → site-specific dark canvas + accents
+ *   global.css                     → consumes both
+ *
+ * Rule: no raw hex / rgba() in the rest of the site's CSS. If you need a
+ * value that isn't here, add it here first (or reach for a `wc-*` brand
+ * token) and use the named variable. A literal hex anywhere else is a
+ * drift and should be caught in review.
+ *
+ * Colors that aren't brand primitives are deliberately prefixed
+ * `--site-*` so a grep instantly separates marketing accents from brand
+ * tokens — and so Angular apps that accidentally import this file
+ * clearly see they're reaching into a surface that isn't theirs.
+ */
+
+:root {
+	/* --------------------------------------------------------------
+	 * Dark-canvas surfaces.
+	 *
+	 * Five step-down shades from the page background to the deepest
+	 * terminal panel. Hand-tuned — the progression isn't algorithmic
+	 * but each step is chosen to remain legible with cream ink and
+	 * coral accents overlaid.
+	 * -------------------------------------------------------------- */
+	--site-bg:           #0a0a12;
+	--site-bg-elev-1:    #11111c;
+	--site-bg-elev-2:    #14141f;
+	--site-bg-deep:      #0c0c14;
+	--site-bg-tile:      #0d0d18;
+	/* Teal tinted dark — for the "theme picker" viz and brand
+	   gradients that need a deep-teal anchor point. */
+	--site-bg-teal-dark: #0e1e24;
+
+	/* --------------------------------------------------------------
+	 * Ink on dark background.
+	 *
+	 * Reuses brand cream. rgb() alpha variants use --wc-cream-rgb so
+	 * there's still one source of truth for the cream value itself.
+	 * -------------------------------------------------------------- */
+	--site-ink:    var(--wc-cream);
+	--site-muted:  rgba(var(--wc-cream-rgb), 0.58);
+	--site-sub:    rgba(var(--wc-cream-rgb), 0.38);
+	--site-line:   rgba(var(--wc-cream-rgb), 0.08);
+	--site-line-2: rgba(var(--wc-cream-rgb), 0.16);
+
+	/* --------------------------------------------------------------
+	 * Marketing accents — NOT part of the brand primitives.
+	 *
+	 * These come from the original site design's "tweak palette".
+	 * Used for glow gradients, the viz-themes tile gradient, and the
+	 * success-state chip on the dark canvas (brand --wc-success reads
+	 * too dim against --site-bg). Do NOT import these into the
+	 * Angular apps — the cream surface has its own success/warning
+	 * tokens. The 3D hero itself uses brand --wc-teal and
+	 * --wc-teal-muted (see scripts/hero-scene.ts).
+	 * -------------------------------------------------------------- */
+	--site-coral-hover: #ff7a64; /* lighter coral for dark-on-coral hover */
+	--site-coral-shade: #c02e1c; /* darker coral for viz-themes gradient */
+	--site-violet:      #a569ff;
+	--site-mint:        #5fd99a;
+
+	--site-violet-rgb: 165, 105, 255;
+	--site-mint-rgb:   95, 217, 154;
+	--site-bg-rgb:     10, 10, 18;
+
+	/* --------------------------------------------------------------
+	 * Functional neutrals — for scrims, well backgrounds, overlay
+	 * shadows. These aren't brand colors; they're just "dimmer" and
+	 * "brighter" handles for the dark canvas. Centralizing them means
+	 * a future palette shift (e.g. slight warm-tint) is one edit.
+	 * -------------------------------------------------------------- */
+	--site-scrim:      rgba(0, 0, 0, 0.5);
+	--site-well:       rgba(0, 0, 0, 0.3);
+	--site-well-deep:  rgba(0, 0, 0, 0.35);
+	--site-shadow-md:  rgba(0, 0, 0, 0.6);
+	--site-shadow-lg:  rgba(0, 0, 0, 0.7);
+	--site-highlight:  rgba(255, 255, 255, 0.02);
+	--site-highlight-2: rgba(255, 255, 255, 0.04);
+
+	/* --------------------------------------------------------------
+	 * Syntax highlighting for bento skeletons (policy YAML + SDK).
+	 *
+	 * Chosen against --site-bg-deep. Don't try to match any IDE
+	 * theme exactly — the goal is legibility + brand affinity, not
+	 * fidelity to VS Code.
+	 * -------------------------------------------------------------- */
+	--site-syntax-key: #ff9b87;
+	--site-syntax-val: var(--site-mint);
+	--site-syntax-num: #ffd166;
+	--site-syntax-str: #c9b8ff;
+
+	/* --------------------------------------------------------------
+	 * Mac "traffic light" dots on the Hosted Portal browser-chrome
+	 * skeleton. Standard macOS window-control colors — not brand.
+	 * -------------------------------------------------------------- */
+	--site-os-red:    #ff5f57;
+	--site-os-yellow: #ffbd2e;
+	--site-os-green:  #28c840;
+}

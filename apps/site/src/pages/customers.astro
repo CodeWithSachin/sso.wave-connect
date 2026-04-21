@@ -1,0 +1,22 @@
+---
+import Marketing from '~/layouts/Marketing.astro';
+import PageHeader from '~/components/PageHeader.astro';
+import CustomerStories from '~/components/CustomerStories.astro';
+import TrustStrip from '~/components/TrustStrip.astro';
+import Finale from '~/components/Finale.astro';
+---
+
+<Marketing
+  current="/customers"
+  title="Customers — Wave Connect"
+  description="B2B SaaS, enterprise SAML, consumer crossover, marketplaces. See how teams run production auth on Wave Connect."
+>
+  <PageHeader
+    kicker="Customers"
+    title="Teams shipping <em>real auth</em>, fast."
+    sub="From four-person startups to public-company platform teams. The through-line is the same: drop it in, move on, never re-debug SAML again."
+  />
+  <TrustStrip />
+  <CustomerStories />
+  <Finale />
+</Marketing>

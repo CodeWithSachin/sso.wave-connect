@@ -1,0 +1,6 @@
+# Astro build output (we redirect to dist/apps/site at the workspace root,
+# but local dev still drops a .astro/ cache in the project root).
+.astro/
+dist/
+node_modules/
+.env.local

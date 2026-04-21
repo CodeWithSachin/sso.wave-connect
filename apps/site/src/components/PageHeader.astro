@@ -1,0 +1,23 @@
+---
+/**
+ * Inner-page hero. Smaller than the home hero, no WebGL, single coral
+ * glow strip behind a centred kicker + title + sub. Used by /pricing,
+ * /customers, /security so they share a visual rhythm with the home
+ * page without each one cooking up its own header.
+ */
+interface Props {
+  kicker: string;
+  title: string;
+  sub?: string;
+}
+const { kicker, title, sub } = Astro.props;
+---
+
+<header class="page-hero">
+  <div class="page-hero-glow"></div>
+  <div class="sec-head">
+    <div class="sec-kicker">{kicker}</div>
+    <h1 class="sec-title" data-r set:html={title} />
+    {sub && <p class="sec-sub" data-r>{sub}</p>}
+  </div>
+</header>

@@ -1,0 +1,54 @@
+---
+/**
+ * 3-second loading splash. Designed to dramatize the WebGL hero —
+ * without it, the canvas pops in awkwardly while Three.js is parsing.
+ *
+ * First-visit gating — the splash only shows if:
+ *   - `localStorage['wc:splash-seen']` is missing OR its timestamp is
+ *     older than `SPLASH_TTL_MS` (30 days). The TTL means brand returners
+ *     coming back after a long break still get the moment; same-week
+ *     power users don't.
+ *   - The URL doesn't carry `?splash=1` (force-show, for screenshots
+ *     and QA).
+ *   - The URL *does* carry `?splash=0` will force-hide.
+ *
+ * Implementation:
+ *   - An `is:inline` script runs *before* the splash paints (so we avoid
+ *     a flash of the splash when the decision is "hide"). It just adds
+ *     `.splash-skip` to the `<html>` element and `display:none` the
+ *     element via a CSS rule.
+ *   - `~/scripts/splash.ts` then runs the normal dismiss + message loop
+ *     only when the skip class isn't set.
+ */
+import BrandMark from './BrandMark.astro';
+---
+
+<script is:inline>
+  // Runs pre-paint. Idempotent. Writes a class on <html> that CSS keys
+  // off of to hide the splash before any layout happens.
+  (function () {
+    try {
+      var TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+      var KEY = 'wc:splash-seen';
+      var params = new URLSearchParams(window.location.search);
+      var force = params.get('splash');
+      var seenAt = Number(localStorage.getItem(KEY) || 0);
+      var fresh = seenAt && Date.now() - seenAt < TTL;
+      var shouldSkip = force === '0' || (force !== '1' && fresh);
+      if (shouldSkip) document.documentElement.classList.add('splash-skip');
+    } catch (_e) {
+      // localStorage blocked (Safari private mode, cookie policies) —
+      // fall through and show the splash. Slightly annoying for those
+      // users but never broken.
+    }
+  })();
+</script>
+
+<div class="splash" id="splash">
+  <div class="splash-logo">
+    <span class="mk"><BrandMark size={24} title="" /></span>
+    Wave Connect
+  </div>
+  <div class="splash-bar"></div>
+  <div class="splash-text" id="splash-text">Loading experience…</div>
+</div>

@@ -1,0 +1,22 @@
+---
+/**
+ * Final CTA. The headline drifts on a slow glow background — same
+ * `glowDrift` keyframes as the hero so the page bookends visually.
+ */
+import { links } from '~/lib/links';
+---
+
+<section class="finale" id="finale">
+  <div class="finale-glow"></div>
+  <div class="finale-inner">
+    <div class="sec-kicker" style="color: var(--coral);">Start building today</div>
+    <h2 data-r>Launch your<br /><em>identity mesh</em>.</h2>
+    <p class="lede" data-r>
+      Free until 5k MAU. No credit card, no sales call. Ship login by Friday — the hard parts are done.
+    </p>
+    <div class="cta">
+      <a class="btn btn-coral" href={links.signup()}>Get started <span class="arr">↗</span></a>
+      <a class="btn btn-ghost" href={links.contactSales()}>Book a call <span class="arr">→</span></a>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,66 @@
+---
+/**
+ * 404. Astro writes this to `dist/apps/site/404.html`, which Vercel /
+ * Netlify / GitHub Pages all pick up as the 404 fallback automatically.
+ * For Nginx / S3 you'll want an error-document: 404.html config line.
+ */
+import Marketing from '~/layouts/Marketing.astro';
+import { links } from '~/lib/links';
+---
+
+<Marketing
+  current="/"
+  title="Page not found — Wave Connect"
+  description="That page didn't route to anything. Jump back to the home page or the docs."
+  showSplash={false}
+>
+  <section class="notfound">
+    <div class="code">404</div>
+    <h1>Page not found.</h1>
+    <p>That URL didn't route to anything on this site. If you followed a link, a quick note to <a href={links.contactSales()}>hello@wave-connect.test</a> will make sure it gets fixed.</p>
+    <div class="actions">
+      <a class="btn btn-coral" href={links.home()}>Back to home <span class="arr">↗</span></a>
+      <a class="btn btn-ghost" href={links.docs()}>Read the docs <span class="arr">→</span></a>
+    </div>
+  </section>
+</Marketing>
+
+<style>
+  .notfound {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 200px 40px 160px;
+    text-align: center;
+  }
+  .notfound .code {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(120px, 16vw, 240px);
+    letter-spacing: -0.05em;
+    color: var(--coral);
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .notfound h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(32px, 4vw, 48px);
+    letter-spacing: -0.025em;
+    margin-bottom: 16px;
+  }
+  .notfound p {
+    color: var(--muted);
+    margin-bottom: 32px;
+    line-height: 1.55;
+  }
+  .notfound p a {
+    color: var(--coral);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  .actions {
+    display: inline-flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+</style>

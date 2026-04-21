@@ -1,0 +1,223 @@
+---
+/**
+ * "Tenant universes" bento grid.
+ *
+ * Six cards spanning a 12-column grid:
+ *   1. Hosted portal      (b-lg, span 7) — animated browser-chrome skeleton
+ *   2. Session mesh       (b-tall, span 5) — SVG constellation generated client-side
+ *   3. Policy YAML        (b-md, span 6)
+ *   4. Audit log          (b-md, span 6) — live-streamed rows generated client-side
+ *   5. SDK terminal       (b-wide, span 8) — language-tab swap
+ *   6. Provider grid      (b-sm, span 4)
+ *
+ * The interactivity (typing in card 1, mesh node generation in 2, audit
+ * row streaming in 4, language swap in 5) lives in
+ * `~/scripts/bento.client.ts`. The CSS is in `global.css` under the BENTO
+ * comment block — those styles were missing from the original design
+ * source and were authored to match the surrounding palette.
+ */
+---
+
+<section class="showcase" id="product">
+  <div class="sec-head">
+    <div class="sec-kicker">Tenant universes</div>
+    <h2 class="sec-title" data-r>
+      Ship a <em>login</em> that feels<br />like <em>your product</em>.
+    </h2>
+    <p class="sec-sub" data-r>
+      Each tenant becomes its own universe — hosted portal, custom domain, branded theme, policies,
+      audit log. Hover any card to explore a live skeleton of that surface.
+    </p>
+  </div>
+
+  <div class="bento">
+    <!-- Card 1: Hosted portal -->
+    <article class="b-card b-lg" data-r>
+      <div class="b-head">
+        <span class="b-tag"><span class="dot"></span>Hosted portal</span>
+        <span class="b-meta mono">sso.acme.com</span>
+      </div>
+      <div class="b-body">
+        <div class="skel-browser">
+          <div class="sb-chrome">
+            <span class="sb-dot sb-dot-red"></span>
+            <span class="sb-dot sb-dot-yellow"></span>
+            <span class="sb-dot sb-dot-green"></span>
+            <div class="sb-url"><span class="mono">🔒 sso.acme.com/signin</span></div>
+          </div>
+          <div class="sb-body">
+            <div class="sb-logo"></div>
+            <div class="sb-title">Welcome to <em>Acme</em></div>
+            <div class="sb-subtitle">continue to your dashboard</div>
+            <div class="sb-input">
+              <span id="sb-typed"></span><span class="sb-caret">|</span>
+            </div>
+            <div class="sb-btn">Continue →</div>
+            <div class="sb-or">— or —</div>
+            <div class="sb-provs">
+              <div class="sb-prov">◆ Google</div>
+              <div class="sb-prov">◆ Okta SSO</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="b-foot">
+        <div class="b-copy">
+          <h3><em>Drop-in</em> portal, zero frontend code.</h3>
+          <p>
+            Every tenant gets a hosted SSO page on a CNAME'd subdomain. Logo, colors, copy — yours.
+            Cookies shared, sessions durable.
+          </p>
+        </div>
+        <div class="b-stat">
+          <div class="v mono">42<span>ms</span></div>
+          <div class="l">p99 · <span class="live-dot">● live</span></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Card 2: Session mesh -->
+    <article class="b-card b-tall" data-r>
+      <div class="b-head">
+        <span class="b-tag"><span class="dot"></span>Session mesh</span>
+        <span class="b-meta mono" id="mesh-count">8 tenants</span>
+      </div>
+      <div class="b-body">
+        <div class="skel-mesh">
+          <svg class="mesh-svg" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <radialGradient id="mgrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="var(--coral)" stop-opacity="0.7"></stop>
+                <stop offset="100%" stop-color="var(--coral)" stop-opacity="0"></stop>
+              </radialGradient>
+            </defs>
+            <g id="mesh-edges"></g>
+            <g id="mesh-nodes"></g>
+            <circle cx="150" cy="150" r="22" fill="url(#mgrad)" opacity="0.8"></circle>
+            <circle cx="150" cy="150" r="10" fill="var(--coral)" class="mesh-center-pulse"></circle>
+            <text
+              x="150"
+              y="153"
+              text-anchor="middle"
+              fill="var(--wc-cream)"
+              font-size="9"
+              font-family="JetBrains Mono, monospace"
+              font-weight="600">YOU</text
+            >
+          </svg>
+        </div>
+      </div>
+      <div class="b-foot">
+        <div class="b-copy">
+          <h3><em>One login.</em> Every workspace.</h3>
+          <p>Sessions propagate in-memory across every tenant a user belongs to. Zero re-auth friction.</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Card 3: Policy YAML -->
+    <article class="b-card b-md" data-r>
+      <div class="b-head">
+        <span class="b-tag"><span class="dot"></span>Policy as data</span>
+        <span class="b-meta mono">/policies.yaml</span>
+      </div>
+      <div class="b-body">
+        <div class="skel-editor">
+          <div class="se-gutter">
+            <span>1</span><span>2</span><span>3</span><span>4</span>
+            <span>5</span><span>6</span><span>7</span><span>8</span>
+          </div>
+          <pre
+            class="se-code"><span class="c-key">require_mfa</span>: <span class="c-val">true</span>
+<span class="c-key">session_ttl</span>: <span class="c-num">86400</span>
+<span class="c-key">allowed_domains</span>:
+  - <span class="c-str">"acme.com"</span>
+  - <span class="c-str">"*.acme.dev"</span>
+<span class="c-key">scim</span>:
+  <span class="c-key">enabled</span>: <span class="c-val">true</span>
+<span class="c-key">step_up</span>: <span class="c-str">"admin.*"</span><span class="se-caret"></span></pre>
+        </div>
+      </div>
+      <div class="b-foot">
+        <div class="b-copy">
+          <h3>Edit in <em>YAML</em> or UI.</h3>
+          <p>Version-controlled, diffed, audit-logged. Preview before apply.</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Card 4: Audit log -->
+    <article class="b-card b-md" data-r>
+      <div class="b-head">
+        <span class="b-tag"><span class="dot"></span>Audit log</span>
+        <span class="b-meta mono"><span class="pulse">●</span> streaming</span>
+      </div>
+      <div class="b-body">
+        <div class="skel-audit" id="skel-audit"></div>
+      </div>
+      <div class="b-foot">
+        <div class="b-copy">
+          <h3><em>Every</em> auth event.</h3>
+          <p>Hashed, signed, SIEM-exportable. ∞ retention.</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Card 5: SDK terminal -->
+    <article class="b-card b-wide" data-r>
+      <div class="b-head">
+        <span class="b-tag"><span class="dot"></span>SDK · 6 languages</span>
+        <div class="sdk-tabs mono" id="sdk-tabs">
+          <button class="on" data-lang="ts">TypeScript</button>
+          <button data-lang="py">Python</button>
+          <button data-lang="go">Go</button>
+          <button data-lang="rb">Ruby</button>
+        </div>
+      </div>
+      <div class="b-body">
+        <div class="skel-terminal">
+          <pre class="term-code mono" id="term-code"></pre>
+        </div>
+      </div>
+      <div class="b-foot">
+        <div class="b-copy">
+          <h3><em>Eight</em> lines of code.</h3>
+          <p>Drop in the handler, guard your routes. Done.</p>
+        </div>
+        <div class="b-stat">
+          <div class="v mono">6.<span>2</span>kb</div>
+          <div class="l">gzipped</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Card 6: Provider grid -->
+    <article class="b-card b-sm" data-r>
+      <div class="b-head">
+        <span class="b-tag"><span class="dot"></span>148 integrations</span>
+      </div>
+      <div class="b-body">
+        <div class="skel-provs">
+          <div class="pv-item">G</div>
+          <div class="pv-item on">◆</div>
+          <div class="pv-item">O</div>
+          <div class="pv-item">A</div>
+          <div class="pv-item on">S</div>
+          <div class="pv-item">W</div>
+          <div class="pv-item">D</div>
+          <div class="pv-item on">K</div>
+          <div class="pv-item">G</div>
+          <div class="pv-item">P</div>
+          <div class="pv-item on">M</div>
+          <div class="pv-item">+</div>
+        </div>
+      </div>
+      <div class="b-foot">
+        <div class="b-copy">
+          <h3><em>Every</em> IdP.</h3>
+          <p>Okta, Azure, Google, Ping, Duo, JumpCloud, OneLogin…</p>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>

@@ -1,0 +1,133 @@
+---
+/**
+ * Three-up customer case-study strip with a pull quote on each card.
+ * Placeholders mirror the fictional "Trust strip" logos.
+ */
+import { links } from '~/lib/links';
+
+const stories = [
+  {
+    brand: 'Acme',
+    quote:
+      '"Shipped SSO in a week. We wrote zero SAML code. We wrote zero Okta-quirk workarounds. The hard parts are just… done."',
+    author: 'Jordan Lee — Staff Engineer',
+    metric: { v: '6 days', l: 'from kickoff to prod' },
+  },
+  {
+    brand: 'Hooli',
+    quote:
+      '"Session mesh is the feature I didn\'t know I was missing. Our customers\' employees stopped re-authing between workspaces overnight."',
+    author: 'Priya Shah — Head of Platform',
+    metric: { v: '−92%', l: 'support tickets re: login' },
+  },
+  {
+    brand: 'Pied Piper',
+    quote:
+      '"We switched off three vendors and consolidated onto Wave Connect. Auth0, SCIM middleware, audit pipeline — all one thing now."',
+    author: 'Nilay Patel — CTO',
+    metric: { v: '−$84k/yr', l: 'after vendor consolidation' },
+  },
+];
+---
+
+<section class="stories">
+  <div class="stories-grid">
+    {
+      stories.map((s) => (
+        <article class="story" data-r>
+          <div class="story-brand">{s.brand}</div>
+          <blockquote class="story-quote">{s.quote}</blockquote>
+          <div class="story-author">{s.author}</div>
+          <div class="story-metric">
+            <div class="v">{s.metric.v}</div>
+            <div class="l">{s.metric.l}</div>
+          </div>
+        </article>
+      ))
+    }
+  </div>
+  <div class="stories-cta">
+    <a class="btn btn-ghost" href={links.contactSales()}>
+      Want to talk to a customer? <span class="arr">→</span>
+    </a>
+  </div>
+</section>
+
+<style>
+  .stories {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 40px 120px;
+  }
+  .stories-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .story {
+    padding: 36px 32px;
+    background: linear-gradient(180deg, var(--bg-2), var(--bg));
+    border: 1px solid var(--line-2);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s;
+  }
+  .story:hover {
+    transform: translateY(-4px);
+    border-color: rgba(var(--wc-coral-rgb), 0.4);
+  }
+  .story-brand {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    letter-spacing: -0.015em;
+    color: var(--muted);
+  }
+  .story-quote {
+    margin: 18px 0 20px;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink);
+    quotes: none;
+  }
+  .story-author {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--sub);
+    margin-bottom: 24px;
+  }
+  .story-metric {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .story-metric .v {
+    font-family: 'Instrument Serif', serif;
+    font-size: 40px;
+    letter-spacing: -0.03em;
+    color: var(--coral);
+    line-height: 1;
+  }
+  .story-metric .l {
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--sub);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .stories-cta {
+    margin-top: 40px;
+    text-align: center;
+  }
+  @media (max-width: 900px) {
+    .stories-grid {
+      grid-template-columns: 1fr;
+    }
+    .stories {
+      padding: 40px 20px 80px;
+    }
+  }
+</style>
