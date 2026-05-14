@@ -1,0 +1,41 @@
+---
+/**
+ * Above-the-fold hero. The WebGL canvas is in this markup but the
+ * Three.js code that drives it lives in `~/scripts/hero-scene.ts`
+ * and is dynamic-imported on idle from `site.client.ts`.
+ */
+import { links } from '~/lib/links';
+---
+
+<section class="hero" id="top">
+  <div class="hero-glow"></div>
+  <canvas id="hero-canvas" aria-hidden="true"></canvas>
+
+  <div class="hero-content">
+    <div class="hero-kicker">Identity mesh · 2026</div>
+    <h1 class="hero-title">
+      <span class="block">Identity <em>in motion.</em></span>
+      <span class="block">Seamlessly <em>everywhere.</em></span>
+    </h1>
+    <p class="hero-sub">
+      Interactive SSO for multi-tenant apps. One session floats across every workspace, every domain,
+      every IdP — rendered in a single hosted portal you configure in minutes.
+    </p>
+    <div class="hero-cta">
+      <a class="btn btn-coral" href={links.signup()}>Get started <span class="arr">↗</span></a>
+      <a class="btn btn-ghost" href="#demo">Experience it <span class="arr">→</span></a>
+    </div>
+  </div>
+
+  <div class="hero-scroll" aria-hidden="true">
+    <span>Scroll down &amp; dive in</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      ><path d="M12 4 v16 M6 14 l6 6 6-6"></path></svg
+    >
+  </div>
+
+  <div class="hero-powers">
+    <div class="l">Powered by</div>
+    <div class="v">1 mesh · 148 tenants · ∞ sessions</div>
+  </div>
+</section>

@@ -1,0 +1,131 @@
+---
+/**
+ * Compliance / security badge grid + short descriptions. Every item is
+ * a live capability — don't ship aspirational badges here.
+ */
+import { links, externals } from '~/lib/links';
+
+const items = [
+  {
+    name: 'SOC 2 Type II',
+    blurb: 'Independent annual audit. Report available under NDA.',
+    status: 'current',
+  },
+  {
+    name: 'HIPAA',
+    blurb: 'BAA on request. PHI-safe configuration on Enterprise tier.',
+    status: 'current',
+  },
+  {
+    name: 'GDPR + DPA',
+    blurb: 'Data processing addendum, EU sub-processors list, Standard Contractual Clauses.',
+    status: 'current',
+  },
+  {
+    name: 'ISO 27001',
+    blurb: 'Certification in progress. Target Q4 2026.',
+    status: 'pending',
+  },
+  {
+    name: 'Data residency',
+    blurb: 'US / EU / APAC regions. Data never leaves the region you pick.',
+    status: 'current',
+  },
+  {
+    name: 'Bug bounty',
+    blurb: 'Run on HackerOne. Payouts up to $10k. Safe-harbor policy.',
+    status: 'current',
+  },
+];
+---
+
+<section class="security">
+  <div class="security-grid">
+    {
+      items.map((i) => (
+        <article class:list={['sec-item', i.status]} data-r>
+          <div class="sec-item-name">
+            {i.name}
+            <span class="sec-item-status">
+              {i.status === 'current' ? '● Active' : '○ In progress'}
+            </span>
+          </div>
+          <p>{i.blurb}</p>
+        </article>
+      ))
+    }
+  </div>
+
+  <div class="security-cta">
+    <a class="btn btn-ghost" href={externals.status}>
+      Live status <span class="arr">↗</span>
+    </a>
+    <a class="btn btn-coral" href={links.contactSales()}>
+      Request audit reports <span class="arr">↗</span>
+    </a>
+  </div>
+</section>
+
+<style>
+  .security {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 40px 120px;
+  }
+  .security-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .sec-item {
+    padding: 28px 28px 26px;
+    border: 1px solid var(--line-2);
+    border-radius: 18px;
+    background: var(--bg-2);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s;
+  }
+  .sec-item:hover {
+    transform: translateY(-3px);
+    border-color: var(--line-2);
+  }
+  .sec-item-name {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    letter-spacing: -0.015em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .sec-item-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--site-mint);
+  }
+  .sec-item.pending .sec-item-status {
+    color: var(--sub);
+  }
+  .sec-item p {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .security-cta {
+    margin-top: 40px;
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 900px) {
+    .security-grid {
+      grid-template-columns: 1fr;
+    }
+    .security {
+      padding: 40px 20px 80px;
+    }
+  }
+</style>

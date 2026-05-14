@@ -1,0 +1,19 @@
+---
+const stats = [
+  { value: '<em>42</em>ms', label: 'p99 API latency' },
+  { value: '99.<em>995</em>%', label: 'uptime, 12 mo' },
+  { value: '148', label: 'integrations' },
+  { value: '<em>6</em>', label: 'official SDKs' },
+];
+---
+
+<section class="stats">
+  {
+    stats.map((s) => (
+      <div class="stat" data-r>
+        <div class="v" set:html={s.value} />
+        <div class="l">{s.label}</div>
+      </div>
+    ))
+  }
+</section>

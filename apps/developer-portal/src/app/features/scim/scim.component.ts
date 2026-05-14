@@ -25,9 +25,9 @@ import { ScimStore } from './scim.store';
 
       <!-- New Token Banner -->
       @if (store.newToken(); as token) {
-        <div class="rounded-lg border border-success/30 bg-success/5 p-4">
+        <div class="rounded-lg border border-(--wc-success)/30 bg-(--wc-success)/5 p-4">
           <div class="flex items-start gap-3">
-            <ng-icon name="heroKey" size="1.25rem" class="text-success shrink-0 mt-0.5" />
+            <ng-icon name="heroKey" size="1.25rem" class="text-(--wc-success) shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-foreground">SCIM token generated</p>
               <p class="text-xs text-muted-foreground mt-1">Copy this token now. It won't be shown again.</p>
@@ -77,7 +77,7 @@ import { ScimStore } from './scim.store';
                   <td class="px-4 py-3 text-sm text-muted-foreground">{{ token.lastUsedAt ? (token.lastUsedAt | date:'short') : 'Never' }}</td>
                   <td class="px-4 py-3">
                     <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
-                      [class]="token.isActive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'">
+                      [class]="token.isActive ? 'bg-(--wc-success)/10 text-(--wc-success)' : 'bg-destructive/10 text-destructive'">
                       {{ token.isActive ? 'Active' : 'Revoked' }}
                     </span>
                   </td>
@@ -122,7 +122,7 @@ import { ScimStore } from './scim.store';
                 <td class="px-4 py-3 text-sm text-foreground">{{ log.resourceType }} <span class="font-mono text-xs text-muted-foreground">{{ log.resourceId }}</span></td>
                 <td class="px-4 py-3">
                   <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
-                    [class]="log.status === 'success' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'">
+                    [class]="log.status === 'success' ? 'bg-(--wc-success)/10 text-(--wc-success)' : 'bg-destructive/10 text-destructive'">
                     {{ log.status }}
                   </span>
                 </td>

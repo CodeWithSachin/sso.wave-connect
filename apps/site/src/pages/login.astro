@@ -1,0 +1,58 @@
+---
+/**
+ * /login → login-portal.
+ *
+ * Astro can't issue a server-side 302 from a static export, so this
+ * page ships a tiny HTML that does three things:
+ *   1. `<meta http-equiv="refresh">` — works even with JS off.
+ *   2. `<link rel="canonical">` pointing at the real URL — correct for
+ *      crawlers.
+ *   3. An inline `location.replace()` in <head> — fires before paint
+ *      for JS-on users; avoids leaving the redirect stub in history.
+ *
+ * The visible fallback mirrors the brand splash so if the redirect is
+ * delayed (proxy, preload) the user still sees Wave Connect, not a
+ * blank page.
+ */
+import { links } from '~/lib/links';
+import { brand, site } from '~/lib/colors';
+const target = links.login();
+
+/*
+ * This stub renders before the main stylesheet loads, so we can't
+ * reference `var(--*)` tokens from the inline <style> below. Instead
+ * we import the TS mirror of the palette and interpolate the hex at
+ * build time — so if brand coral changes in wc-tokens.css, flipping
+ * the same value in lib/colors.ts propagates here automatically.
+ */
+const styleCss = `
+  body {
+    background: ${site.bg};
+    color: ${brand.cream};
+    font: 14px/1.5 Inter, system-ui, sans-serif;
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+  }
+  a { color: ${brand.coral}; }
+`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <link rel="canonical" href={target} />
+    <title>Redirecting to log in — Wave Connect</title>
+    <script is:inline set:html={`location.replace(${JSON.stringify(target)});`} />
+    <style is:inline set:html={styleCss}></style>
+  </head>
+  <body>
+    <p>
+      Redirecting to <a href={target}>{target}</a>…
+    </p>
+  </body>
+</html>

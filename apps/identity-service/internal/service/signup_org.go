@@ -235,13 +235,12 @@ func (s *SignupOrgService) SignupOrg(ctx context.Context, req SignupOrgRequest, 
 	}
 
 	// 2c. admin user (status pending_verification; see signup.go for reasoning).
-	// Note: avatar_url is '' rather than NULL for the same pre-existing-bug
-	// reason documented in signup.go.
+	// avatar_url left NULL — repository scans handle nullable via pointer.
 	userID := uuid.New()
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO users (id, email, email_verified, password_hash, display_name, avatar_url,
+		INSERT INTO users (id, email, email_verified, password_hash, display_name,
 			locale, timezone, status, version, created_at, updated_at)
-		VALUES ($1, $2, FALSE, $3, $4, '', 'en', 'UTC', 'pending_verification', 1, $5, $5)
+		VALUES ($1, $2, FALSE, $3, $4, 'en', 'UTC', 'pending_verification', 1, $5, $5)
 	`, userID, req.Email, passwordHash, req.FullName, now); err != nil {
 		if isDuplicateKeyErr(err) {
 			return nil, ErrEmailTaken

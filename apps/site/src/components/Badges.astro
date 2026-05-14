@@ -1,0 +1,66 @@
+---
+/**
+ * Three "award / trend / scalable" cards. Authored as data so each card's
+ * markup is identical and a future copy change is one diff, not three.
+ */
+
+interface BadgeAccent {
+  type: 'num' | 'muzli' | 'check';
+  value?: string;
+}
+
+interface Badge {
+  tag: string;
+  title: string;
+  body: string;
+  link: string;
+  accent: BadgeAccent;
+}
+
+const badges: Badge[] = [
+  {
+    tag: '● Award winning',
+    title: '4× <em>Developer</em> product of the month',
+    body: 'Beating Auth0, Clerk and Firebase for B2B SSO on Product Hunt, 2025.',
+    link: 'Read review →',
+    accent: { type: 'num', value: '4×' },
+  },
+  {
+    tag: '● Trend setting',
+    title: 'Top auth <em>trend</em> of 2026',
+    body: 'Identity-as-a-mesh claims the top spot in the annual infra report.',
+    link: 'Explore report →',
+    accent: { type: 'muzli', value: 'MUZLI' },
+  },
+  {
+    tag: '● Scalable',
+    title: 'Trusted by <em>the best</em>',
+    body:
+      'Join teams behind Linear, Vercel, Cursor and Raycast running production auth on Wave Connect.',
+    link: 'Explore features →',
+    accent: { type: 'check' },
+  },
+];
+---
+
+<section class="badges">
+  {
+    badges.map((b) => (
+      <article class="badge" data-r>
+        <div>
+          <div class="badge-tag">{b.tag}</div>
+          <h3 class="badge-title" set:html={b.title} />
+          <p class="badge-body">{b.body}</p>
+        </div>
+        <div class="badge-foot">
+          <a class="link" href="#">
+            {b.link}
+          </a>
+          {b.accent.type === 'num' && <div class="badge-num">{b.accent.value}</div>}
+          {b.accent.type === 'muzli' && <div class="badge-muzli">{b.accent.value}</div>}
+          {b.accent.type === 'check' && <span class="badge-check">✓</span>}
+        </div>
+      </article>
+    ))
+  }
+</section>

@@ -23,11 +23,32 @@ func NewSessionRepository(pool *pgxpool.Pool) *SessionRepository {
 	return &SessionRepository{pool: pool}
 }
 
+// sessionSelectCols mirrors the columns all session reads use, so adding a
+// new column only requires one edit here. Phase 5: active_tenant_id.
+const sessionSelectCols = `id, user_id, tenant_id, active_tenant_id, token_hash, status,
+	ip_address::text, user_agent, last_activity_at, expires_at, revoked_at, created_at`
+
+// scanSession is the matching scan order for sessionSelectCols.
+func scanSession(row interface {
+	Scan(dest ...any) error
+}, s *model.Session) error {
+	return row.Scan(
+		&s.ID, &s.UserID, &s.TenantID, &s.ActiveTenantID, &s.TokenHash, &s.Status,
+		&s.IPAddress, &s.UserAgent, &s.LastActivityAt, &s.ExpiresAt, &s.RevokedAt, &s.CreatedAt,
+	)
+}
+
 func (r *SessionRepository) Create(ctx context.Context, s *model.Session) error {
-	const q = `INSERT INTO sessions (id, user_id, tenant_id, token_hash, status, ip_address, user_agent, last_activity_at, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6::inet, $7, $8, $9, $10)`
+	// On creation, active_tenant_id defaults to the anchor tenant_id. Phase 5
+	// switches flip it later via SetActiveTenant — new sessions always start
+	// in their anchor context.
+	if s.ActiveTenantID == uuid.Nil {
+		s.ActiveTenantID = s.TenantID
+	}
+	const q = `INSERT INTO sessions (id, user_id, tenant_id, active_tenant_id, token_hash, status, ip_address, user_agent, last_activity_at, expires_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::inet, $8, $9, $10, $11)`
 	_, err := r.pool.Exec(ctx, q,
-		s.ID, s.UserID, s.TenantID, s.TokenHash, s.Status,
+		s.ID, s.UserID, s.TenantID, s.ActiveTenantID, s.TokenHash, s.Status,
 		s.IPAddress, s.UserAgent, s.LastActivityAt, s.ExpiresAt, s.CreatedAt,
 	)
 	if err != nil {
@@ -36,9 +57,12 @@ func (r *SessionRepository) Create(ctx context.Context, s *model.Session) error 
 	return nil
 }
 
+// ListByUser returns the user's active sessions scoped to the given tenant —
+// scoped by `active_tenant_id` (Phase 5) so the session-management UI only
+// surfaces sessions that are currently acting on behalf of that tenant.
 func (r *SessionRepository) ListByUser(ctx context.Context, userID, tenantID uuid.UUID) ([]model.Session, error) {
-	const q = `SELECT id, user_id, tenant_id, token_hash, status, ip_address::text, user_agent, last_activity_at, expires_at, revoked_at, created_at
-		FROM sessions WHERE user_id = $1 AND tenant_id = $2 AND status = 'active' AND expires_at > NOW()
+	const q = `SELECT ` + sessionSelectCols + `
+		FROM sessions WHERE user_id = $1 AND active_tenant_id = $2 AND status = 'active' AND expires_at > NOW()
 		ORDER BY created_at DESC`
 	rows, err := r.pool.Query(ctx, q, userID, tenantID)
 	if err != nil {
@@ -49,10 +73,7 @@ func (r *SessionRepository) ListByUser(ctx context.Context, userID, tenantID uui
 	var sessions []model.Session
 	for rows.Next() {
 		var s model.Session
-		if err := rows.Scan(
-			&s.ID, &s.UserID, &s.TenantID, &s.TokenHash, &s.Status,
-			&s.IPAddress, &s.UserAgent, &s.LastActivityAt, &s.ExpiresAt, &s.RevokedAt, &s.CreatedAt,
-		); err != nil {
+		if err := scanSession(rows, &s); err != nil {
 			return nil, fmt.Errorf("scan session: %w", err)
 		}
 		sessions = append(sessions, s)
@@ -61,13 +82,9 @@ func (r *SessionRepository) ListByUser(ctx context.Context, userID, tenantID uui
 }
 
 func (r *SessionRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Session, error) {
-	const q = `SELECT id, user_id, tenant_id, token_hash, status, ip_address::text, user_agent, last_activity_at, expires_at, revoked_at, created_at
-		FROM sessions WHERE id = $1`
+	const q = `SELECT ` + sessionSelectCols + ` FROM sessions WHERE id = $1`
 	s := &model.Session{}
-	err := r.pool.QueryRow(ctx, q, id).Scan(
-		&s.ID, &s.UserID, &s.TenantID, &s.TokenHash, &s.Status,
-		&s.IPAddress, &s.UserAgent, &s.LastActivityAt, &s.ExpiresAt, &s.RevokedAt, &s.CreatedAt,
-	)
+	err := scanSession(r.pool.QueryRow(ctx, q, id), s)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSessionNotFound
 	}
@@ -81,13 +98,10 @@ func (r *SessionRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.S
 // of the raw cookie token. Used by the /auth/logout endpoint to revoke the current session
 // without requiring the user to know their session ID.
 func (r *SessionRepository) GetByTokenHash(ctx context.Context, tokenHash string) (*model.Session, error) {
-	const q = `SELECT id, user_id, tenant_id, token_hash, status, ip_address::text, user_agent, last_activity_at, expires_at, revoked_at, created_at
+	const q = `SELECT ` + sessionSelectCols + `
 		FROM sessions WHERE token_hash = $1 AND status = 'active' AND expires_at > NOW() LIMIT 1`
 	s := &model.Session{}
-	err := r.pool.QueryRow(ctx, q, tokenHash).Scan(
-		&s.ID, &s.UserID, &s.TenantID, &s.TokenHash, &s.Status,
-		&s.IPAddress, &s.UserAgent, &s.LastActivityAt, &s.ExpiresAt, &s.RevokedAt, &s.CreatedAt,
-	)
+	err := scanSession(r.pool.QueryRow(ctx, q, tokenHash), s)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSessionNotFound
 	}
@@ -95,6 +109,28 @@ func (r *SessionRepository) GetByTokenHash(ctx context.Context, tokenHash string
 		return nil, fmt.Errorf("get session by token hash: %w", err)
 	}
 	return s, nil
+}
+
+// SetActiveTenant flips the session's `active_tenant_id`. Scoped by session
+// ID + user ID so a stolen session ID from another user can't mutate the
+// target's context. Caller must have already validated that the user has a
+// membership in targetTenantID (see MembershipService.SwitchActiveTenant).
+//
+// Returns ErrSessionNotFound when the session doesn't exist, is revoked,
+// or belongs to a different user.
+func (r *SessionRepository) SetActiveTenant(ctx context.Context, sessionID, userID, targetTenantID uuid.UUID) error {
+	const q = `UPDATE sessions
+		SET active_tenant_id = $3,
+		    last_activity_at = NOW()
+		WHERE id = $1 AND user_id = $2 AND status = 'active' AND expires_at > NOW()`
+	tag, err := r.pool.Exec(ctx, q, sessionID, userID, targetTenantID)
+	if err != nil {
+		return fmt.Errorf("set active tenant: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrSessionNotFound
+	}
+	return nil
 }
 
 func (r *SessionRepository) Revoke(ctx context.Context, id uuid.UUID, reason string) error {

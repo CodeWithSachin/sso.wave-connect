@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 40" width="180" height="40" role="img" aria-label="Wave Connect">
+  <rect width="32" height="32" rx="7" x="0" y="4" fill="hsl(8, 96%, 61%)"></rect>
+  <g transform="translate(3, 20)" fill="none" stroke="hsl(42, 27%, 95%)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 0 Q3.5 -8 7 0 T14 0 T21 0 T26 0"></path>
+  </g>
+  <text x="44" y="26" font-family="Inter, -apple-system, system-ui, sans-serif" font-size="16" font-weight="600" letter-spacing="-0.01em" fill="hsl(195, 41%, 19%)">wave<tspan fill="hsl(8, 96%, 61%)" font-family="'JetBrains Mono', ui-monospace, monospace" dx="2" dy="0">·</tspan><tspan dx="2">connect</tspan></text>
+</svg>

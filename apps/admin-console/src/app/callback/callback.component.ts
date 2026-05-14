@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from "@angular/core";
+import { Component, afterNextRender, inject, signal } from "@angular/core";
 import { Router } from "@angular/router";
 import { environment } from "../environments/environment";
 
@@ -6,6 +6,11 @@ import { environment } from "../environments/environment";
  * OAuth2 callback handler.
  * Receives the authorization code from sso-service, exchanges it for tokens via PKCE,
  * stores tokens in sessionStorage, and navigates to the dashboard.
+ *
+ * `afterNextRender` is the Angular 19+ replacement for `ngOnInit` when the
+ * work is browser-only — it skips during SSR and runs once the platform is
+ * confirmed-browser. The callback reads `window.location` and writes
+ * `sessionStorage`, so SSR-skip is a feature, not a downside.
  */
 @Component({
 	selector: "app-callback",
@@ -16,21 +21,26 @@ import { environment } from "../environments/environment";
 				<div
 					class="mb-4 h-8 w-8 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent"
 				></div>
-				<p class="text-sm text-muted-foreground">{{ message }}</p>
+				<p class="text-sm text-muted-foreground">{{ message() }}</p>
 			</div>
 		</div>
 	`,
 })
-export class CallbackComponent implements OnInit {
-	message = "Completing sign-in...";
+export class CallbackComponent {
 	private readonly router = inject(Router);
 
-	async ngOnInit() {
-		try {
-			await this.handleCallback();
-		} catch (err) {
-			this.message = `Authentication failed: ${(err as Error).message}`;
-		}
+	// Signal so zoneless change detection picks up the failure-path message
+	// update without relying on Zone-driven dirty checks.
+	readonly message = signal("Completing sign-in...");
+
+	constructor() {
+		afterNextRender(() => {
+			this.handleCallback().catch((err: unknown) => {
+				this.message.set(
+					`Authentication failed: ${(err as Error).message}`,
+				);
+			});
+		});
 	}
 
 	private async handleCallback(): Promise<void> {

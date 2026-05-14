@@ -1,0 +1,86 @@
+---
+/**
+ * Site footer. Each link goes through `links()` / `externals()` so a
+ * future port / subdomain change is a one-line edit and external
+ * destinations get `target=_blank rel=noopener` automatically via
+ * `externalAttrs()`.
+ */
+import { links, externals, externalAttrs } from '~/lib/links';
+import BrandMark from './BrandMark.astro';
+
+interface Link {
+  label: string;
+  href: string;
+}
+interface Col {
+  title: string;
+  links: Link[];
+}
+
+const cols: Col[] = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Overview', href: links.product() },
+      { label: 'Pricing', href: links.pricing() },
+      { label: 'Customers', href: links.customers() },
+      { label: 'Security', href: links.security() },
+    ],
+  },
+  {
+    title: 'Developers',
+    links: [
+      { label: 'Docs', href: links.docs() },
+      { label: 'API reference', href: links.apiReference() },
+      { label: 'Changelog', href: externals.changelog },
+      { label: 'Status', href: externals.status },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'About', href: '/about' },
+      { label: 'Careers', href: '/careers' },
+      { label: 'Contact', href: links.contactSales() },
+      { label: 'GitHub', href: externals.github },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
+      { label: 'DPA', href: '/dpa' },
+      { label: 'Trust center', href: links.security() },
+    ],
+  },
+];
+---
+
+<footer>
+  <div class="foot-top">
+    <div class="foot-brand">
+      <a class="bmk" href={links.home()}>
+        <span class="mk"><BrandMark size={16} title="" /></span>
+        Wave Connect
+      </a>
+      <p>The identity mesh for multi-tenant apps. Made by a small team in San Francisco + Berlin.</p>
+    </div>
+    {
+      cols.map((col) => (
+        <div class="foot-col">
+          <h5>{col.title}</h5>
+          {col.links.map((l) => (
+            <a href={l.href} {...externalAttrs(l.href)}>
+              {l.label}
+            </a>
+          ))}
+        </div>
+      ))
+    }
+  </div>
+  <div class="foot-bot">
+    <div>WAVE CONNECT LTD © 2026</div>
+    <div>sso.wave-connect / v2.4.1</div>
+  </div>
+</footer>

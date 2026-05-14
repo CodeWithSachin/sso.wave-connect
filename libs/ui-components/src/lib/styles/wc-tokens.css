@@ -1,0 +1,57 @@
+/*
+ * Wave Connect — design tokens
+ *
+ * Single source of truth for the brand palette. Imported by every app's
+ * styles.css. Do NOT inline these values into individual app stylesheets;
+ * keeping them centralized prevents three-way drift across admin-console,
+ * developer-portal, and login-portal.
+ *
+ * Mirrors the palette documented in `docs/plans/admin-role-surfaces.md`
+ * and the original Wave Connect design system bundle. Added in Phase 9
+ * of the admin role surfaces plan.
+ *
+ * Usage in app code:
+ *   bg-[color:var(--wc-coral)]            // Tailwind 4 arbitrary class
+ *   color: var(--wc-teal)                 // Plain CSS
+ *   bg-(--wc-success)                     // Tailwind 4 shorthand
+ */
+:root {
+	/* Coral — primary action, danger when used at full saturation. */
+	--wc-coral: #fb513b;
+	--wc-coral-hover: #e63a24;
+	--wc-coral-soft: #fae0dc;
+
+	/* Cream — surfaces. paper-alt is the page; paper is cards; muted is hover. */
+	--wc-cream: #f6f4ee;
+	--wc-cream-paper: #fbfaf4;
+	--wc-cream-muted: #ede8d9;
+
+	/* Deep teal — body text + secondary buttons. */
+	--wc-teal: #1d3a44;
+	--wc-teal-muted: #4e6b74;
+
+	/* Borders — warm tan that bridges cream and teal cleanly. */
+	--wc-border: #e2dccd;
+
+	/* Semantic states — chosen to remain legible against cream surfaces. */
+	--wc-success: #1b986d;
+	--wc-success-soft: #cee7de;
+	--wc-warning: #f5a809;
+	--wc-warning-soft: #f7e9be;
+	--wc-info-soft: #d9e5e8;
+
+	/*
+	 * RGB triplet mirrors for use inside rgba() — e.g.
+	 *   background: rgba(var(--wc-coral-rgb), 0.5);
+	 *
+	 * Needed because CSS color functions don't accept hex with an alpha
+	 * channel in older browser syntax, and `color-mix()` isn't available
+	 * everywhere we ship. Kept alongside the hex values so rgb() stays
+	 * one edit away from the source of truth.
+	 */
+	--wc-coral-rgb: 251, 81, 59;
+	--wc-cream-rgb: 246, 244, 238;
+	--wc-teal-rgb: 29, 58, 68;
+	--wc-success-rgb: 27, 152, 109;
+	--wc-warning-rgb: 245, 168, 9;
+}

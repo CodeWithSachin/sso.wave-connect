@@ -196,14 +196,13 @@ func (s *SignupService) Signup(ctx context.Context, req SignupRequest, ip, ua st
 	}
 
 	// ── 3. user (status = pending_verification until email link is clicked) ─
-	// Note: `avatar_url` is inserted as empty string (not NULL) so the existing
-	// `UserRepository.GetByEmail` scan (which targets a non-nullable `string`,
-	// pre-existing behavior) doesn't choke on this row later.
+	// avatar_url stays NULL; UserRepository scans tolerate NULL via the
+	// pointer-based pattern in GetByID/GetByEmail.
 	userID := uuid.New()
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO users (id, email, email_verified, password_hash, display_name, avatar_url,
+		INSERT INTO users (id, email, email_verified, password_hash, display_name,
 			locale, timezone, status, version, created_at, updated_at)
-		VALUES ($1, $2, FALSE, $3, $4, '', $5, $6, 'pending_verification', 1, $7, $7)
+		VALUES ($1, $2, FALSE, $3, $4, $5, $6, 'pending_verification', 1, $7, $7)
 	`, userID, req.Email, passwordHash, req.DisplayName,
 		defaultStr(req.Locale, "en"), defaultStr(req.Timezone, "UTC"), now); err != nil {
 		if isDuplicateKeyErr(err) {

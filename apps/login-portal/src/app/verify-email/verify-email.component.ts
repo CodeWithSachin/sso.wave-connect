@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthStore } from '../store/auth.store';
@@ -95,38 +95,36 @@ import { AuthStore } from '../store/auth.store';
     </div>
   `,
 })
-export class VerifyEmailComponent implements OnInit {
+export class VerifyEmailComponent {
   private readonly route = inject(ActivatedRoute);
   readonly store = inject(AuthStore);
 
-  readonly mode = signal<'consuming' | 'success' | 'failed' | 'waiting'>('waiting');
-  readonly emailHint = signal<string>('');
+  // Snapshot is read once at construction. The page is a leaf landing route —
+  // params don't change while it's mounted, so snapshot is sufficient and
+  // avoids an OnInit hook entirely.
+  private readonly params = this.route.snapshot.queryParamMap;
+  private readonly token = this.params.get('token');
+  private readonly emailParam = this.params.get('email') ?? '';
+
+  // 'consuming' iff a token is present; otherwise the page just shows the
+  // "check your inbox" CTA. The verifyEmail() promise below transitions
+  // 'consuming' → 'success'/'failed'.
+  readonly mode = signal<'consuming' | 'success' | 'failed' | 'waiting'>(
+    this.token ? 'consuming' : 'waiting',
+  );
+  readonly emailHint = signal<string>(this.emailParam);
   readonly resent = signal(false);
-  resendEmail = '';
+  resendEmail = this.emailParam;
 
   // Exposed for template debugging; not currently used.
   readonly summary = computed(() => ({ mode: this.mode(), email: this.emailHint() }));
 
-  ngOnInit(): void {
-    const params = this.route.snapshot.queryParamMap;
-    const token = params.get('token');
-    const pending = params.get('pending');
-    const emailParam = params.get('email');
-
-    if (emailParam) {
-      this.emailHint.set(emailParam);
-      this.resendEmail = emailParam;
-    }
-
-    if (token) {
-      this.mode.set('consuming');
-      this.store.verifyEmail(token).then((ok) => {
+  constructor() {
+    if (this.token) {
+      // Fire and forget — the result lands on the `mode` signal.
+      this.store.verifyEmail(this.token).then((ok) => {
         this.mode.set(ok ? 'success' : 'failed');
       });
-    } else if (pending) {
-      this.mode.set('waiting');
-    } else {
-      this.mode.set('waiting');
     }
   }
 

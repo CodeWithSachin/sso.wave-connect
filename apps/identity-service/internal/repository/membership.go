@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -32,6 +33,50 @@ func (r *MembershipRepository) Create(ctx context.Context, m *model.Membership) 
 		return fmt.Errorf("insert membership: %w", err)
 	}
 	return nil
+}
+
+// TenantMembership is the projection returned by ListTenantsForUser — used
+// by Phase 5's /auth/session/memberships endpoint. Joins tenants ← memberships
+// so the picker UI can render names/slugs without a second round-trip.
+type TenantMembership struct {
+	TenantID         uuid.UUID
+	TenantSlug       string
+	TenantName       string
+	TenantKind       string
+	Role             string
+	JoinedAt         *time.Time
+	TenantDeletedAt  *time.Time
+}
+
+// ListTenantsForUser returns every non-deleted tenant the user has a
+// non-deleted membership in. Ordered by joined_at ascending so the UI can
+// anchor the list on "original tenant first, newer joins after" — matches
+// the order a user would naturally remember them.
+func (r *MembershipRepository) ListTenantsForUser(ctx context.Context, userID uuid.UUID) ([]TenantMembership, error) {
+	const q = `SELECT t.id, t.slug, t.display_name, t.tenant_kind::text, m.role, m.joined_at, t.deleted_at
+		FROM memberships m
+		JOIN tenants t ON t.id = m.tenant_id
+		WHERE m.user_id = $1
+		  AND m.deleted_at IS NULL
+		  AND t.deleted_at IS NULL
+		ORDER BY m.joined_at ASC NULLS LAST`
+	rows, err := r.pool.Query(ctx, q, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list tenant memberships: %w", err)
+	}
+	defer rows.Close()
+	out := []TenantMembership{}
+	for rows.Next() {
+		var tm TenantMembership
+		if err := rows.Scan(
+			&tm.TenantID, &tm.TenantSlug, &tm.TenantName, &tm.TenantKind,
+			&tm.Role, &tm.JoinedAt, &tm.TenantDeletedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan tenant membership: %w", err)
+		}
+		out = append(out, tm)
+	}
+	return out, rows.Err()
 }
 
 func (r *MembershipRepository) GetByUserAndTenant(ctx context.Context, userID, tenantID uuid.UUID) (*model.Membership, error) {

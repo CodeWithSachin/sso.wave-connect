@@ -41,8 +41,15 @@ func SessionCookieAuth(sessionRepo *repository.SessionRepository) fiber.Handler 
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid or expired session"})
 		}
 
+		// Phase 5: downstream handlers read `tenant_id` as the LIVE tenant
+		// context (the tenant the session is currently acting on behalf of).
+		// `active_tenant_id` starts equal to `tenant_id` and flips on switch.
+		// The anchor (original login tenant) is still exposed separately for
+		// audit-shape handlers that need it.
 		c.Locals("user_id", sess.UserID)
-		c.Locals("tenant_id", sess.TenantID)
+		c.Locals("tenant_id", sess.ActiveTenantID)
+		c.Locals("anchor_tenant_id", sess.TenantID)
+		c.Locals("session_id", sess.ID)
 		return c.Next()
 	}
 }

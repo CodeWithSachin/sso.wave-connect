@@ -102,4 +102,30 @@ export class IdpController {
   ) {
     return this.idpService.remove(tenantId, id);
   }
+
+  /**
+   * Smoke-test an IdP by probing its discovery document (OIDC) or SSO URL
+   * (SAML). Read-only and idempotent — wired for the "Test connection"
+   * button on the SSO page. 5s server-side timeout; never mutates state.
+   */
+  @Post(':id/test')
+  @ApiOperation({
+    summary: 'Test connectivity to an IdP without modifying its state',
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        ok: { type: 'boolean' },
+        details: { type: 'string', nullable: true },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'IdP not found' })
+  test(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.idpService.test(tenantId, id);
+  }
 }

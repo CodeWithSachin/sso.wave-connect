@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, afterNextRender, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -141,7 +141,7 @@ interface ConsentData {
     </div>
   `,
 })
-export class ConsentComponent implements OnInit {
+export class ConsentComponent {
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   readonly loading = signal(true);
@@ -149,19 +149,21 @@ export class ConsentComponent implements OnInit {
   readonly error = signal('');
   readonly consentData = signal<ConsentData | null>(null);
 
-  private consentChallenge = '';
+  // Snapshot is sufficient — the consent challenge is set once when the
+  // OAuth flow lands here and never changes for the life of the page.
+  private readonly consentChallenge =
+    this.route.snapshot.queryParamMap.get('consent_challenge') ?? '';
 
-  ngOnInit(): void {
-    this.consentChallenge =
-      this.route.snapshot.queryParamMap.get('consent_challenge') ?? '';
-
+  constructor() {
     if (!this.consentChallenge) {
       this.error.set('Missing consent challenge parameter.');
       this.loading.set(false);
       return;
     }
-
-    this.loadConsentData();
+    // afterNextRender is browser-only: skips the fetch under SSR (it would
+    // 401 anyway with no client cookies) and fires once after the first
+    // paint so the spinner is visible while the request is in flight.
+    afterNextRender(() => void this.loadConsentData());
   }
 
   private async loadConsentData(): Promise<void> {

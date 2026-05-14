@@ -18,6 +18,7 @@ import { GroupsModule } from '../groups/groups.module';
 import { IdpModule } from '../identity-providers/idp.module';
 import { SettingsModule } from '../settings/settings.module';
 import { PlatformAdminsModule } from '../platform-admins/platform-admins.module';
+import { SessionModule } from '../session/session.module';
 
 // EMAIL_PROVIDER env: 'console' (default, dev-only) | 'ses' (prod, stub until Phase 2).
 // Validated at module-import time so a typo fails boot rather than first send.
@@ -35,6 +36,7 @@ const emailProvider: EmailProviderKind =
     IdpModule,
     SettingsModule,
     PlatformAdminsModule,
+    SessionModule,
   ],
   providers: [
     // SessionCookieGuard validates sso_session against the sessions table and

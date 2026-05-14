@@ -1,22 +1,29 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { httpResource } from '@angular/common/http';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
+import { environment } from '../../environments/environment';
 import { AuthStore } from '../store/auth.store';
 
 /**
  * Phase 4 post-claim migration landing page. Mounted at `/migration/:token`.
  *
  * Flow:
- *   1. On init, GET /auth/public/migration/:token to load the offer metadata.
- *      Unknown/expired/already-resolved tokens collapse into a single "not
- *      available" view — the server returns 410 for all of them to resist
- *      enumeration, and we mirror that opaqueness in the UI.
- *   2. User sees the domain and a deadline, then picks accept or decline.
- *   3. Accept POST → on 204, redirect to /login with a banner. The server
- *      revoked all of the user's sessions server-side, so the cookie they
- *      may have is already dead.
- *   4. Decline POST → on 204, show a confirmation and a link back to the
- *      personal workspace sign-in.
+ *   1. Resource loads `/auth/public/migration/:token`. Unknown/expired/
+ *      already-resolved tokens all collapse into 410-gone from the server;
+ *      we render the same "unavailable" view for every non-success path
+ *      (enumeration resistance, mirrored from the backend shape).
+ *   2. On `offered`, render accept/decline buttons.
+ *   3. Accept POST → server revokes sessions + moves membership; UI flips
+ *      to the "accepted" view prompting sign-in.
+ *   4. Decline POST → server flips status; UI shows the declined view.
+ *
+ * Zoneless-native implementation: idempotent GET goes through
+ * `httpResource` (Angular 21); action handlers stay imperative because
+ * they're mutations, not fetches. A single `phase` signal layers
+ * post-action state on top of the resource so the template decides the
+ * right view from two inputs (the resource status + the last action).
  */
 @Component({
   standalone: true,
@@ -25,10 +32,10 @@ import { AuthStore } from '../store/auth.store';
   template: `
     <div class="min-h-screen bg-background flex items-center justify-center px-4 font-sans">
       <div class="bg-card text-card-foreground rounded-lg p-8 w-full max-w-lg border border-border">
-        @if (status() === 'loading') {
+        @if (view() === 'loading') {
           <h1 class="text-xl font-semibold">Loading your invitation…</h1>
           <p class="mt-3 text-sm text-muted-foreground">One moment.</p>
-        } @else if (status() === 'unavailable') {
+        } @else if (view() === 'unavailable') {
           <h1 class="text-xl font-semibold text-destructive" data-testid="migration-unavailable">
             This link is no longer valid
           </h1>
@@ -39,7 +46,7 @@ import { AuthStore } from '../store/auth.store';
           <a routerLink="/login" class="mt-6 inline-block text-primary font-medium hover:underline">
             Back to sign-in →
           </a>
-        } @else if (status() === 'ready') {
+        } @else if (view() === 'ready') {
           <h1 class="text-xl font-semibold" data-testid="migration-ready">
             Join the <span class="font-mono">{{ offer()?.organization }}</span> workspace?
           </h1>
@@ -80,7 +87,7 @@ import { AuthStore } from '../store/auth.store';
           @if (store.error()) {
             <p class="mt-4 text-sm text-destructive" role="alert">{{ store.error() }}</p>
           }
-        } @else if (status() === 'accepted') {
+        } @else if (view() === 'accepted') {
           <h1 class="text-xl font-semibold" data-testid="migration-accepted">
             You're in. Sign back in to {{ offer()?.organization }}.
           </h1>
@@ -90,7 +97,7 @@ import { AuthStore } from '../store/auth.store';
           <a routerLink="/login" class="mt-6 inline-block text-primary font-medium hover:underline">
             Go to sign-in →
           </a>
-        } @else if (status() === 'declined') {
+        } @else if (view() === 'declined') {
           <h1 class="text-xl font-semibold" data-testid="migration-declined">
             Got it — you're staying on your personal workspace.
           </h1>
@@ -105,46 +112,82 @@ import { AuthStore } from '../store/auth.store';
     </div>
   `,
 })
-export class MigrationComponent implements OnInit {
+export class MigrationComponent {
   private readonly route = inject(ActivatedRoute);
   readonly store = inject(AuthStore);
 
-  readonly status = signal<
-    'loading' | 'unavailable' | 'ready' | 'accepted' | 'declined'
-  >('loading');
-  readonly offer = signal<{
-    id: string;
-    domain: string;
-    organization: string;
-    status: string;
-    expires_at: string;
-    offered_at: string;
-  } | null>(null);
+  /**
+   * Track the `:token` path param reactively so deep-link re-navigations
+   * between two different tokens refetch correctly (not a common flow,
+   * but zero-cost to support). toSignal avoids manual subscription
+   * management — the underlying observable completes at component
+   * destruction automatically.
+   */
+  private readonly paramMap = toSignal(this.route.paramMap, {
+    initialValue: this.route.snapshot.paramMap,
+  });
 
-  private token = '';
+  private readonly token = computed(() => this.paramMap().get('token') || '');
 
-  async ngOnInit(): Promise<void> {
-    this.token = this.route.snapshot.paramMap.get('token') || '';
-    if (!this.token) {
-      this.status.set('unavailable');
-      return;
-    }
-    const offer = await this.store.migrationLookup(this.token);
-    if (!offer || offer.status !== 'offered') {
-      this.status.set('unavailable');
-      return;
-    }
-    this.offer.set(offer);
-    this.status.set('ready');
-  }
+  /**
+   * GET /auth/public/migration/:token. Returning `undefined` from the
+   * request factory disables fetching — this handles the edge case of an
+   * empty token (browser landing on /migration/ with no path segment,
+   * which the router shouldn't allow but we guard anyway).
+   */
+  readonly offerResource = httpResource<MigrationOffer>(() => {
+    const t = this.token();
+    if (!t) return undefined;
+    return `${environment.identityServiceUrl}/auth/public/migration/${encodeURIComponent(t)}`;
+  });
+
+  readonly offer = computed(() => this.offerResource.value());
+
+  /**
+   * `phase` layers post-action state on top of the resource. 'initial'
+   * means "defer to resource"; 'accepted' / 'declined' are set by the
+   * action handlers after a successful POST and are sticky — they
+   * override the resource view even though the underlying row's status
+   * has also changed server-side.
+   */
+  private readonly phase = signal<'initial' | 'accepted' | 'declined'>('initial');
+
+  /**
+   * Single template source of truth for which branch to render. Combines
+   * the resource's loading/error signals, the offer's status field, and
+   * any post-action phase the user has triggered.
+   */
+  readonly view = computed<'loading' | 'unavailable' | 'ready' | 'accepted' | 'declined'>(() => {
+    const p = this.phase();
+    if (p === 'accepted' || p === 'declined') return p;
+    if (this.offerResource.isLoading()) return 'loading';
+    if (this.offerResource.error()) return 'unavailable';
+    const o = this.offerResource.value();
+    if (!o || o.status !== 'offered') return 'unavailable';
+    return 'ready';
+  });
 
   async onAccept(): Promise<void> {
-    const ok = await this.store.migrationAccept(this.token);
-    if (ok) this.status.set('accepted');
+    const t = this.token();
+    if (!t) return;
+    const ok = await this.store.migrationAccept(t);
+    if (ok) this.phase.set('accepted');
   }
 
   async onDecline(): Promise<void> {
-    const ok = await this.store.migrationDecline(this.token);
-    if (ok) this.status.set('declined');
+    const t = this.token();
+    if (!t) return;
+    const ok = await this.store.migrationDecline(t);
+    if (ok) this.phase.set('declined');
   }
+}
+
+/** Wire shape for `GET /auth/public/migration/:token`. */
+interface MigrationOffer {
+  id: string;
+  domain: string;
+  organization: string;
+  status: string;
+  expires_at: string;
+  offered_at: string;
 }

@@ -1,0 +1,191 @@
+---
+/**
+ * Three-tier pricing card row. Developer (free), Team (priced),
+ * Enterprise (contact). The Team tier is visually centre-weighted —
+ * standard pricing-page convention to pull eyes to the committed plan.
+ */
+import { links } from '~/lib/links';
+
+interface Tier {
+  name: string;
+  price: string;
+  cadence?: string;
+  blurb: string;
+  features: string[];
+  cta: { label: string; href: string };
+  featured?: boolean;
+}
+
+const tiers: Tier[] = [
+  {
+    name: 'Developer',
+    price: '$0',
+    cadence: '/ month',
+    blurb: 'Everything you need to ship a single-tenant login.',
+    features: [
+      'Up to 5,000 monthly active users',
+      'Hosted SSO portal on a wave-connect.app subdomain',
+      '6 SDK languages',
+      'Email support',
+      '7-day audit log retention',
+    ],
+    cta: { label: 'Get started', href: links.signup() },
+  },
+  {
+    name: 'Team',
+    price: '$99',
+    cadence: '/ month + $0.01 per MAU',
+    blurb: 'For growing multi-tenant apps with real customers.',
+    features: [
+      'Unlimited MAUs (usage-priced)',
+      'Custom domain + branded portal',
+      'SCIM + SAML + OIDC',
+      '148 IdP integrations',
+      '90-day audit log retention',
+      'Slack support, 24 h SLA',
+    ],
+    cta: { label: 'Start a 30-day trial', href: links.signupOrg() },
+    featured: true,
+  },
+  {
+    name: 'Enterprise',
+    price: 'Custom',
+    blurb: 'For platforms, marketplaces, and regulated workloads.',
+    features: [
+      'Data residency (US / EU / APAC)',
+      'SOC 2 Type II + HIPAA',
+      'Dedicated infra',
+      'On-call engineer',
+      '∞ audit log retention + SIEM export',
+      'DPA, MSA, security review',
+    ],
+    cta: { label: 'Talk to sales', href: links.contactSales() },
+  },
+];
+---
+
+<section class="pricing">
+  <div class="pricing-grid">
+    {
+      tiers.map((t) => (
+        <article class:list={['tier', { featured: t.featured }]} data-r>
+          {t.featured && <div class="tier-tag">Most popular</div>}
+          <div class="tier-name">{t.name}</div>
+          <div class="tier-price">
+            <span class="p">{t.price}</span>
+            {t.cadence && <span class="c">{t.cadence}</span>}
+          </div>
+          <p class="tier-blurb">{t.blurb}</p>
+          <ul>
+            {t.features.map((f) => (
+              <li>{f}</li>
+            ))}
+          </ul>
+          <a class:list={['btn', t.featured ? 'btn-coral' : 'btn-ghost']} href={t.cta.href}>
+            {t.cta.label} <span class="arr">↗</span>
+          </a>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .pricing {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 40px 120px;
+  }
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .tier {
+    position: relative;
+    padding: 36px 32px;
+    background: linear-gradient(180deg, var(--bg-2), var(--bg));
+    border: 1px solid var(--line-2);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s;
+  }
+  .tier:hover {
+    transform: translateY(-4px);
+  }
+  .tier.featured {
+    border-color: rgba(var(--wc-coral-rgb), 0.5);
+    box-shadow: 0 30px 80px -30px rgba(var(--wc-coral-rgb), 0.5);
+  }
+  .tier-tag {
+    position: absolute;
+    top: -12px;
+    left: 24px;
+    padding: 5px 10px;
+    background: var(--coral);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border-radius: 6px;
+  }
+  .tier-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--coral);
+  }
+  .tier-price {
+    margin: 14px 0 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .tier-price .p {
+    font-family: 'Instrument Serif', serif;
+    font-size: 64px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .tier-price .c {
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .tier-blurb {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+    margin-bottom: 18px;
+  }
+  .tier ul {
+    list-style: none;
+    margin: 0 0 24px;
+    padding: 0;
+    flex: 1;
+  }
+  .tier li {
+    padding: 8px 0;
+    font-size: 13px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--line);
+    position: relative;
+    padding-left: 20px;
+  }
+  .tier li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--coral);
+  }
+  @media (max-width: 900px) {
+    .pricing-grid {
+      grid-template-columns: 1fr;
+    }
+    .pricing {
+      padding: 40px 20px 80px;
+    }
+  }
+</style>

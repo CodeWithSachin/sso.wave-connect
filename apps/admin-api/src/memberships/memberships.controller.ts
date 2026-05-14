@@ -49,19 +49,28 @@ export class MembershipsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List tenant memberships (paginated)' })
+  @ApiOperation({ summary: 'List tenant memberships (paginated, optional status filter)' })
   @ApiOkResponse({ type: PaginatedMembershipsResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 20 })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'accepted', 'expired'],
+    description:
+      'Filter by derived invitation status. Soft-deleted rows always excluded.',
+  })
   findAll(
     @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('status') status?: 'pending' | 'accepted' | 'expired',
   ) {
     return this.membershipsService.findAll(
       tenantId,
       page ? parseInt(page, 10) : 1,
       pageSize ? parseInt(pageSize, 10) : 20,
+      status,
     );
   }
 
@@ -97,5 +106,25 @@ export class MembershipsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.membershipsService.remove(tenantId, id);
+  }
+
+  /**
+   * Resend an invitation email for a pending membership. Idempotent: rotates
+   * the token, extends the expiry, and re-sends. Per plan v2 decision #3,
+   * the caller must currently hold `manage_invitations` — same auth model as
+   * delete, so SessionCookieGuard + tenant scoping covers it.
+   */
+  @Post(':id/resend')
+  @ApiOperation({
+    summary: 'Resend the invitation email for a pending membership',
+  })
+  @ApiOkResponse({ type: MembershipResponseDto })
+  @ApiConflictResponse({ description: 'Membership already accepted' })
+  @ApiNotFoundResponse({ description: 'Membership not found' })
+  resend(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.membershipsService.resend(tenantId, id);
   }
 }

@@ -1,0 +1,41 @@
+---
+/**
+ * Marketing-page layout. Wraps the Default `<html>/<head>/<body>` with
+ * the splash, nav, footer, and the client script bundle so each page
+ * just supplies its own section components.
+ *
+ * Splash + nav + client bundle live here (not in `Default.astro`) so
+ * future non-marketing pages (e.g. a docs hosted under /docs/* if we
+ * decide to render docs from this site instead of the developer-portal)
+ * can opt out.
+ */
+import Default from './Default.astro';
+import Splash from '~/components/Splash.astro';
+import Nav from '~/components/Nav.astro';
+import Footer from '~/components/Footer.astro';
+
+export interface Props {
+  /** <title> tag override; falls back to brand line. */
+  title?: string;
+  /** <meta description> override. */
+  description?: string;
+  /** Active route — used by Nav to highlight the current item. */
+  current?: string;
+  /** Set to false on landing pages where the splash is intentional;
+   *  true (default) on inner pages where it would be more annoying. */
+  showSplash?: boolean;
+}
+
+const { title, description, current = Astro.url.pathname, showSplash = true } = Astro.props;
+---
+
+<Default {title} {description}>
+  {showSplash && <Splash />}
+  <Nav {current} />
+  <slot />
+  <Footer />
+
+  <script>
+    import '~/scripts/site.client.ts';
+  </script>
+</Default>

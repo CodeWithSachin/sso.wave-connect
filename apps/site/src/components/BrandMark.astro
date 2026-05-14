@@ -1,0 +1,36 @@
+---
+/**
+ * Wave Connect wave-form mark, rendered inline as SVG.
+ *
+ * Rendered inline (rather than <img src="logo-mark.svg">) so it
+ * participates in the surrounding `color` cascade — no hardcoded
+ * `stroke="#f6f4ee"` anywhere, no extra HTTP request.
+ *
+ * The surrounding element should set `color` so `stroke=currentColor`
+ * picks it up. On the coral "mk" chip the color is cream; on the
+ * redirect stubs it's cream too; on inverted contexts callers can
+ * override.
+ */
+interface Props {
+  size?: number;
+  title?: string;
+}
+const { size = 16, title = 'Wave Connect' } = Astro.props;
+---
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  aria-hidden={title === undefined ? 'true' : undefined}
+  role={title ? 'img' : undefined}
+>
+  {title && <title>{title}</title>}
+  <path
+    d="M2 12 Q6 4 10 12 T18 12 T22 12"
+    stroke="currentColor"
+    stroke-width="2"
+    fill="none"
+    stroke-linecap="round"
+  ></path>
+</svg>

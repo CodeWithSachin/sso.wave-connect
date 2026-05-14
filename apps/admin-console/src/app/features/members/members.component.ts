@@ -1,0 +1,326 @@
+import { Component, computed, inject, resource, signal } from '@angular/core';
+import { NgIcon } from '@ng-icons/core';
+import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Dialog } from 'primeng/dialog';
+import { ConfirmationService } from 'primeng/api';
+import { firstValueFrom } from 'rxjs';
+import { MembersService, type User } from './members.service';
+import { MembersStore } from './members.store';
+
+/**
+ * /members — paginated list of tenant memberships.
+ *
+ * Reads via `resource()` keyed on `(page, mutationVersion)` — same pattern as
+ * InvitationsComponent and DomainsComponent. Mutations dispatch through
+ * MembersStore which bumps `mutationVersion` to trigger a re-fetch.
+ */
+@Component({
+  selector: 'app-members',
+  standalone: true,
+  imports: [NgIcon, DatePipe, FormsModule, Dialog],
+  providers: [MembersStore, ConfirmationService],
+  template: `
+    <div class="space-y-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-2xl font-bold text-foreground">Members</h2>
+          <p class="text-sm text-muted-foreground mt-1">Manage members of your tenant</p>
+        </div>
+        <button
+          (click)="store.showDialog()"
+          [disabled]="!store.canMutate()"
+          class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+        >
+          <ng-icon name="heroUserPlus" size="1rem" />
+          Invite Member
+        </button>
+      </div>
+
+      <!-- Search (client-side filter over the loaded page) -->
+      <div class="flex items-center gap-3">
+        <div class="relative flex-1 max-w-sm">
+          <ng-icon name="heroMagnifyingGlass" size="1rem" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search members..."
+            [(ngModel)]="searchTerm"
+            class="w-full rounded-lg border border-border bg-input pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-colors"
+          />
+        </div>
+      </div>
+
+      @if (store.error()) {
+        <div
+          class="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          role="alert"
+        >
+          {{ store.error() }}
+          <button class="ml-2 underline" (click)="store.clearError()">Dismiss</button>
+        </div>
+      }
+
+      <!-- Table -->
+      <div class="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="border-b border-border bg-muted/30">
+            <tr>
+              <th class="px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Member</th>
+              <th class="px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Last Login</th>
+              <th class="px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Joined</th>
+              <th class="px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider w-24">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            @switch (listState()) {
+              @case ('loading') {
+                @for (i of [1,2,3,4,5]; track i) {
+                  <tr>
+                    <td class="px-4 py-3" colspan="5">
+                      <div class="h-5 rounded bg-muted/50 animate-pulse"></div>
+                    </td>
+                  </tr>
+                }
+              }
+              @case ('error') {
+                <tr>
+                  <td colspan="5" class="px-4 py-12 text-center text-sm text-destructive">
+                    Failed to load members.
+                    <button class="ml-2 underline" (click)="listResource.reload()">Retry</button>
+                  </td>
+                </tr>
+              }
+              @case ('empty') {
+                <tr>
+                  <td colspan="5" class="px-4 py-12 text-center text-muted-foreground text-sm">
+                    <ng-icon name="heroUsers" size="2rem" class="mx-auto mb-3 opacity-40" />
+                    <p>No members found</p>
+                  </td>
+                </tr>
+              }
+              @case ('ready') {
+                @for (user of visibleUsers(); track user.id) {
+                  <tr class="hover:bg-muted/20 transition-colors">
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-3">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                          {{ (user.displayName ?? user.email).charAt(0).toUpperCase() }}
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-sm font-medium text-foreground truncate">{{ user.displayName ?? '—' }}</p>
+                          <p class="text-xs text-muted-foreground truncate">{{ user.email }}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span
+                        class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+                        [class]="getStatusClass(user.status)"
+                      >
+                        {{ user.status }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-muted-foreground">
+                      {{ user.lastLoginAt ? (user.lastLoginAt | date:'short') : 'Never' }}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-muted-foreground">
+                      {{ user.createdAt | date:'mediumDate' }}
+                    </td>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-1">
+                        @if (store.canMutate()) {
+                          @if (user.status === 'active') {
+                            <button
+                              (click)="store.updateUserStatus(user, 'suspended')"
+                              [disabled]="store.submitting()"
+                              class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 disabled:opacity-40 transition-colors"
+                              title="Suspend user"
+                            >
+                              <ng-icon name="heroXMark" size="1rem" />
+                            </button>
+                          } @else {
+                            <button
+                              (click)="store.updateUserStatus(user, 'active')"
+                              [disabled]="store.submitting()"
+                              class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 disabled:opacity-40 transition-colors"
+                              title="Activate user"
+                            >
+                              <ng-icon name="heroCheck" size="1rem" />
+                            </button>
+                          }
+                          <button
+                            (click)="confirmDelete(user)"
+                            [disabled]="store.submitting()"
+                            class="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40 transition-colors"
+                            title="Remove user"
+                          >
+                            <ng-icon name="heroTrash" size="1rem" />
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            }
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        @if (total() > store.pageSize()) {
+          <div class="flex items-center justify-between px-4 py-3 border-t border-border">
+            <span class="text-sm text-muted-foreground">
+              Showing {{ ((store.page() - 1) * store.pageSize()) + 1 }}–{{ pageEnd() }} of {{ total() }}
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                [disabled]="store.page() === 1 || listResource.isLoading()"
+                (click)="store.setPage(store.page() - 1)"
+                class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 disabled:opacity-40 transition-colors"
+              >
+                <ng-icon name="heroChevronLeft" size="1rem" />
+              </button>
+              <button
+                [disabled]="store.page() * store.pageSize() >= total() || listResource.isLoading()"
+                (click)="store.setPage(store.page() + 1)"
+                class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 disabled:opacity-40 transition-colors"
+              >
+                <ng-icon name="heroChevronRight" size="1rem" />
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Invite Dialog -->
+      <p-dialog
+        header="Invite Member"
+        [visible]="store.dialogVisible()"
+        (visibleChange)="$event ? null : store.hideDialog()"
+        [modal]="true"
+        [style]="{ width: '28rem' }"
+      >
+        <div class="space-y-4 py-2">
+          <div>
+            <label class="block text-sm font-medium text-foreground mb-1.5" for="invite-email">Email</label>
+            <input
+              id="invite-email"
+              type="email"
+              [(ngModel)]="inviteEmail"
+              placeholder="user&#64;example.com"
+              class="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-colors"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-foreground mb-1.5" for="invite-name">Display Name</label>
+            <input
+              id="invite-name"
+              type="text"
+              [(ngModel)]="inviteName"
+              placeholder="Jane Doe"
+              class="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-colors"
+            />
+          </div>
+        </div>
+        <ng-template #footer>
+          <div class="flex items-center justify-end gap-3">
+            <button
+              (click)="store.hideDialog()"
+              class="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              (click)="onInvite()"
+              [disabled]="!inviteEmail() || store.submitting()"
+              class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {{ store.submitting() ? 'Sending…' : 'Send Invite' }}
+            </button>
+          </div>
+        </ng-template>
+      </p-dialog>
+    </div>
+  `,
+})
+export class MembersComponent {
+  readonly store = inject(MembersStore);
+  private readonly svc = inject(MembersService);
+  private readonly confirmSvc = inject(ConfirmationService);
+
+  inviteEmail = signal('');
+  inviteName = signal('');
+  searchTerm = signal('');
+
+  /**
+   * Reactive read. Re-runs whenever the page changes or any mutation bumps
+   * `mutationVersion`. Status, value, isLoading, error are all signals on
+   * the resource — no manual `loading` flag in the store.
+   */
+  readonly listResource = resource({
+    params: () => ({
+      page: this.store.page(),
+      pageSize: this.store.pageSize(),
+      v: this.store.mutationVersion(),
+    }),
+    loader: ({ params }) =>
+      firstValueFrom(this.svc.list(params.page, params.pageSize)),
+  });
+
+  readonly users = computed<User[]>(() => this.listResource.value()?.data ?? []);
+  readonly total = computed<number>(() => this.listResource.value()?.total ?? 0);
+
+  /** Cheap client-side filter over the page that's already loaded. */
+  readonly visibleUsers = computed<User[]>(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) return this.users();
+    return this.users().filter((u) =>
+      [u.email, u.displayName ?? ''].some((s) => s.toLowerCase().includes(term)),
+    );
+  });
+
+  readonly listState = computed<'loading' | 'error' | 'empty' | 'ready'>(() => {
+    if (this.listResource.isLoading()) return 'loading';
+    if (this.listResource.error()) return 'error';
+    return this.users().length === 0 ? 'empty' : 'ready';
+  });
+
+  readonly pageEnd = computed(() =>
+    Math.min(this.store.page() * this.store.pageSize(), this.total()),
+  );
+
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'active': return 'bg-(--wc-success)/10 text-(--wc-success)';
+      case 'suspended': return 'bg-destructive/10 text-destructive';
+      case 'pending': return 'bg-(--wc-warning)/10 text-(--wc-warning)';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  }
+
+  onInvite() {
+    if (!this.inviteEmail()) return;
+    void this.store
+      .createUser({
+        email: this.inviteEmail(),
+        displayName: this.inviteName() || undefined,
+      })
+      .then((ok) => {
+        if (ok) {
+          this.inviteEmail.set('');
+          this.inviteName.set('');
+        }
+      });
+  }
+
+  confirmDelete(user: User) {
+    this.confirmSvc.confirm({
+      message: `Are you sure you want to remove ${user.email}?`,
+      header: 'Confirm Removal',
+      acceptButtonStyleClass: 'bg-destructive text-destructive-foreground',
+      accept: () => void this.store.deleteUser(user),
+    });
+  }
+}

@@ -1,0 +1,22 @@
+---
+import Marketing from '~/layouts/Marketing.astro';
+import PageHeader from '~/components/PageHeader.astro';
+import PricingTiers from '~/components/PricingTiers.astro';
+import Stats from '~/components/Stats.astro';
+import Finale from '~/components/Finale.astro';
+---
+
+<Marketing
+  current="/pricing"
+  title="Pricing — Wave Connect"
+  description="Free until 5,000 MAU. Usage-based Team plan from $99/mo. Enterprise on request. No seat taxes, no SSO surcharge."
+>
+  <PageHeader
+    kicker="Pricing"
+    title="Pay for <em>what you ship.</em>"
+    sub="Free until 5,000 monthly active users. No seat taxes. No SSO surcharge. Usage pricing you can predict from your own dashboards."
+  />
+  <PricingTiers />
+  <Stats />
+  <Finale />
+</Marketing>

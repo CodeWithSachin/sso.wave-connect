@@ -74,6 +74,10 @@ func (h *ConsentHandler) GetConsent(c *fiber.Ctx) error {
 		RequestedScopes: requestedScopes,
 		RedirectURI:     c.Query("redirect_uri"),
 		State:           c.Query("state"),
+		// Phase 5 followup: the pinned tenant_id flows through the consent
+		// page as a hidden field so POST /oauth2/consent can re-pin the
+		// same tenant that /authorize chose on first touch.
+		TenantID: c.Query("tenant_id"),
 	})
 }
 
@@ -128,10 +132,14 @@ func (h *ConsentHandler) PostConsent(c *fiber.Ctx) error {
 		})
 	}
 
-	tenantIDStr, _ := c.Locals("tenantID").(string)
-	tenantID, err := uuid.Parse(tenantIDStr)
+	// Phase 5 followup: prefer the tenant_id pinned at first /authorize
+	// touch (submitted as a hidden form field) over the session's current
+	// active tenant. Without this, switching tenants between /authorize and
+	// the consent POST would silently change which tenant the eventual
+	// authorization code is scoped to.
+	tenantID, err := resolveConsentTenant(c, client)
 	if err != nil {
-		tenantID = client.TenantID
+		return redirectWithError(c, redirectURI, decision.State, "server_error", "tenant resolution failed")
 	}
 
 	// If user denied consent
@@ -175,4 +183,24 @@ func (h *ConsentHandler) PostConsent(c *fiber.Ctx) error {
 		url.QueryEscape(decision.State),
 	)
 	return c.Redirect(redirectURL, fiber.StatusFound)
+}
+
+// resolveConsentTenant mirrors resolveFlowTenant in oauth2.go — kept separate
+// to read form values (POST) rather than query values (GET). Precedence:
+//
+//  1. Form field `tenant_id` (pinned at first /authorize touch, echoed by UI).
+//  2. Session's active_tenant_id.
+//  3. Client's TenantID as the final fall-back.
+func resolveConsentTenant(c *fiber.Ctx, client *model.OAuthClient) (uuid.UUID, error) {
+	if pinnedStr := c.FormValue("tenant_id"); pinnedStr != "" {
+		if pinned, err := uuid.Parse(pinnedStr); err == nil {
+			return pinned, nil
+		}
+	}
+	if sessionStr, ok := c.Locals("tenantID").(string); ok && sessionStr != "" {
+		if parsed, err := uuid.Parse(sessionStr); err == nil {
+			return parsed, nil
+		}
+	}
+	return client.TenantID, nil
 }

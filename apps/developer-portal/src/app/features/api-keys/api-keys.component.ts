@@ -27,9 +27,9 @@ import { ApiKeysStore } from './api-keys.store';
 
       <!-- New Key Banner -->
       @if (store.newKey(); as key) {
-        <div class="rounded-lg border border-success/30 bg-success/5 p-4">
+        <div class="rounded-lg border border-(--wc-success)/30 bg-(--wc-success)/5 p-4">
           <div class="flex items-start gap-3">
-            <ng-icon name="heroKey" size="1.25rem" class="text-success shrink-0 mt-0.5" />
+            <ng-icon name="heroKey" size="1.25rem" class="text-(--wc-success) shrink-0 mt-0.5" />
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-foreground">API key created successfully</p>
               <p class="text-xs text-muted-foreground mt-1">Copy this key now. It won't be shown again.</p>
@@ -81,7 +81,7 @@ import { ApiKeysStore } from './api-keys.store';
                   </td>
                   <td class="px-4 py-3">
                     <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
-                      [class]="key.status === 'active' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'">
+                      [class]="key.status === 'active' ? 'bg-(--wc-success)/10 text-(--wc-success)' : 'bg-destructive/10 text-destructive'">
                       {{ key.status }}
                     </span>
                   </td>

@@ -10,4 +10,7 @@ export const environment = {
   // OAuth2 PKCE config for admin-console
   oauthClientId: 'admin-console',
   oauthRedirectUri: 'http://localhost:4301/callback',
+  // Canonical "signed out" URL. Logout sends the user here so a revoked
+  // sso_session cookie can't silently re-auth them back onto the dashboard.
+  loginPortalUrl: 'http://localhost:4300/login',
 };

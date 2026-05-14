@@ -29,6 +29,7 @@ import (
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/middleware"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/subscriber"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/worker"
 	ssonats "github.com/wave-connect/sso-platform/libs/nats"
 	pb "github.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1"
@@ -83,6 +84,7 @@ func main() {
 	emailVerifyRepo := repository.NewEmailVerificationRepository(pool)
 	tenantDomainRepo := repository.NewTenantDomainRepository(pool)
 	migrationRepo := repository.NewTenantDomainMigrationRepository(pool)
+	invitationRepo := repository.NewMembershipInvitationRepository(pool)
 	authzOutboxRepo := repository.NewAuthzOutboxRepository()
 
 	// --- NATS ---
@@ -194,8 +196,10 @@ func main() {
 		return id.Format(id.PrefixTenant, parsed)
 	})
 	discoverSvc := service.NewDiscoverService(pool, rdb, service.DiscoverServiceConfig{
-		// No explicit sso-service URL in this env; relative path is fine
-		// because login-portal does a full top-level redirect.
+		SsoInitiatorBaseURL: cfg.Discover.SsoInitiatorBaseURL,
+		CacheTTL:            cfg.Discover.CacheTTL,
+		MinResponseDelay:    cfg.Discover.MinResponseDelay,
+		MaxResponseDelay:    cfg.Discover.MaxResponseDelay,
 	}, log)
 	domainVerifySvc := service.NewDomainVerifyService(pool, tenantDomainRepo, dnsResolver, outbox, log)
 	domainVerifyWorker := worker.NewDomainVerifyWorker(domainVerifySvc, 10*time.Minute, 200, log)
@@ -260,6 +264,25 @@ func main() {
 	domainsHandler := handler.NewDomainsHandler(domainVerifySvc, membershipRepo, validate, log)
 	discoverHandler := handler.NewDiscoverHandler(discoverSvc, validate, log)
 	migrationHandler := handler.NewMigrationHandler(migrationSvc, migrationRepo, pool, log)
+	// Phase 6: tenant invitation accept/decline.
+	invitationSvc := service.NewInvitationService(service.InvitationServiceDeps{
+		Pool:            pool,
+		InvitationRepo:  invitationRepo,
+		SessionSvc:      sessionSvc,
+		PasswordSvc:     passwordSvc,
+		AuthzOutboxRepo: authzOutboxRepo,
+		Outbox:          outbox,
+		Log:             log,
+	})
+	invitationHandler := handler.NewInvitationHandler(invitationSvc, validate, log, cfg.Cookie)
+	// Phase 5: multi-tenant session switcher. Rotate deps (userRepo,
+	// familyRepo, tokenSvc, refreshTTL) optional — nil-safe.
+	activeTenantSvc := service.NewActiveTenantService(
+		membershipRepo, sessionRepo,
+		userRepo, familyRepo, tokenSvc, cfg.Token.RefreshTTL,
+		log,
+	)
+	activeTenantHandler := handler.NewActiveTenantHandler(activeTenantSvc, validate, log)
 
 	// --- Fiber App ---
 	app := fiber.New(fiber.Config{
@@ -304,6 +327,27 @@ func main() {
 	publicAuth.Get("/migration/:token", migrationHandler.Lookup)
 	publicAuth.Post("/migration/:token/accept", migrationHandler.Accept)
 	publicAuth.Post("/migration/:token/decline", migrationHandler.Decline)
+	// Phase 6: tenant invitation accept/decline. Token-bound; enumeration-
+	// resistant. Rate-limiting piggybacks on signup limits — accept can
+	// create a user account (first-time invite) so the signup-rate bucket
+	// is the right one to throttle brute-force on the token URL.
+	publicAuth.Get("/invitation/:token", invitationHandler.Lookup)
+	publicAuth.Post("/invitation/:token/accept", middleware.SignupRateLimit(rdb), invitationHandler.Accept)
+	publicAuth.Post("/invitation/:token/decline", invitationHandler.Decline)
+
+	// Cookie-auth middleware for all browser-facing endpoints (Phase 2
+	// domain mgmt, Phase 4 migrations admin, Phase 5 session switcher).
+	// Declared here and re-used below to avoid shadowing surprises from
+	// multiple short-var decls.
+	sessionAuth := middleware.SessionCookieAuth(sessionRepo)
+
+	// Phase 5: multi-tenant session switcher. Registered BEFORE the `/auth`
+	// group so TenantExtraction on `/auth/*` does not also cover these —
+	// switching tenants is the operation that changes the session's live
+	// tenant, so a tenant header requirement would be chicken-and-egg.
+	app.Get("/auth/session/memberships", sessionAuth, activeTenantHandler.ListMemberships)
+	app.Patch("/auth/session/active-tenant", sessionAuth, activeTenantHandler.SwitchActive)
+	app.Post("/auth/session/rotate", sessionAuth, activeTenantHandler.Rotate)
 
 	// --- Public Auth Routes (tenant required, policy enforced, rate-limited) ---
 	auth := app.Group("/auth", middleware.TenantExtraction(pool), middleware.TenantPolicyEnforcement(policySvc, log))
@@ -351,7 +395,6 @@ func main() {
 	// Browser-facing (sso_session cookie only). Registered directly on `app`
 	// with inline middleware — must NOT share the PASETO chain above.
 	// Verify endpoint additionally rate-limited per tenant (fix #3).
-	sessionAuth := middleware.SessionCookieAuth(sessionRepo)
 	verifyLimit := middleware.DomainVerifyRateLimit(rdb)
 	app.Get("/tenants/:tenantId/domains", sessionAuth, domainsHandler.List)
 	app.Post("/tenants/:tenantId/domains", sessionAuth, domainsHandler.Add)
@@ -400,6 +443,17 @@ func main() {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go domainVerifyWorker.Start(workerCtx)
 	go eventOutboxWorker.Start(workerCtx)
+	// Expiry sweeper (Phase 4/6 followup): hourly cleanup of stale
+	// tenant_domain_migrations + pending invitations.
+	go worker.NewExpirySweeperWorker(pool, time.Hour, log).Start(workerCtx)
+
+	// Phase 3 followup: discover cache invalidation via NATS. Non-fatal if
+	// NATS isn't wired — falls back to the 5-min Redis TTL.
+	if natsConn != nil {
+		if err := subscriber.RegisterDiscoverInvalidation(natsConn, discoverSvc, log); err != nil {
+			log.Warn().Err(err).Msg("discover cache invalidation subscriber failed to start")
+		}
+	}
 	go func() {
 		if err := migrationWorker.Start(workerCtx); err != nil {
 			log.Warn().Err(err).Msg("migration worker exited with error")

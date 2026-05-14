@@ -1,0 +1,20 @@
+---
+import Marketing from '~/layouts/Marketing.astro';
+import PageHeader from '~/components/PageHeader.astro';
+import SecurityBadges from '~/components/SecurityBadges.astro';
+import Finale from '~/components/Finale.astro';
+---
+
+<Marketing
+  current="/security"
+  title="Security — Wave Connect"
+  description="SOC 2 Type II, HIPAA BAA, GDPR + DPA, regional data residency. Identity infrastructure built for regulated workloads."
+>
+  <PageHeader
+    kicker="Security"
+    title="Built for <em>regulated</em> workloads."
+    sub="We're identity infrastructure — the security posture matches. Independent audit, regional data residency, and an audit log that covers every auth event, hashed and signed."
+  />
+  <SecurityBadges />
+  <Finale />
+</Marketing>

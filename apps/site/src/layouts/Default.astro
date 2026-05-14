@@ -1,0 +1,42 @@
+---
+/**
+ * Wave Connect — default page layout.
+ * Imports the global stylesheet (which transitively imports the brand
+ * tokens from libs/ui-components) and ships an empty body for the page
+ * to populate via slots.
+ */
+import '../styles/global.css';
+
+export interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Wave Connect — Identity in motion. Seamlessly everywhere.',
+  description = 'The identity mesh for multi-tenant apps. One session across every workspace, every domain, every IdP — rendered in a single hosted portal you configure in minutes.',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    {/*
+      theme-color must be a concrete hex — browsers parse this before
+      CSS loads, so `var(--site-bg)` isn't viable. Value is pinned to
+      `--site-bg` from site-tokens.css; if you change one, change both.
+    */}
+    <meta name="theme-color" content="#0a0a12" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

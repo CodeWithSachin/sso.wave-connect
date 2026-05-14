@@ -21,6 +21,7 @@ type Config struct {
 	NATS              NATSConfig
 	Email             EmailConfig
 	DNS               DNSConfig
+	Discover          DiscoverConfig
 	Authz             AuthzConfig
 }
 
@@ -45,6 +46,18 @@ type EmailConfig struct {
 	VerifyLinkBaseURL string `mapstructure:"verify_link_base_url"` // e.g. http://localhost:4300
 	// Phase 1 verify-email token lifetime; 24h matches the plan default.
 	VerifyTokenTTL time.Duration `mapstructure:"verify_token_ttl"`
+}
+
+// DiscoverConfig controls Phase 3's email-first login discovery. The one
+// tunable that matters in prod is SsoInitiatorBaseURL — the origin of
+// sso-service so the login URL returned by /auth/public/discover is
+// absolute. Empty falls back to a relative path (`/oauth2/authorize?…`),
+// which only works when login-portal and sso-service share an origin.
+type DiscoverConfig struct {
+	SsoInitiatorBaseURL string        `mapstructure:"sso_initiator_base_url"`
+	CacheTTL            time.Duration `mapstructure:"cache_ttl"`
+	MinResponseDelay    time.Duration `mapstructure:"min_response_delay"`
+	MaxResponseDelay    time.Duration `mapstructure:"max_response_delay"`
 }
 
 // DNSConfig controls the DNS resolver used by the tenant-domain verification
@@ -192,6 +205,17 @@ func Load() (*Config, error) {
 	_ = v.BindEnv("dns.resolver_address", "DNS_RESOLVER_ADDRESS")
 	_ = v.BindEnv("dns.lookup_timeout", "DNS_LOOKUP_TIMEOUT")
 
+	// Discover: Phase 3 email-first login routing. Empty SSO base URL falls
+	// back to relative `/oauth2/authorize?…` (only right for same-origin
+	// dev); prod must set DISCOVER_SSO_INITIATOR_BASE_URL to sso-service's
+	// public origin.
+	v.SetDefault("discover.sso_initiator_base_url", "")
+	v.SetDefault("discover.cache_ttl", 5*time.Minute)
+	v.SetDefault("discover.min_response_delay", 80*time.Millisecond)
+	v.SetDefault("discover.max_response_delay", 120*time.Millisecond)
+	_ = v.BindEnv("discover.sso_initiator_base_url", "DISCOVER_SSO_INITIATOR_BASE_URL")
+	_ = v.BindEnv("discover.cache_ttl", "DISCOVER_CACHE_TTL")
+
 	// Authz service gRPC. Dev default points at authz-service on localhost.
 	// Empty string disables the client; routes that need ReBAC will fail closed.
 	// Insecure=true is the dev default; flip to false and supply TLS creds
@@ -234,6 +258,9 @@ func Load() (*Config, error) {
 	}
 	if err := v.UnmarshalKey("dns", &cfg.DNS); err != nil {
 		return nil, fmt.Errorf("unmarshal dns config: %w", err)
+	}
+	if err := v.UnmarshalKey("discover", &cfg.Discover); err != nil {
+		return nil, fmt.Errorf("unmarshal discover config: %w", err)
 	}
 	if err := v.UnmarshalKey("authz", &cfg.Authz); err != nil {
 		return nil, fmt.Errorf("unmarshal authz config: %w", err)

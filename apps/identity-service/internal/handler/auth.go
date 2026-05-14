@@ -215,6 +215,12 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	if user.Status != "active" {
+		if user.Status == "pending_verification" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error":   "email_not_verified",
+				"message": "please verify your email address before signing in",
+			})
+		}
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "account disabled"})
 	}
 
