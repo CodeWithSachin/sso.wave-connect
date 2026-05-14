@@ -1,5 +1,5 @@
 import { computed, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import {
   signalStore,
@@ -124,13 +124,20 @@ export const AuthStore = signalStore(
     }
 
     return {
-      async login(email: string, password: string): Promise<void> {
+      async login(email: string, password: string, tenantId?: string): Promise<void> {
         patchState(store, { loading: true, error: '' });
+        // When the email-step's /auth/public/discover identified an org tenant,
+        // we MUST forward that tenant id — otherwise the global tenant
+        // interceptor falls back to environment.tenantId (the dev default) and
+        // the backend rejects with "no membership in this tenant".
+        const resolvedTenant = tenantId || environment.tenantId;
+        const headers = new HttpHeaders({ 'X-Tenant-ID': resolvedTenant });
         try {
           const response = await firstValueFrom(
             http.post<AuthResponse | MfaChallengeResponse>(
               `${baseUrl}/auth/login`,
               { email, password },
+              { headers },
             ),
           );
 
@@ -143,6 +150,7 @@ export const AuthStore = signalStore(
               mfaChallengeToken: mfaResp.challenge_token,
               mfaAllowedMethods: mfaResp.allowed_methods,
             });
+            sessionStorage.setItem('tenantId', resolvedTenant);
             router.navigateByUrl('/mfa/challenge');
             return;
           }
@@ -151,7 +159,7 @@ export const AuthStore = signalStore(
           const authResp = response as AuthResponse;
           sessionStorage.setItem('accessToken', authResp.access_token);
           sessionStorage.setItem('refreshToken', authResp.refresh_token);
-          sessionStorage.setItem('tenantId', environment.tenantId);
+          sessionStorage.setItem('tenantId', resolvedTenant);
           if (authResp.id_token) {
             sessionStorage.setItem('idToken', authResp.id_token);
           }
@@ -159,6 +167,7 @@ export const AuthStore = signalStore(
           await redirectAfterAuth();
         } catch (err: unknown) {
           const message =
+            (err as { error?: { error?: string; message?: string } })?.error?.message ||
             (err as { error?: { error?: string } })?.error?.error ||
             'Login failed. Please try again.';
           patchState(store, { loading: false, error: message });
@@ -167,17 +176,26 @@ export const AuthStore = signalStore(
 
       async verifyMfa(code: string): Promise<void> {
         patchState(store, { loading: true, error: '' });
+        // The MFA challenge token is bound to the tenant that was used during
+        // /auth/login; reuse the same X-Tenant-ID we persisted there so the
+        // backend's membership lookup hits the right tenant.
+        const resolvedTenant = sessionStorage.getItem('tenantId') || environment.tenantId;
+        const headers = new HttpHeaders({ 'X-Tenant-ID': resolvedTenant });
         try {
           const response = await firstValueFrom(
-            http.post<MfaVerifyResponse>(`${baseUrl}/auth/mfa/verify`, {
-              code,
-              challenge_token: store.mfaChallengeToken(),
-            }),
+            http.post<MfaVerifyResponse>(
+              `${baseUrl}/auth/mfa/verify`,
+              {
+                code,
+                challenge_token: store.mfaChallengeToken(),
+              },
+              { headers },
+            ),
           );
 
           sessionStorage.setItem('accessToken', response.access_token);
           sessionStorage.setItem('refreshToken', response.refresh_token);
-          sessionStorage.setItem('tenantId', environment.tenantId);
+          sessionStorage.setItem('tenantId', resolvedTenant);
           if (response.id_token) {
             sessionStorage.setItem('idToken', response.id_token);
           }
@@ -199,18 +217,24 @@ export const AuthStore = signalStore(
 
       async verifyBackupCode(code: string): Promise<void> {
         patchState(store, { loading: true, error: '' });
+        const resolvedTenant = sessionStorage.getItem('tenantId') || environment.tenantId;
+        const headers = new HttpHeaders({ 'X-Tenant-ID': resolvedTenant });
         try {
           const response = await firstValueFrom(
-            http.post<MfaVerifyResponse>(`${baseUrl}/auth/mfa/verify`, {
-              code,
-              challenge_token: store.mfaChallengeToken(),
-              method: 'backup_code',
-            }),
+            http.post<MfaVerifyResponse>(
+              `${baseUrl}/auth/mfa/verify`,
+              {
+                code,
+                challenge_token: store.mfaChallengeToken(),
+                method: 'backup_code',
+              },
+              { headers },
+            ),
           );
 
           sessionStorage.setItem('accessToken', response.access_token);
           sessionStorage.setItem('refreshToken', response.refresh_token);
-          sessionStorage.setItem('tenantId', environment.tenantId);
+          sessionStorage.setItem('tenantId', resolvedTenant);
           if (response.id_token) {
             sessionStorage.setItem('idToken', response.id_token);
           }

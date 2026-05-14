@@ -50,6 +50,7 @@ playwright-report/
 
 # Claude Code
 .claude/launch.json
+.claude
 
 .angular
 

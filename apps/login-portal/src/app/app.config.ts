@@ -5,9 +5,15 @@ import { appRoutes } from './app.routes';
 import { environment } from '../environments/environment';
 
 /**
- * Attaches X-Tenant-ID header to all requests.
+ * Attaches the default X-Tenant-ID header. If the caller has already set the
+ * header on the request (e.g. AuthStore.login forwarding the tenant resolved
+ * by /auth/public/discover), we leave it alone — otherwise the per-call value
+ * would be silently overwritten with the dev default.
  */
 const tenantInterceptor: HttpInterceptorFn = (req, next) => {
+  if (req.headers.has('X-Tenant-ID')) {
+    return next(req);
+  }
   const cloned = req.clone({
     setHeaders: { 'X-Tenant-ID': environment.tenantId },
   });

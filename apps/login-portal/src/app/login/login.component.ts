@@ -284,7 +284,11 @@ export class LoginComponent {
   /** Step 2 submit: same login call the single-form flow used. */
   onSignIn(): void {
     if (!this.email() || this.passwordInput.length < 8) return;
-    this.store.login(this.email(), this.passwordInput);
+    // Forward the tenant id resolved by /auth/public/discover (if any) so the
+    // backend can find the user's membership in their org tenant rather than
+    // the dev-default tenant the global interceptor would otherwise apply.
+    const discoveredTenantId = this.discovered()?.tenant?.id;
+    this.store.login(this.email(), this.passwordInput, discoveredTenantId);
   }
 
   /** Return to step 1 so the user can retype a different email. */
