@@ -191,11 +191,6 @@ func (s *MfaService) ListEnrollments(ctx context.Context, userID uuid.UUID) ([]m
 	return s.mfaRepo.GetActiveEnrollments(ctx, userID)
 }
 
-// DeleteEnrollment removes an MFA enrollment belonging to the user.
-func (s *MfaService) DeleteEnrollment(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	return s.mfaRepo.DeleteEnrollment(ctx, id, userID)
-}
-
 // RegenerateBackupCodes deletes all existing backup codes and generates new ones.
 func (s *MfaService) RegenerateBackupCodes(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	// Ensure user has at least one active MFA enrollment

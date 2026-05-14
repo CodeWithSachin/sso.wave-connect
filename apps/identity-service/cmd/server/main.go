@@ -380,7 +380,12 @@ func main() {
 	// explicitly insulates us from that default ever flipping. Fix #6.
 	app.Get("/sessions", append(pasetoChain, sessionHandler.List)...)
 
-	mfaProtected := app.Group("/auth/mfa", pasetoChain...)
+	// Policy enforcement is appended to the chain so DeleteEnrollment can read
+	// `tenant_policy` from Locals and refuse the last-active deletion when the
+	// org requires MFA. The other MFA endpoints don't currently consult the
+	// policy, but they should still respect IP allowlist + require_sso gates.
+	mfaChain := append(pasetoChain, middleware.TenantPolicyEnforcement(policySvc, log))
+	mfaProtected := app.Group("/auth/mfa", mfaChain...)
 	mfaProtected.Post("/enroll", mfaHandler.Enroll)
 	mfaProtected.Post("/enroll/:id/verify", mfaHandler.VerifyEnrollment)
 	mfaProtected.Get("/enrollments", mfaHandler.ListEnrollments)

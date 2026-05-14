@@ -11,6 +11,7 @@ import {
 } from '@sso-platform/nestjs-email';
 import { PrismaModule } from '../shared/prisma/prisma.module';
 import { PrismaService } from '../shared/prisma/prisma.service';
+import { CryptoModule } from '../shared/crypto/crypto.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { MembershipsModule } from '../memberships/memberships.module';
@@ -28,6 +29,7 @@ const emailProvider: EmailProviderKind =
 @Module({
   imports: [
     PrismaModule,
+    CryptoModule,
     EmailModule.forRoot({ provider: emailProvider }),
     TenantsModule,
     UsersModule,

@@ -7,6 +7,7 @@ import {
   IsObject,
   IsArray,
   IsInt,
+  IsNotEmpty,
   Min,
   MaxLength,
 } from 'class-validator';
@@ -48,7 +49,7 @@ export class UpdateIdpDto {
   // OIDC fields
   @ApiPropertyOptional() @IsOptional() @IsString() oidcIssuer?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() oidcClientId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() oidcClientSecret?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty() oidcClientSecret?: string;
   @ApiPropertyOptional() @IsOptional() @IsArray() @IsString({ each: true }) oidcScopes?: string[];
 
   // Common

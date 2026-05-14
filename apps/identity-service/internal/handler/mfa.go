@@ -389,6 +389,10 @@ func (h *MfaHandler) CompleteWebAuthnLogin(c *fiber.Ctx) error {
 
 // DeleteEnrollment removes an MFA enrollment for the authenticated user.
 // DELETE /auth/mfa/enrollments/:id
+//
+// When the tenant policy has password_require_mfa=true, this refuses to remove
+// the last active enrollment — the user must enroll a replacement first. The
+// race-free check lives in repository.DeleteEnrollmentEnforcingPolicy.
 func (h *MfaHandler) DeleteEnrollment(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {
@@ -400,9 +404,30 @@ func (h *MfaHandler) DeleteEnrollment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid enrollment ID"})
 	}
 
-	if err := h.mfaService.DeleteEnrollment(c.Context(), enrollmentID, userID); err != nil {
+	// The tenant-policy middleware (internal/middleware/policy.go) places the
+	// resolved *model.TenantPolicy into Locals on every tenant-scoped route.
+	// If it's absent we treat the request as not-policy-gated; existing behavior.
+	var requireMFA bool
+	var allowedMethods []string
+	if policy, ok := c.Locals("tenant_policy").(*model.TenantPolicy); ok && policy != nil {
+		requireMFA = policy.PasswordRequireMFA
+		allowedMethods = policy.AllowedMFAMethods
+	}
+
+	if err := h.mfaRepo.DeleteEnrollmentEnforcingPolicy(c.Context(), enrollmentID, userID, requireMFA); err != nil {
 		if errors.Is(err, repository.ErrEnrollmentNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "enrollment not found"})
+		}
+		if errors.Is(err, repository.ErrMfaRequiredByPolicy) {
+			methods := allowedMethods
+			if len(methods) == 0 {
+				methods = []string{"totp", "webauthn"}
+			}
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error":           "mfa_required_by_policy",
+				"message":         "your organization requires MFA; enroll a replacement method before removing this one",
+				"allowed_methods": methods,
+			})
 		}
 		h.log.Error().Err(err).Str("user_id", userID.String()).Msg("failed to delete enrollment")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})

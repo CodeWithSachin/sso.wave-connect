@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsObject,
   IsArray,
+  IsNotEmpty,
   MaxLength,
   IsUrl,
 } from 'class-validator';
@@ -26,7 +27,7 @@ export class CreateSamlIdpDto {
   name: string;
 
   @ApiProperty({ enum: ['saml'], default: 'saml' })
-  type: 'saml' = 'saml';
+  type = 'saml' as const;
 
   @ApiPropertyOptional({ description: 'Domain hint for auto-routing', example: 'acme.com' })
   @IsOptional()
@@ -84,7 +85,7 @@ export class CreateOidcIdpDto {
   name: string;
 
   @ApiProperty({ enum: ['oidc'], default: 'oidc' })
-  type: 'oidc' = 'oidc';
+  type = 'oidc' as const;
 
   @ApiPropertyOptional({ description: 'Domain hint', example: 'acme.com' })
   @IsOptional()
@@ -103,6 +104,7 @@ export class CreateOidcIdpDto {
 
   @ApiProperty({ description: 'Client secret (will be encrypted at rest)' })
   @IsString()
+  @IsNotEmpty()
   oidcClientSecret: string;
 
   @ApiPropertyOptional({ description: 'Discovery URL (defaults to issuer + .well-known)' })

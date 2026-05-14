@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	ErrEnrollmentNotFound = errors.New("mfa enrollment not found")
-	ErrBackupCodeNotFound = errors.New("backup code not found")
+	ErrEnrollmentNotFound  = errors.New("mfa enrollment not found")
+	ErrBackupCodeNotFound  = errors.New("backup code not found")
+	ErrMfaRequiredByPolicy = errors.New("tenant policy requires MFA; cannot delete last active enrollment")
 )
 
 type MfaRepository struct {
@@ -96,6 +97,71 @@ func (r *MfaRepository) DeleteEnrollment(ctx context.Context, id uuid.UUID, user
 		return ErrEnrollmentNotFound
 	}
 	return nil
+}
+
+// DeleteEnrollmentEnforcingPolicy deletes an MFA enrollment, refusing if doing
+// so would leave the user without any active enrollment when their tenant
+// policy requires MFA. Race-free under concurrent deletes: a SELECT ... FOR
+// UPDATE locks every row in the user's enrollment set before counting, so two
+// concurrent requests serialize against each other and at most one succeeds
+// when the policy is on and only two active enrollments exist.
+//
+// Returns ErrEnrollmentNotFound if the row doesn't exist or isn't owned by
+// the user; ErrMfaRequiredByPolicy when the policy gate blocks the deletion.
+// When requireMFA is false the call behaves like DeleteEnrollment (no policy
+// gate), but still runs inside a tx for atomicity with the lookup.
+func (r *MfaRepository) DeleteEnrollmentEnforcingPolicy(ctx context.Context, id, userID uuid.UUID, requireMFA bool) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx, `
+		SELECT id, status FROM mfa_enrollments
+		WHERE user_id = $1
+		FOR UPDATE
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("lock user enrollments: %w", err)
+	}
+	var (
+		found            bool
+		targetActive     bool
+		otherActiveCount int
+	)
+	for rows.Next() {
+		var rid uuid.UUID
+		var status string
+		if err := rows.Scan(&rid, &status); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan enrollment: %w", err)
+		}
+		if rid == id {
+			found = true
+			targetActive = status == "active"
+			continue
+		}
+		if status == "active" {
+			otherActiveCount++
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate enrollments: %w", err)
+	}
+
+	if !found {
+		return ErrEnrollmentNotFound
+	}
+	if requireMFA && targetActive && otherActiveCount == 0 {
+		return ErrMfaRequiredByPolicy
+	}
+
+	if _, err := tx.Exec(ctx, `DELETE FROM mfa_enrollments WHERE id = $1 AND user_id = $2`, id, userID); err != nil {
+		return fmt.Errorf("delete enrollment: %w", err)
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *MfaRepository) HasActiveEnrollment(ctx context.Context, userID uuid.UUID) (bool, error) {

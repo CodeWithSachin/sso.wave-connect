@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../shared/prisma/prisma.service';
+import { AesGcmService } from '../shared/crypto/aes-gcm.service';
 import { CreateSamlIdpDto, CreateOidcIdpDto } from './dto/create-idp.dto';
 import { UpdateIdpDto } from './dto/update-idp.dto';
 
@@ -12,7 +14,10 @@ import { UpdateIdpDto } from './dto/update-idp.dto';
 export class IdpService {
   private readonly logger = new Logger(IdpService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aesGcm: AesGcmService,
+  ) {}
 
   async createSaml(tenantId: string, dto: CreateSamlIdpDto) {
     const idp = await this.prisma.identityProvider.create({
@@ -44,7 +49,7 @@ export class IdpService {
   }
 
   async createOidc(tenantId: string, dto: CreateOidcIdpDto) {
-    // In production, encrypt the client secret before storing
+    this.assertPlaintextSecret(dto.oidcClientSecret);
     const idp = await this.prisma.identityProvider.create({
       data: {
         tenantId,
@@ -52,8 +57,8 @@ export class IdpService {
         type: 'oidc',
         domainHint: dto.domainHint,
         oidcIssuer: dto.oidcIssuer,
+        oidcClientSecretEnc: this.aesGcm.encrypt(dto.oidcClientSecret),
         oidcClientId: dto.oidcClientId,
-        oidcClientSecretEnc: dto.oidcClientSecret, // TODO: encrypt at rest
         oidcDiscoveryUrl:
           dto.oidcDiscoveryUrl ??
           `${dto.oidcIssuer}/.well-known/openid-configuration`,
@@ -119,13 +124,17 @@ export class IdpService {
     }
 
     const { version: _v, oidcClientSecret, ...updateData } = dto;
+    if (oidcClientSecret !== undefined) {
+      this.assertPlaintextSecret(oidcClientSecret);
+    }
 
     const idp = await this.prisma.identityProvider.update({
       where: { id },
       data: {
         ...updateData,
-        // If client secret is being updated, store it (TODO: encrypt)
-        ...(oidcClientSecret ? { oidcClientSecretEnc: oidcClientSecret } : {}),
+        ...(oidcClientSecret
+          ? { oidcClientSecretEnc: this.aesGcm.encrypt(oidcClientSecret) }
+          : {}),
         attributeMapping: updateData.attributeMapping ?? undefined,
         version: { increment: 1 },
       },
@@ -291,6 +300,21 @@ export class IdpService {
       }
     }
     return { ok: true };
+  }
+
+  /**
+   * Reject already-encrypted ciphertext arriving where a plaintext secret is
+   * expected. Without this, an admin-console retry or a migration tool that
+   * round-trips a sanitized record would double-encrypt — sso-service's
+   * eventual decrypt in Milestone A Slice 2 would then yield ciphertext, not
+   * the plaintext OIDC secret.
+   */
+  private assertPlaintextSecret(secret: string): void {
+    if (this.aesGcm.isEncrypted(secret)) {
+      throw new BadRequestException(
+        'oidcClientSecret looks like an already-encrypted value; pass the plaintext secret',
+      );
+    }
   }
 
   /**
