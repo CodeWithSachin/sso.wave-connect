@@ -25,6 +25,25 @@ import {
  * deliberately throw on boot if it's missing or the wrong length so a
  * misconfigured deployment fails fast instead of silently writing plaintext
  * or producing rows we can't ever decrypt.
+ *
+ * Rotation procedure (see docs/plans/execution-roadmap.md Track 6.1):
+ *   1. Deploy with both OIDC_SECRET_KEY_V1 (current) and OIDC_SECRET_KEY_V2
+ *      (new) set. Extend this service to a `Map<version, Buffer>` keyed by
+ *      "v1" / "v2" and set `currentVersion = 'v2'`.
+ *   2. encrypt() always writes the currentVersion prefix.
+ *   3. decrypt() splits on `:`, looks up the matching key by prefix; rejects
+ *      versions it has no key for. Both v1 and v2 rows decrypt during the
+ *      transition.
+ *   4. A background job scans `*_enc` columns for `v1:` prefixes,
+ *      decrypts + re-encrypts to v2, writes back. Idempotent on row id.
+ *   5. When zero v1 rows remain, drop OIDC_SECRET_KEY_V1 from the env and
+ *      the key map. Service rejects v1 ciphertext from that point.
+ *
+ * Cross-service coordination: sso-service (Milestone A Slice 2) also reads
+ * OIDC_SECRET_KEY to decrypt the same `oidc_client_secret_enc` column.
+ * Deploy as a single K8s Secret referenced by both services so values
+ * never drift; each service logs `SHA-256(key)[:4]` on boot for cluster
+ * diff verification.
  */
 @Injectable()
 export class AesGcmService implements OnModuleInit {

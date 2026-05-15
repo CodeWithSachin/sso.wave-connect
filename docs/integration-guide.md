@@ -19,6 +19,7 @@ Read the [Overview](#overview) once, then jump to either
 > incrementally across the next few weeks (see
 > [docs/plans](plans/) for the slice plan). The admin-console UI for
 > configuring an external IdP is available now; the runtime that exchanges
+<!-- TODO-SLICE-4: Remove this whole callout block when all slices ship. -->
 > tokens with that IdP is rolling out by slice. If you need SSO via Entra
 > or Google Workspace today, talk to us — we'll prioritize your tenant.
 
@@ -41,7 +42,7 @@ customers a centralized place to:
 - Enforce **org-wide MFA** so individual learners cannot disable two-factor
   on their accounts (shipped — see [MFA enforcement](#mfa-enforcement)).
 - Plug in their **own corporate SSO** (Entra, Okta, Google Workspace) so
-  corporate IT owns account lifecycle (rolling out in Milestone A).
+  corporate IT owns account lifecycle (rolling out in Milestone A). <!-- TODO-SLICE-4: drop "(rolling out in Milestone A)" once shipped -->
 - Get a **branded sign-in experience** with their logo, display name, and
   verified domain.
 - Audit who did what — every policy change, every login, every membership
@@ -205,6 +206,17 @@ listed below. If you're using a framework not listed, point its OIDC config
 at `https://sso.wave-connect.com/.well-known/openid-configuration` and it
 will discover everything automatically.
 
+**Jump to your stack:**
+| Stack | Section |
+|---|---|
+| Django (server-rendered or API) | [2.3 Django backend](#23-django-backend-miles-masterclass-lms) |
+| Angular SPA (with a Django BFF, or standalone) | [2.4 Angular SPA](#24-angular-spa-miles-masterclass-web-frontend) |
+| Flutter (iOS/Android) | [2.5 Flutter mobile](#25-flutter-mobile-miles-masterclass-mobile-app) |
+| Node.js / Go / Java / other | [2.6 Other stacks](#26-other-stacks-nodejs-go-anything-oidc-compliant) |
+
+Read [2.1 Discovery](#21-discovery) and [2.2 The login flow](#22-the-login-flow)
+first — they're protocol-level and apply to every stack.
+
 ### 2.1 Discovery
 
 ```bash
@@ -248,10 +260,531 @@ and need explicit Ed25519 support enabled.
 9. Your app verifies the id_token signature via JWKS, then reads claims
 ```
 
-### 2.3 Express + Passport example
+### 2.3 Django backend (Miles Masterclass LMS)
+
+The Miles Masterclass LMS is on Django, so this is the canonical server-side
+integration. We recommend **Authlib** over the more popular
+`mozilla-django-oidc` because Authlib supports EdDSA / Ed25519 ID-token
+signatures via its own JOSE implementation, while `mozilla-django-oidc`
+requires custom PyJWT plumbing for non-RS256 algs.
+
+```bash
+# Recent versions of all four are needed for EdDSA support.
+pip install authlib requests cryptography pyjwt
+```
+
+```python
+# settings.py
+import os
+
+WAVECONNECT_ISSUER = "https://sso.wave-connect.com"
+WAVECONNECT_CLIENT_ID = os.environ["WAVECONNECT_CLIENT_ID"]
+WAVECONNECT_CLIENT_SECRET = os.environ["WAVECONNECT_CLIENT_SECRET"]
+
+# Custom user model
+AUTH_USER_MODEL = "learners.Learner"
+
+# Required: Django's login() picks a backend off this list to record on the
+# session. Without ModelBackend, the JIT login below raises ValueError.
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Database-backed sessions (Django's default). The OIDC token storage below
+# relies on this — `SESSION_ENGINE = 'django.contrib.sessions.backends.
+# signed_cookies'` would put tokens in a signed-but-unencrypted client
+# cookie, leaking them to the browser. Either keep the DB default or
+# switch to encrypted sessions before storing tokens.
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+```
+
+```python
+# auth/oauth.py — register the OIDC client once at module load. Authlib's
+# Django integration takes the kwargs inline (it does not auto-read from
+# settings the way the Flask integration does).
+from authlib.integrations.django_client import OAuth
+from django.conf import settings
+
+oauth = OAuth()
+oauth.register(
+    name="waveconnect",
+    server_metadata_url=f"{settings.WAVECONNECT_ISSUER}/.well-known/openid-configuration",
+    client_id=settings.WAVECONNECT_CLIENT_ID,
+    client_secret=settings.WAVECONNECT_CLIENT_SECRET,
+    client_kwargs={
+        "scope": "openid profile email offline_access",
+        # Force PKCE even though we hold the secret — defense in depth
+        # against authorization-code interception attacks.
+        "code_challenge_method": "S256",
+    },
+)
+```
+
+```python
+# auth/views.py
+from django.conf import settings
+from django.contrib.auth import login, logout
+from django.shortcuts import redirect
+from django.urls import reverse
+from .oauth import oauth
+from learners.models import Learner
+
+def login_view(request):
+    return oauth.waveconnect.authorize_redirect(
+        request, request.build_absolute_uri(reverse("auth_callback"))
+    )
+
+def callback_view(request):
+    token = oauth.waveconnect.authorize_access_token(request)
+    claims = token["userinfo"]  # already JWT-verified by Authlib
+
+    # JIT: create the Learner row on first sign-in. `sub` is the stable
+    # WaveConnect user id (typeid like "user_01HXXX..."). Use it as the
+    # join key — emails can change, sub doesn't.
+    learner, _ = Learner.objects.update_or_create(
+        sso_subject=claims["sub"],
+        defaults={
+            "email": claims["email"],
+            "first_name": claims.get("given_name", ""),
+            "last_name": claims.get("family_name", ""),
+            "display_name": claims.get("name", ""),
+            "avatar_url": claims.get("picture", ""),
+            "is_active": True,
+        },
+    )
+
+    # `login()` requires `learner.backend` to be set so Django knows which
+    # backend authenticated this user (it stamps that onto the session for
+    # subsequent `request.user` hydration). Since we did not call
+    # `authenticate()` — we trusted the OIDC token — we set it ourselves.
+    learner.backend = "django.contrib.auth.backends.ModelBackend"
+    login(request, learner)
+
+    # Tokens land in DB-backed session storage (set in settings.py above).
+    # For higher-security tenants, store them in an encrypted column on the
+    # learner instead and never let them touch the session.
+    request.session["wc_access_token"] = token["access_token"]
+    request.session["wc_refresh_token"] = token.get("refresh_token")
+    request.session["wc_id_token"] = token["id_token"]
+    return redirect("dashboard")
+
+def logout_view(request):
+    logout(request)
+    # Front-channel logout at WaveConnect — kills the sso_session cookie
+    # AND any active external-IdP session if SSO federation is on.
+    return redirect(
+        f"{settings.WAVECONNECT_ISSUER}/auth/logout"
+        f"?return_to={request.build_absolute_uri('/')}"
+    )
+```
+
+```python
+# urls.py
+from django.urls import path
+from .auth.views import login_view, callback_view, logout_view
+
+urlpatterns = [
+    path("auth/login/", login_view, name="auth_login"),
+    path("auth/callback/", callback_view, name="auth_callback"),
+    path("auth/logout/", logout_view, name="auth_logout"),
+]
+```
+
+#### Custom user model — store the WaveConnect subject
+
+```python
+# learners/models.py
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.db import models
+
+class LearnerManager(BaseUserManager):
+    def create_user(self, sso_subject, email, **extra):
+        learner = self.model(sso_subject=sso_subject, email=self.normalize_email(email), **extra)
+        learner.set_unusable_password()  # auth is via WaveConnect, never a local password
+        learner.save(using=self._db)
+        return learner
+
+class Learner(AbstractBaseUser, PermissionsMixin):
+    sso_subject = models.CharField(max_length=64, unique=True, db_index=True)
+    email = models.EmailField(unique=True)
+    first_name = models.CharField(max_length=120, blank=True)
+    last_name = models.CharField(max_length=120, blank=True)
+    display_name = models.CharField(max_length=255, blank=True)
+    avatar_url = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)  # required for Django admin
+
+    objects = LearnerManager()
+
+    USERNAME_FIELD = "sso_subject"
+    EMAIL_FIELD = "email"
+    REQUIRED_FIELDS = ["email"]
+
+    def __str__(self) -> str:
+        return f"{self.email} ({self.sso_subject})"
+```
+
+`PermissionsMixin` gives you `is_superuser`, `groups`, and `user_permissions`
+— required for Django admin, `@permission_required`, and any DRF permission
+class to work. `set_unusable_password()` in the manager keeps the row out of
+local password-reset flows: there is no password, ever.
+
+`sso_subject` (the OIDC `sub` claim) is the join key for federation. If a
+corporate user's email later changes at their IdP, we still recognize them.
+
+#### Refresh tokens for long-lived background jobs
+
+```python
+# auth/refresh.py — use this inside Celery tasks or DRF middleware when
+# the access_token in session has expired.
+def refresh_waveconnect_token(refresh_token: str) -> dict:
+    return oauth.waveconnect.fetch_access_token(
+        grant_type="refresh_token",
+        refresh_token=refresh_token,
+    )
+```
+
+Refresh tokens are **rotating** — every successful refresh issues a new
+refresh token and revokes the previous one. Always overwrite your stored
+refresh token with the new one; reusing the old one will revoke the entire
+token family.
+
+### 2.4 Angular SPA (Miles Masterclass web frontend)
+
+Two patterns, pick one:
+
+**Recommended: Backend-for-Frontend (BFF) with Django.** Angular never sees
+OIDC tokens. The Django backend handles the auth dance, sets a session
+cookie, and Angular just calls Django APIs with credentials. This is the
+strongest security posture (no tokens in the browser) and matches your
+existing stack.
 
 ```typescript
-// npm install passport passport-openidconnect openid-client
+// app.config.ts
+import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([credentialsInterceptor]),
+    ),
+  ],
+};
+
+// credentials.interceptor.ts
+import type { HttpInterceptorFn } from '@angular/common/http';
+
+export const credentialsInterceptor: HttpInterceptorFn = (req, next) => {
+  // Every request to the Django backend rides on the session cookie.
+  return next(req.clone({ withCredentials: true }));
+};
+
+// auth.service.ts — just kicks off the redirect to Django
+import { Injectable } from '@angular/core';
+import { httpResource } from '@angular/common/http';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  readonly me = httpResource<{ id: string; email: string; displayName: string } | null>(
+    () => '/api/me/',
+  );
+
+  login() {
+    window.location.href = `/auth/login/?next=${encodeURIComponent(window.location.pathname)}`;
+  }
+
+  logout() {
+    window.location.href = '/auth/logout/';
+  }
+}
+```
+
+```typescript
+// guards/auth.guard.ts — protect Angular routes
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { AuthService } from '../auth.service';
+
+export const authGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  if (auth.me.value()) return true;
+  auth.login();
+  return false;
+};
+```
+
+CORS: Django must set `Access-Control-Allow-Credentials: true` and
+`Access-Control-Allow-Origin: <your-angular-origin>` (no wildcard with
+credentials). If Angular and Django are on the same registrable domain
+(e.g. `app.milesmasterclass.com` + `api.milesmasterclass.com`), cookies
+just work with `Domain=.milesmasterclass.com`.
+
+**Alternative: Public OIDC client in the SPA.** Use this only if you cannot
+host a backend per-frontend. Tokens live in browser memory (never
+localStorage — XSS vector). Library: `angular-auth-oidc-client`.
+
+```bash
+pnpm add angular-auth-oidc-client
+```
+
+```typescript
+// app.config.ts
+import { provideAuth, LogLevel } from 'angular-auth-oidc-client';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideAuth({
+      config: {
+        authority: 'https://sso.wave-connect.com',
+        redirectUrl: window.location.origin + '/auth/callback',
+        postLogoutRedirectUri: window.location.origin,
+        clientId: 'your-spa-public-client-id', // public client, no secret
+        scope: 'openid profile email offline_access',
+        responseType: 'code',
+        silentRenew: true,
+        useRefreshToken: true,
+        // EdDSA ID-token signatures — jsrsasign (the library's verifier)
+        // supports Ed25519 via its standard JWS module.
+        renewTimeBeforeTokenExpiresInSeconds: 30,
+        logLevel: LogLevel.Warn,
+      },
+    }),
+  ],
+};
+
+// login.component.ts
+import { inject } from '@angular/core';
+import { OidcSecurityService } from 'angular-auth-oidc-client';
+
+export class LoginComponent {
+  private readonly oidc = inject(OidcSecurityService);
+  login() { this.oidc.authorize(); }
+}
+
+// callback.component.ts
+import { inject, OnInit } from '@angular/core';
+import { OidcSecurityService } from 'angular-auth-oidc-client';
+import { Router } from '@angular/router';
+
+export class CallbackComponent implements OnInit {
+  private readonly oidc = inject(OidcSecurityService);
+  private readonly router = inject(Router);
+  ngOnInit() {
+    this.oidc.checkAuth().subscribe(({ isAuthenticated }) => {
+      this.router.navigate([isAuthenticated ? '/dashboard' : '/login']);
+    });
+  }
+}
+```
+
+When you register the SPA's OAuth client in the admin console, set
+**Require PKCE = true** and leave **Client Secret** unset (public client).
+
+### 2.5 Flutter mobile (Miles Masterclass mobile app)
+
+`flutter_appauth` wraps Google's battle-tested AppAuth library and gives
+you SafariViewController on iOS and Chrome Custom Tabs on Android — the
+OS-blessed surfaces for OAuth flows. Tokens land in `flutter_secure_storage`
+which uses Keychain (iOS) and Keystore (Android).
+
+```yaml
+# pubspec.yaml
+dependencies:
+  flutter_appauth: ^7.0.0
+  flutter_secure_storage: ^9.2.0
+  http: ^1.2.0
+```
+
+```dart
+// lib/auth/waveconnect_auth.dart
+import 'package:flutter_appauth/flutter_appauth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class WaveConnectAuth {
+  static const _issuer = 'https://sso.wave-connect.com';
+  static const _clientId = 'your-mobile-public-client-id';
+  // Custom URI scheme registered in Info.plist + AndroidManifest.xml below.
+  // This string MUST EXACTLY MATCH one of the entries in the OAuth client's
+  // `redirect_uris` array as configured in the WaveConnect admin console —
+  // a single trailing slash mismatch produces `redirect_uri_mismatch` 400s.
+  // AppAuth accepts both `scheme:/path` and `scheme://path`; pick one and
+  // use it consistently in BOTH the platform manifests AND the admin
+  // console registration.
+  static const _redirectUri = 'com.milesmasterclass.app:/oauth/callback';
+  static const _scopes = ['openid', 'profile', 'email', 'offline_access'];
+
+  final _appAuth = const FlutterAppAuth();
+  final _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
+
+  Future<AuthResult> login() async {
+    final result = await _appAuth.authorizeAndExchangeCode(
+      AuthorizationTokenRequest(
+        _clientId,
+        _redirectUri,
+        issuer: _issuer,
+        scopes: _scopes,
+        // PKCE is automatic — AppAuth always generates a verifier.
+        // No clientSecret: mobile apps are public clients.
+      ),
+    );
+    await _persist(result);
+    return result;
+  }
+
+  Future<TokenResponse?> refresh() async {
+    final refresh = await _storage.read(key: 'refresh_token');
+    if (refresh == null) return null;
+    final result = await _appAuth.token(TokenRequest(
+      _clientId,
+      _redirectUri,
+      issuer: _issuer,
+      grantType: 'refresh_token',
+      refreshToken: refresh,
+    ));
+    await _persistRefresh(result);
+    return result;
+  }
+
+  Future<void> logout() async {
+    await _storage.deleteAll();
+    // Optional: end-session at WaveConnect via WebView / browser if you
+    // want to nuke the sso_session cookie on this device too.
+  }
+
+  Future<String?> get accessToken => _storage.read(key: 'access_token');
+
+  Future<void> _persist(AuthorizationTokenResponse r) async {
+    await _storage.write(key: 'access_token', value: r.accessToken);
+    await _storage.write(key: 'refresh_token', value: r.refreshToken);
+    await _storage.write(key: 'id_token', value: r.idToken);
+  }
+
+  Future<void> _persistRefresh(TokenResponse r) async {
+    await _storage.write(key: 'access_token', value: r.accessToken);
+    // CRITICAL: refresh tokens rotate on WaveConnect — overwrite the stored
+    // one or you lose the family on the next refresh. Guard against null
+    // anyway: some IdPs (Entra v1) do NOT rotate, so a refresh response can
+    // omit the field entirely. `flutter_secure_storage.write(value: null)`
+    // DELETES the key, which would silently brick subsequent refreshes.
+    if (r.refreshToken != null) {
+      await _storage.write(key: 'refresh_token', value: r.refreshToken);
+    }
+  }
+}
+
+class AuthResult {
+  final String accessToken;
+  final String idToken;
+  AuthResult(this.accessToken, this.idToken);
+}
+```
+
+**iOS — `ios/Runner/Info.plist`:**
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>com.milesmasterclass.app</string>
+    </array>
+  </dict>
+</array>
+```
+
+**Android — `android/app/build.gradle`:**
+
+```gradle
+android {
+    defaultConfig {
+        manifestPlaceholders = [
+            'appAuthRedirectScheme': 'com.milesmasterclass.app'
+        ]
+    }
+}
+```
+
+#### Calling your Django API from Flutter
+
+Send the access token on every API call:
+
+```dart
+final http = HttpClient();  // or `package:http`
+final token = await auth.accessToken;
+final response = await http.get(
+  Uri.parse('https://api.milesmasterclass.com/courses'),
+  headers: {'Authorization': 'Bearer $token'},
+);
+```
+
+WaveConnect issues PASETO access tokens (not JWT). Your Django middleware
+validates them by calling `/userinfo` on WaveConnect with the bearer
+token; cache the result for the access-token lifetime (typically ~15
+minutes) so you don't hit `/userinfo` on every request:
+
+```python
+# auth/middleware.py
+import hashlib
+import requests
+from django.conf import settings
+from django.core.cache import cache
+from django.http import JsonResponse
+
+class WaveConnectBearerMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+        if not auth_header.startswith("Bearer "):
+            return self.get_response(request)
+        token = auth_header[7:]
+
+        # Cache hit: token already validated, user info reused. Use SHA-256
+        # over the raw token bytes — Python's built-in `hash()` is
+        # PYTHONHASHSEED-randomized and process-local, so the cache hit rate
+        # across gunicorn/uvicorn workers (or load-balanced Django pods)
+        # would be 0. SHA-256 gives a stable cluster-wide key.
+        cache_key = f"wc_userinfo:{hashlib.sha256(token.encode()).hexdigest()}"
+        userinfo = cache.get(cache_key)
+        if userinfo is None:
+            r = requests.get(
+                f"{settings.WAVECONNECT_ISSUER}/userinfo",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=2,
+            )
+            if r.status_code != 200:
+                return JsonResponse({"error": "invalid_token"}, status=401)
+            userinfo = r.json()
+            # 5-minute cache. Tighter than the typical 15-min access-token
+            # TTL so a revoked token stops working within at most 5 min.
+            cache.set(cache_key, userinfo, timeout=300)
+
+        request.wc_user = userinfo
+        return self.get_response(request)
+```
+
+For higher throughput, fetch WaveConnect's PASETO public key once at boot
+from `https://sso.wave-connect.com/.well-known/paseto-keys` and verify the
+token locally with `pyseto` — no network hop per request. Authlib does not
+yet support PASETO directly; `pyseto` is the canonical Python library.
+
+### 2.6 Other stacks (Node.js, Go, anything OIDC-compliant)
+
+Any OIDC client library that supports **authorization-code-with-PKCE** and
+**Ed25519 / EdDSA ID-token signatures** works. Point the library at
+`https://sso.wave-connect.com/.well-known/openid-configuration` and it
+discovers everything.
+
+#### Node.js / Express example (reference)
+
+```typescript
+// npm install passport openid-client express-session
 import express from 'express';
 import session from 'express-session';
 import passport from 'passport';
@@ -266,30 +799,26 @@ const issuer = await Issuer.discover('https://sso.wave-connect.com');
 const client = new issuer.Client({
   client_id: process.env.WAVECONNECT_CLIENT_ID!,
   client_secret: process.env.WAVECONNECT_CLIENT_SECRET!,
-  redirect_uris: ['https://learn.milesmasterclass.com/auth/callback'],
+  redirect_uris: ['https://app.example.com/auth/callback'],
   response_types: ['code'],
-  token_endpoint_auth_method: 'client_secret_basic',
 });
 
 passport.use('oidc', new Strategy({ client, params: { scope: 'openid profile email offline_access' } },
   (tokenSet, userinfo, done) => done(null, { ...userinfo, tokens: tokenSet }),
 ));
 
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user, done) => done(null, user as Express.User));
-
 app.get('/auth/login', passport.authenticate('oidc'));
-app.get('/auth/callback',
-  passport.authenticate('oidc', { failureRedirect: '/login?error=auth' }),
-  (req, res) => res.redirect('/dashboard'),
-);
-
-app.get('/auth/logout', (req, res) => {
-  req.logout(() => res.redirect('/'));
-});
+app.get('/auth/callback', passport.authenticate('oidc', { failureRedirect: '/login' }),
+  (_req, res) => res.redirect('/dashboard'));
 ```
 
-### 2.4 Verifying the ID token by hand
+For Go, see [docs/quickstart/go.md](quickstart/go.md). For first-class
+support of other languages (Java, Ruby, .NET, …), the Spring Security
+OAuth2 client, omniauth-openid-connect, and Microsoft.AspNetCore.Authentication.OpenIdConnect
+libraries all interoperate cleanly — they're the same libraries used
+against Auth0/Okta/Entra.
+
+### 2.7 Verifying the ID token by hand
 
 If you can't use an OIDC library, here's the verification dance:
 
@@ -312,7 +841,7 @@ const { payload } = await jwtVerify(idTokenString, jwks, {
 the JWT and trust the claims without signature verification — that's the
 single most common OIDC implementation bug.
 
-### 2.5 Refresh tokens
+### 2.8 Refresh tokens
 
 Pass `scope=offline_access` on the initial authorize call to receive a
 refresh token. Refresh tokens are bound to a rotating family — every refresh
@@ -327,7 +856,7 @@ curl -X POST https://sso.wave-connect.com/oauth2/token \
   -u "$CLIENT_ID:$CLIENT_SECRET"
 ```
 
-### 2.6 Logout
+### 2.9 Logout
 
 Clear your local session, then redirect to:
 
@@ -339,7 +868,7 @@ This revokes the WaveConnect session cookie and the active refresh-token
 family. If the user signed in via an external IdP (Part 3), single-logout
 to the IdP is invoked as well.
 
-### 2.7 Handling the `tenant_sso` redirect
+### 2.10 Handling the `tenant_sso` redirect
 
 When a user's email-domain belongs to a tenant with `require_sso=true`, the
 discover endpoint returns `mode=tenant_sso` and a `login_url` pointing to
@@ -363,8 +892,10 @@ binding, or interstitial confirm) to prevent IdP-confusion attacks. See
 
 ---
 
+<!-- TODO-SLICE-4: Remove "(rolling out)" suffix once SAML SP runtime ships. -->
 ## Part 3 — Enterprise IdP federation (rolling out)
 
+<!-- TODO-SLICE-4: Replace this status callout with a "Status: Supported" badge once all rows in the matrix below are runtime-complete. -->
 > **Status:** Admin-side CRUD endpoints + UI are available today. The
 > runtime that actually exchanges tokens with the external IdP rolls out
 > across Milestone A slices 2–4 (roughly 4 weeks). Configure your IdP now;
@@ -372,6 +903,8 @@ binding, or interstitial confirm) to prevent IdP-confusion attacks. See
 
 ### 3.1 Supported IdPs
 
+<!-- TODO-SLICE-2: Change OIDC rows to "Supported" when Slice 2 ships. -->
+<!-- TODO-SLICE-4: Change SAML rows to "Supported" when Slice 4 ships. -->
 | IdP | Protocol | Status |
 |---|---|---|
 | Microsoft Entra ID (Azure AD) | SAML 2.0 | Configurable; runtime in Slice 4 |
@@ -563,7 +1096,11 @@ endpoints described in Part 2.
 | `mfa_required_by_policy` on delete | User trying to delete their last MFA method while policy requires it | Enroll a replacement first, then delete. |
 | `sso_required` on `/auth/login` | Tenant policy `require_sso=true`; password login is disabled | Send users through `/auth/public/discover` instead — they'll be routed to your IdP. |
 | `ip_not_allowed` | Request came from outside `ip_allowlist` | Add the source CIDR, or remove the allowlist. |
-| ID token signature verification fails | Library doesn't support EdDSA | Upgrade to a library that supports Ed25519 (`jose` v4+, `oidc-client-ts` v2+, `golang.org/x/oauth2/jws` with Ed25519 fork). |
+| ID token signature verification fails | Library doesn't support EdDSA | Use a recent version of a library that advertises Ed25519 / EdDSA: Python `authlib` + `cryptography` + `pyjwt` (latest stable trio handles it); Angular `angular-auth-oidc-client` (latest major); Flutter `flutter_appauth` (latest); Node `jose` v5+ or `oidc-client-ts` v3+; Go `github.com/coreos/go-oidc/v3`. Check the library's changelog for the version that added Ed25519 / EdDSA support; pin to that floor or newer. Avoid `mozilla-django-oidc` without an EdDSA shim. |
+| Django: `RuntimeWarning: Algorithm not allowed` | `pyjwt`'s `cryptography` backend too old, or `algorithms=["RS256"]` hardcoded somewhere | Upgrade `cryptography` and `pyjwt` to recent versions. Authlib reads the supported algs from the discovery document automatically, so don't hardcode `algorithms=[...]` unless you're verifying a JWT yourself. |
+| Angular: redirect loops on `/auth/callback` | Cookie not set across origins | Confirm Django returns `Access-Control-Allow-Credentials: true` and `Set-Cookie: SameSite=Lax; Secure` on the same registrable domain. Or move Angular and Django to the same origin. |
+| Flutter: `redirect_uri_mismatch` after biometric login | Custom URI scheme not registered, or doesn't match the OAuth client config | Verify `CFBundleURLSchemes` in `Info.plist` (iOS), `appAuthRedirectScheme` in `build.gradle` (Android), AND the value in admin console OAuth client `redirect_uris`. The path component (`/oauth/callback`) and scheme both must match. |
+| Flutter: tokens disappear after app reinstall | Expected — Keychain (iOS) is scoped to app installation | Force re-login on first app launch; refresh tokens revoke on family rotation anyway. |
 | `email_not_verified` on login | User signed up but never clicked the verification link | Resend via admin console → Users → Resend verification. |
 | Session not persisting across subdomains | `sso_session` cookie domain set to a specific subdomain | Talk to us — cookie domain is a tenant config. |
 | Discover returns `mode=consumer` for an internal email | Domain not yet verified for your tenant | Complete the TXT record + click Verify. |
