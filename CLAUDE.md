@@ -42,3 +42,25 @@
 
 - Docker Desktop on the dev machine cycles down under combined Go + Node + Angular load. Pattern: pre-compile Go binaries (`go build -o /tmp/... ./cmd/server`) rather than `go run`, and keep the build-pool interaction short. The `sso-postgres` container at `localhost:5433` is the primary state; pool resets show up as connection-refused on `::1:5433` in service logs.
 
+### API documentation (Scalar + OpenAPI)
+
+Every service exposes its API contract two ways: an in-process `/openapi.json` + `/reference` route (env-gated by `ENABLE_OPENAPI`), and a **committed** OpenAPI spec under `docs/api/<svc>/openapi.json`. A unified [apps/api-docs](apps/api-docs) portal aggregates all specs at build time.
+
+**When you change a handler, you MUST regenerate the committed spec:**
+
+```sh
+pnpm nx run <service>:openapi:export    # one service
+pnpm docs:export                         # all services
+```
+
+CI fails on `git diff --exit-code docs/api/` if you forget. The root-cause fix is always "annotation drifted from handler" — re-export and commit.
+
+- **NestJS services** (`admin-api`, `audit-service`, `developer-portal-api`, `directory-service`, `webhook-service`): annotate controllers with `@ApiOperation`/`@ApiTags`/`@ApiResponse` from `@nestjs/swagger`. Per-service config lives in `apps/<svc>/src/openapi.config.ts` (consumed by both `main.ts` and `scripts/export-openapi.ts` — edit it in one place).
+- **Go services** (`identity-service`, `authz-service`, `sso-service`): annotate Fiber handlers with `swaggo` comments (`// @Summary`, `// @Tags`, `// @Router`, etc.). The Scalar HTML shell is in `libs/go-scalar` (shared across all three services — do not re-add per-service copies). swag emits OpenAPI 2.0; Scalar converts to v3 at render time. The Scalar CDN bundle is pinned + SRI'd in `libs/go-scalar/scalar.go` — bump `scalarVersion` and `scalarIntegrity` together when upgrading.
+- **gRPC** (`libs/proto/*.proto`): documentation lives at `docs/api/grpc/services.yaml` and is **hand-curated** because the `.proto` files have no `google.api.http` annotations. When you add an RPC, update `services.yaml` and run `pnpm docs:check` to confirm RPC counts match.
+- **Portal** (`apps/api-docs`): build-time aggregation only. `pnpm docs:build` copies every spec + the self-hosted Scalar bundle into `dist/apps/api-docs/`. Works offline, no CORS, no live-service coupling. Port 4500.
+
+`pnpm docs:export` requires `swag` (`go install github.com/swaggo/swag/cmd/swag@latest`) and `tsx` (already in workspace devDeps).
+
+**Agent skill installed globally:** [`scalar-docs`](https://skills.sh/scalar/scalar) at `~/.agents/skills/scalar-docs/`. It guides Scalar configuration choices — its instructions are loaded whenever you work on docs in any repo.
+

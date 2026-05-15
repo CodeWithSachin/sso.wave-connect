@@ -1,0 +1,313 @@
+# =============================================================================
+# THIS FILE IS HAND-CURATED.
+#
+# The .proto definitions in libs/proto/ have no google.api.http annotations,
+# so no auto-generator (protoc-gen-openapiv2, gnostic, etc.) produces a
+# useful spec. This document is the source of truth for human + agent
+# readers — keep it in sync with libs/proto/*.proto.
+#
+# When you add or modify an RPC in a .proto:
+#   1. Update the matching path/components below.
+#   2. Run `pnpm docs:check` — it counts proto RPCs vs paths here and fails
+#      if they diverge.
+#   3. Commit both files in the same PR.
+#
+# Single source of truth: this file. The portal build copies it verbatim
+# into dist/apps/api-docs/grpc/services.yaml at deploy time.
+# =============================================================================
+
+openapi: 3.0.3
+info:
+  title: WaveConnect gRPC Services
+  version: "1.0"
+  description: |
+    Reference documentation for the gRPC services exposed by the WaveConnect
+    platform. These RPCs are **not** callable over HTTP — they are documented
+    in OpenAPI shape only so that Scalar can render them alongside the REST
+    surfaces.
+
+    Call them with `grpcurl`, the generated Go stubs in
+    `libs/proto/gen/go/`, or any gRPC client pointed at the service's gRPC
+    port. Server reflection is enabled in every service.
+
+    | Service                  | gRPC port |
+    |--------------------------|-----------|
+    | identity-service         | `:50052`  |
+    | authz-service            | `:50051`  |
+    | audit-service            | (in-process gRPC for event ingestion) |
+
+paths:
+  "/grpc/sso.identity.v1.IdentityService/ValidateToken":
+    post:
+      tags: [identity]
+      summary: Validate a PASETO access token
+      description: |
+        Returns the decoded claims (user, tenant, scopes, expiry) for a valid
+        token, or `valid=false` for any invalid/expired/revoked input.
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/ValidateTokenRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/grpc+proto:
+              schema:
+                $ref: "#/components/schemas/ValidateTokenResponse"
+  "/grpc/sso.identity.v1.IdentityService/GetUser":
+    post:
+      tags: [identity]
+      summary: Fetch a user by ID
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/GetUserRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/grpc+proto:
+              schema:
+                $ref: "#/components/schemas/GetUserResponse"
+  "/grpc/sso.identity.v1.IdentityService/ProvisionFederated":
+    post:
+      tags: [identity]
+      summary: JIT-provision a federated user and start a session
+      description: |
+        Called by sso-service after a successful external IdP authentication.
+        Idempotent on (idp_id, external_user_id).
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/ProvisionFederatedRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/grpc+proto:
+              schema:
+                $ref: "#/components/schemas/ProvisionFederatedResponse"
+
+  "/grpc/sso.authz.v1.AuthzService/Check":
+    post:
+      tags: [authz]
+      summary: Evaluate a single permission
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/AuthzCheckRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/grpc+proto:
+              schema:
+                $ref: "#/components/schemas/AuthzCheckResponse"
+  "/grpc/sso.authz.v1.AuthzService/BatchCheck":
+    post:
+      tags: [authz]
+      summary: Evaluate up to 50 permissions in a single round-trip
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/AuthzBatchCheckRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/grpc+proto:
+              schema:
+                $ref: "#/components/schemas/AuthzBatchCheckResponse"
+  "/grpc/sso.authz.v1.AuthzService/WriteTuple":
+    post:
+      tags: [authz]
+      summary: Write a relationship tuple
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/WriteTupleRequest"
+      responses:
+        "200":
+          description: OK
+  "/grpc/sso.authz.v1.AuthzService/DeleteTuple":
+    post:
+      tags: [authz]
+      summary: Delete a relationship tuple
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/DeleteTupleRequest"
+      responses:
+        "200":
+          description: OK
+  "/grpc/sso.authz.v1.AuthzService/ListObjects":
+    post:
+      tags: [authz]
+      summary: List objects of a type to which the user has a relation
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/AuthzListObjectsRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/grpc+proto:
+              schema:
+                $ref: "#/components/schemas/AuthzListObjectsResponse"
+
+  "/grpc/sso.audit.v1.AuditService/IngestEvent":
+    post:
+      tags: [audit]
+      summary: Ingest a single audit event
+      description: Fire-and-forget event ingestion from any service emitting auditable actions.
+      requestBody:
+        required: true
+        content:
+          application/grpc+proto:
+            schema:
+              $ref: "#/components/schemas/AuditEvent"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/grpc+proto:
+              schema:
+                $ref: "#/components/schemas/AuditAck"
+
+components:
+  schemas:
+    ValidateTokenRequest:
+      type: object
+      properties:
+        token: { type: string }
+    ValidateTokenResponse:
+      type: object
+      properties:
+        valid:      { type: boolean }
+        user_id:    { type: string }
+        tenant_id:  { type: string }
+        email:      { type: string }
+        scopes:     { type: array, items: { type: string } }
+        expires_at: { type: integer, format: int64 }
+    GetUserRequest:
+      type: object
+      properties:
+        user_id: { type: string }
+    GetUserResponse:
+      type: object
+      properties:
+        id:           { type: string }
+        email:        { type: string }
+        display_name: { type: string }
+        status:       { type: string }
+        tenant_id:    { type: string }
+        role:         { type: string }
+    ProvisionFederatedRequest:
+      type: object
+      properties:
+        idp_id:           { type: string }
+        external_user_id: { type: string }
+        email:            { type: string }
+        display_name:     { type: string }
+        picture:          { type: string }
+        ip:               { type: string }
+        user_agent:       { type: string }
+    ProvisionFederatedResponse:
+      type: object
+      properties:
+        user_id:           { type: string }
+        tenant_id:         { type: string }
+        session_token:     { type: string }
+        expires_at:        { type: integer, format: int64 }
+        newly_provisioned: { type: boolean }
+
+    AuthzCheckRequest:
+      type: object
+      properties:
+        store_id: { type: string }
+        user:     { type: string }
+        relation: { type: string }
+        object:   { type: string }
+    AuthzCheckResponse:
+      type: object
+      properties:
+        allowed: { type: boolean }
+    AuthzBatchCheckRequest:
+      type: object
+      properties:
+        store_id: { type: string }
+        checks:
+          type: array
+          items: { $ref: "#/components/schemas/AuthzCheckRequest" }
+    AuthzBatchCheckResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/AuthzCheckResponse" }
+    TupleKey:
+      type: object
+      properties:
+        user:     { type: string }
+        relation: { type: string }
+        object:   { type: string }
+    WriteTupleRequest:
+      type: object
+      properties:
+        store_id: { type: string }
+        tuple:    { $ref: "#/components/schemas/TupleKey" }
+    DeleteTupleRequest:
+      type: object
+      properties:
+        store_id: { type: string }
+        tuple:    { $ref: "#/components/schemas/TupleKey" }
+    AuthzListObjectsRequest:
+      type: object
+      properties:
+        store_id: { type: string }
+        user:     { type: string }
+        relation: { type: string }
+        type:     { type: string }
+    AuthzListObjectsResponse:
+      type: object
+      properties:
+        objects:
+          type: array
+          items: { type: string }
+
+    AuditEvent:
+      type: object
+      properties:
+        tenant_id:      { type: string }
+        actor_id:       { type: string }
+        actor_type:     { type: string }
+        actor_ip:       { type: string }
+        action:         { type: string }
+        resource_type:  { type: string }
+        resource_id:    { type: string }
+        description:    { type: string }
+        metadata_json:  { type: string }
+        request_id:     { type: string }
+    AuditAck:
+      type: object
+      properties:
+        success:  { type: boolean }
+        event_id: { type: string }

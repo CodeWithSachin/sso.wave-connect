@@ -75,6 +75,20 @@
             "buildTarget": "admin-api:build:production"
           }
         }
+      },
+      "openapi:export": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "dependsOn": ["build"],
+        "inputs": [
+          "{projectRoot}/src/**/*.ts",
+          "{projectRoot}/dist/main.js"
+        ],
+        "options": {
+          "command": "OPENAPI_EXPORT_PATH=../../docs/api/admin-api/openapi.json node dist/main.js",
+          "cwd": "apps/admin-api"
+        },
+        "outputs": ["{workspaceRoot}/docs/api/admin-api"]
       }
     },
     "tags": [

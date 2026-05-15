@@ -1,7 +1,12 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
+import { apiReference } from '@scalar/nestjs-api-reference';
 import cookieParser from 'cookie-parser';
+import type { Request, Response } from 'express';
+import { buildSwaggerConfig } from './openapi.config';
 import { AppModule } from './app/app.module';
 import { AllExceptionsFilter } from './shared/filters/http-exception.filter';
 import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
@@ -20,20 +25,42 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('SSO Developer Portal API')
-    .setDescription('API key management, OAuth app registration, SDK documentation, and SCIM token management')
-    .setVersion('1.0')
-    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'PASETO' })
-    .build();
+  const document = SwaggerModule.createDocument(app, buildSwaggerConfig());
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  const exportPath = process.env.OPENAPI_EXPORT_PATH;
+  if (exportPath) {
+    mkdirSync(dirname(exportPath), { recursive: true });
+    writeFileSync(exportPath, JSON.stringify(document, null, 2));
+    Logger.log(`wrote ${exportPath}`);
+    await app.close();
+    return;
+  }
+
+  const openApiEnabled = process.env.ENABLE_OPENAPI !== 'false';
+  if (openApiEnabled) {
+    app.use('/openapi.json', (_req: Request, res: Response) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(document);
+    });
+    app.use('/reference', (req, res, next) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      next();
+    });
+    app.use(
+      '/reference',
+      apiReference({
+        spec: { content: document },
+        theme: 'default',
+      }),
+    );
+  }
 
   const port = process.env.DEVELOPER_PORTAL_API_PORT || 3500;
   await app.listen(port);
   Logger.log(`Developer Portal API running on: http://localhost:${port}`);
-  Logger.log(`OpenAPI docs: http://localhost:${port}/api/docs`);
+  Logger.log(`API reference (Scalar): http://localhost:${port}/reference`);
+  Logger.log(`OpenAPI spec: http://localhost:${port}/openapi.json`);
 }
 
 bootstrap();

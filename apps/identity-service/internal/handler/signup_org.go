@@ -57,6 +57,16 @@ func NewSignupOrgHandler(
 // SignupOrg creates the tenant + admin + pending domain claim. On success:
 // sets the sso_session cookie and returns 201 with the TXT instructions the
 // UI needs for the next step.
+//
+//	@Summary	Organisation signup with domain claim
+//	@Tags		signup
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		service.SignupOrgRequest	true	"Org signup payload"
+//	@Success	201		{object}	map[string]any
+//	@Failure	400		{object}	map[string]string
+//	@Failure	409		{object}	map[string]string
+//	@Router		/auth/public/signup-org [post]
 func (h *SignupOrgHandler) SignupOrg(c *fiber.Ctx) error {
 	var req service.SignupOrgRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -216,6 +226,14 @@ func (h *DomainsHandler) resolveRole(c *fiber.Ctx, tenantID uuid.UUID) (string, 
 // rows AND only when the caller is owner/admin. Verified rows never include
 // the token (it's no longer useful), and member/readonly callers get a
 // redacted response even for pending rows.
+// List returns the verified and pending domains for a tenant.
+//
+//	@Summary	List tenant domains
+//	@Tags		domains
+//	@Produce	json
+//	@Param		tenantId	path	string	true	"Tenant ID"
+//	@Success	200			{array}	map[string]any
+//	@Router		/tenants/{tenantId}/domains [get]
 func (h *DomainsHandler) List(c *fiber.Ctx) error {
 	tenantID, err := h.resolveTenantScope(c)
 	if err != nil {
@@ -256,6 +274,16 @@ func (h *DomainsHandler) List(c *fiber.Ctx) error {
 }
 
 // Add starts a new claim for the caller's tenant. Owner/admin only.
+// Add claims an additional domain for the tenant, returning DNS TXT instructions.
+//
+//	@Summary	Add a tenant domain
+//	@Tags		domains
+//	@Accept		json
+//	@Produce	json
+//	@Param		tenantId	path		string				true	"Tenant ID"
+//	@Param		body		body		map[string]string	true	"{ domain: string }"
+//	@Success	201			{object}	map[string]any
+//	@Router		/tenants/{tenantId}/domains [post]
 func (h *DomainsHandler) Add(c *fiber.Ctx) error {
 	tenantID, err := h.resolveTenantScope(c)
 	if err != nil {
@@ -305,6 +333,15 @@ func (h *DomainsHandler) Add(c *fiber.Ctx) error {
 }
 
 // Verify runs a single on-demand verification attempt. Owner/admin only.
+// Verify forces a DNS TXT check for a pending domain claim.
+//
+//	@Summary	Verify a tenant domain
+//	@Tags		domains
+//	@Produce	json
+//	@Param		tenantId	path		string	true	"Tenant ID"
+//	@Param		id			path		string	true	"Domain ID"
+//	@Success	200			{object}	map[string]any
+//	@Router		/tenants/{tenantId}/domains/{id}/verify [post]
 func (h *DomainsHandler) Verify(c *fiber.Ctx) error {
 	tenantID, err := h.resolveTenantScope(c)
 	if err != nil {
@@ -342,6 +379,14 @@ func (h *DomainsHandler) Verify(c *fiber.Ctx) error {
 // soft-deleting frees the domain for another tenant to claim.
 //
 // Phase 2 review fix #7.
+// Delete removes a domain claim from the tenant.
+//
+//	@Summary	Delete a tenant domain
+//	@Tags		domains
+//	@Param		tenantId	path	string	true	"Tenant ID"
+//	@Param		id			path	string	true	"Domain ID"
+//	@Success	204
+//	@Router		/tenants/{tenantId}/domains/{id} [delete]
 func (h *DomainsHandler) Delete(c *fiber.Ctx) error {
 	tenantID, err := h.resolveTenantScope(c)
 	if err != nil {

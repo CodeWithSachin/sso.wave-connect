@@ -50,6 +50,16 @@ func NewSignupHandler(
 // Signup creates a personal tenant + user + membership + session atomically.
 // On success it sets the sso_session cookie and returns 201 with the new
 // user + tenant. See `service.SignupService.Signup` for the invariants.
+//
+//	@Summary	Public consumer signup
+//	@Tags		signup
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		service.SignupRequest	true	"Signup payload"
+//	@Success	201		{object}	map[string]any
+//	@Failure	400		{object}	map[string]string
+//	@Failure	409		{object}	map[string]string
+//	@Router		/auth/public/signup [post]
 func (h *SignupHandler) Signup(c *fiber.Ctx) error {
 	var req service.SignupRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -102,6 +112,16 @@ func (h *SignupHandler) Signup(c *fiber.Ctx) error {
 // VerifyEmail consumes a verification token. Returns 204 on success or 410
 // for any invalid/expired/already-consumed token — one response shape to
 // avoid leaking whether the token was known-but-expired vs never-existed.
+// VerifyEmail completes the email verification flow with a token.
+//
+//	@Summary	Verify email
+//	@Tags		signup
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		map[string]string	true	"{ token: string }"
+//	@Success	200		{object}	map[string]any
+//	@Failure	400		{object}	map[string]string
+//	@Router		/auth/public/verify-email [post]
 func (h *SignupHandler) VerifyEmail(c *fiber.Ctx) error {
 	var req struct {
 		Token string `json:"token" validate:"required,min=16"`
@@ -128,6 +148,16 @@ func (h *SignupHandler) VerifyEmail(c *fiber.Ctx) error {
 
 // ResendVerification always returns 202. The handler never reveals whether
 // the email exists in the system — enumeration-resistance per the plan.
+// ResendVerification issues a fresh verification email.
+//
+//	@Summary	Resend verification email
+//	@Tags		signup
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		map[string]string	true	"{ email: string }"
+//	@Success	202		{object}	map[string]string
+//	@Failure	429		{object}	map[string]string
+//	@Router		/auth/public/verify-email/resend [post]
 func (h *SignupHandler) ResendVerification(c *fiber.Ctx) error {
 	var req struct {
 		Email string `json:"email" validate:"required,email,max=255"`

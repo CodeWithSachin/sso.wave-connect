@@ -7,9 +7,13 @@
     "lint:all": "pnpm nx run-many --target=lint --all",
     "test:all": "pnpm nx run-many --target=test --all",
     "build:all": "pnpm nx run-many --target=build --all",
-    "serve:all": "export $(grep -v '^#' .env | xargs) && pnpm nx run-many --target=serve --projects=admin-console,developer-portal,login-portal,admin-api,developer-portal-api,audit-service,webhook-service,directory-service,sso-service,identity-service,authz-service --parallel=11",
-    "serve:frontend": "pnpm nx run-many --target=serve --projects=admin-console,developer-portal,login-portal --parallel=3",
-    "serve:backend": "export $(grep -v '^#' .env | xargs) && pnpm nx run-many --target=serve --projects=admin-api,developer-portal-api,audit-service,webhook-service,directory-service,sso-service,identity-service,authz-service --parallel=8"
+    "serve:all": "export $(grep -v '^#' .env | xargs) && pnpm nx run-many --target=serve --projects=admin-console,developer-portal,login-portal,api-docs,admin-api,developer-portal-api,audit-service,webhook-service,directory-service,sso-service,identity-service,authz-service --parallel=12",
+    "serve:frontend": "pnpm nx run-many --target=serve --projects=admin-console,developer-portal,login-portal,api-docs --parallel=4",
+    "serve:backend": "export $(grep -v '^#' .env | xargs) && pnpm nx run-many --target=serve --projects=admin-api,developer-portal-api,audit-service,webhook-service,directory-service,sso-service,identity-service,authz-service --parallel=8",
+    "docs:export": "pnpm nx run-many --target=openapi:export --projects=admin-api,audit-service,developer-portal-api,directory-service,webhook-service,identity-service,authz-service,sso-service",
+    "docs:build": "pnpm docs:export && pnpm nx build api-docs",
+    "docs:serve": "pnpm nx serve api-docs",
+    "docs:check": "scripts/check-grpc-spec-drift.sh"
   },
   "private": true,
   "devDependencies": {
@@ -51,6 +55,7 @@
     "nx": "22.6.5",
     "prettier": "^3.8.1",
     "tslib": "^2.3.0",
+    "tsx": "^4.22.0",
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.58.2",
     "vitest": "^4.0.8",
@@ -73,6 +78,8 @@
     "@ngrx/signals": "^21.1.0",
     "@primeng/themes": "^21.0.4",
     "@prisma/client": "^6.19.3",
+    "@scalar/api-reference": "^1.57.1",
+    "@scalar/nestjs-api-reference": "^1.1.16",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",

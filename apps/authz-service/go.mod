@@ -70,9 +70,12 @@ require (
 replace github.com/wave-connect/sso-platform/libs/nats => ../../libs/nats
 
 require (
+	github.com/wave-connect/sso-platform/libs/go-scalar v0.0.0
 	github.com/wave-connect/sso-platform/libs/proto/gen/go v0.0.0
 	google.golang.org/grpc v1.80.0
 )
+
+replace github.com/wave-connect/sso-platform/libs/go-scalar => ../../libs/go-scalar
 
 replace github.com/wave-connect/sso-platform/libs/proto/gen/go => ../../libs/proto/gen/go
 

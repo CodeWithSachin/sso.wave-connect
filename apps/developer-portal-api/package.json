@@ -20,6 +20,20 @@
           "development": { "buildTarget": "developer-portal-api:build:development" },
           "production": { "buildTarget": "developer-portal-api:build:production" }
         }
+      },
+      "openapi:export": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "dependsOn": ["build"],
+        "inputs": [
+          "{projectRoot}/src/**/*.ts",
+          "{projectRoot}/dist/main.js"
+        ],
+        "options": {
+          "command": "OPENAPI_EXPORT_PATH=../../docs/api/developer-portal-api/openapi.json node dist/main.js",
+          "cwd": "apps/developer-portal-api"
+        },
+        "outputs": ["{workspaceRoot}/docs/api/developer-portal-api"]
       }
     },
     "tags": ["scope:developer", "type:api"]

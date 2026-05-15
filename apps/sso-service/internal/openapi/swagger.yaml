@@ -1,0 +1,326 @@
+basePath: /
+definitions:
+  github_com_wave-connect_sso-platform_apps_sso-service_internal_model.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      id_token:
+        type: string
+      refresh_token:
+        type: string
+      scope:
+        type: string
+      token_type:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: OAuth2 / OpenID Connect provider — authorize, token, userinfo, JWKS,
+    discovery, IdP callbacks.
+  title: SSO Service API
+  version: "1.0"
+paths:
+  /.well-known/jwks.json:
+    get:
+      description: Public signing keys used to verify ID tokens.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: JSON Web Key Set
+      tags:
+      - oidc
+  /.well-known/openid-configuration:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: OpenID Connect discovery document
+      tags:
+      - oidc
+  /idp/oidc/callback:
+    get:
+      description: Receives the authorization code from an external OIDC IdP, exchanges
+        it for tokens, provisions the user via JIT, and starts an SSO session.
+      parameters:
+      - description: Authorization code returned by the IdP
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: Relay-state token previously stored in Redis
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirect back to the original OAuth client redirect_uri
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: External OIDC IdP callback
+      tags:
+      - oidc
+  /oauth2/authorize:
+    get:
+      description: Initiates an OAuth2/OIDC authorization-code flow. May redirect
+        to the login portal, an external IdP, or the consent screen.
+      parameters:
+      - description: Registered OAuth client ID
+        in: query
+        name: client_id
+        required: true
+        type: string
+      - description: Must be `code`
+        in: query
+        name: response_type
+        required: true
+        type: string
+      - description: Redirect URI registered with the client
+        in: query
+        name: redirect_uri
+        required: true
+        type: string
+      - description: Space-separated scopes
+        in: query
+        name: scope
+        type: string
+      - description: Opaque value returned to the client
+        in: query
+        name: state
+        type: string
+      - description: PKCE challenge
+        in: query
+        name: code_challenge
+        type: string
+      - description: PKCE method (S256)
+        in: query
+        name: code_challenge_method
+        type: string
+      - description: OIDC nonce
+        in: query
+        name: nonce
+        type: string
+      - description: External IdP ID for federated auth
+        in: query
+        name: idp_hint
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirect to login portal, IdP, consent, or the client's redirect_uri
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: OAuth2 authorization endpoint
+      tags:
+      - oauth2
+  /oauth2/consent:
+    get:
+      description: Returns the client, scopes, and tenant context to be displayed
+        on the consent screen.
+      parameters:
+      - description: OAuth client ID
+        in: query
+        name: client_id
+        required: true
+        type: string
+      - description: Requested scopes
+        in: query
+        name: scope
+        required: true
+        type: string
+      - description: Redirect URI
+        in: query
+        name: redirect_uri
+        required: true
+        type: string
+      - description: OAuth state
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Pinned tenant ID
+        in: query
+        name: tenant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Fetch consent form data
+      tags:
+      - oauth2
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Records the user's accept/deny decision and resumes the OAuth flow.
+      parameters:
+      - description: OAuth client ID
+        in: formData
+        name: client_id
+        required: true
+        type: string
+      - description: Granted scopes
+        in: formData
+        name: scope
+        required: true
+        type: string
+      - description: Redirect URI
+        in: formData
+        name: redirect_uri
+        required: true
+        type: string
+      - description: OAuth state
+        in: formData
+        name: state
+        required: true
+        type: string
+      - description: Pinned tenant ID
+        in: formData
+        name: tenant_id
+        required: true
+        type: string
+      - description: '`accept` or `deny`'
+        in: formData
+        name: decision
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirect to OAuth client or login
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Submit a consent decision
+      tags:
+      - oauth2
+  /oauth2/token:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Exchange an authorization code or refresh token for access/refresh/ID
+        tokens.
+      parameters:
+      - description: authorization_code or refresh_token
+        in: formData
+        name: grant_type
+        required: true
+        type: string
+      - description: Authorization code (authorization_code grant)
+        in: formData
+        name: code
+        type: string
+      - description: Redirect URI used in /authorize
+        in: formData
+        name: redirect_uri
+        type: string
+      - description: OAuth client ID (or via Basic auth)
+        in: formData
+        name: client_id
+        type: string
+      - description: OAuth client secret (or via Basic auth)
+        in: formData
+        name: client_secret
+        type: string
+      - description: Refresh token (refresh_token grant)
+        in: formData
+        name: refresh_token
+        type: string
+      - description: PKCE verifier
+        in: formData
+        name: code_verifier
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: OAuth2 token endpoint
+      tags:
+      - oauth2
+  /userinfo:
+    get:
+      description: OIDC UserInfo endpoint — returns claims for the bearer access token.
+      parameters:
+      - description: Tenant ID required to decrypt the token
+        in: header
+        name: X-Tenant-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: UserInfo endpoint
+      tags:
+      - oidc
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

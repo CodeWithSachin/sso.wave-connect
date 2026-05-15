@@ -25,6 +25,12 @@ func NewOIDCHandler(oidcSvc *service.OIDCService, issuer string, log zerolog.Log
 }
 
 // Discovery handles GET /.well-known/openid-configuration.
+//
+//	@Summary	OpenID Connect discovery document
+//	@Tags		oidc
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/.well-known/openid-configuration [get]
 func (h *OIDCHandler) Discovery(c *fiber.Ctx) error {
 	doc := service.GetDiscoveryDocument(h.issuer)
 	return c.JSON(doc)
@@ -38,6 +44,13 @@ func (h *OIDCHandler) Discovery(c *fiber.Ctx) error {
 // CORS is intentionally permissive (Access-Control-Allow-Origin: *) — the
 // JWKS is public by design and downstream RPs running on arbitrary origins
 // must be able to fetch it.
+//
+//	@Summary	JSON Web Key Set
+//	@Description	Public signing keys used to verify ID tokens.
+//	@Tags		oidc
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/.well-known/jwks.json [get]
 func (h *OIDCHandler) JWKS(c *fiber.Ctx) error {
 	jwks, err := h.oidcSvc.BuildJWKS()
 	if err != nil {
@@ -54,6 +67,16 @@ func (h *OIDCHandler) JWKS(c *fiber.Ctx) error {
 }
 
 // UserInfo handles GET /userinfo — returns user claims based on access token scopes.
+//
+//	@Summary	UserInfo endpoint
+//	@Description	OIDC UserInfo endpoint — returns claims for the bearer access token.
+//	@Tags		oidc
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Param		X-Tenant-ID	header	string	true	"Tenant ID required to decrypt the token"
+//	@Success	200	{object}	map[string]any
+//	@Failure	401	{object}	map[string]string
+//	@Router		/userinfo [get]
 func (h *OIDCHandler) UserInfo(c *fiber.Ctx) error {
 	// Extract token from Authorization header
 	authHeader := c.Get("Authorization")

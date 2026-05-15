@@ -22,6 +22,14 @@ func NewSessionHandler(sessionSvc *service.SessionService, log zerolog.Logger) *
 	}
 }
 
+// List returns the user's active sessions.
+//
+//	@Summary	List sessions
+//	@Tags		sessions
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Success	200	{object}	map[string]any
+//	@Router		/sessions [get]
 func (h *SessionHandler) List(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {
@@ -51,6 +59,14 @@ func (h *SessionHandler) List(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"sessions": dtos})
 }
 
+// Revoke terminates a specific session.
+//
+//	@Summary	Revoke a session
+//	@Tags		sessions
+//	@Param		id	path	string	true	"Session ID"
+//	@Security	BearerAuth
+//	@Success	204
+//	@Router		/sessions/{id} [delete]
 func (h *SessionHandler) Revoke(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {

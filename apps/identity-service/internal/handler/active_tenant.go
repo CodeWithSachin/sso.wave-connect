@@ -36,6 +36,12 @@ func NewActiveTenantHandler(svc *service.ActiveTenantService, validate *validato
 }
 
 // ListMemberships handles GET /auth/session/memberships.
+//
+//	@Summary	List user tenant memberships
+//	@Tags		session
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/auth/session/memberships [get]
 func (h *ActiveTenantHandler) ListMemberships(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {
@@ -66,6 +72,13 @@ type SwitchActiveTenantRequest struct {
 // refresh tokens can't be replayed. Called by the UI immediately after a
 // successful PATCH /auth/session/active-tenant so the user doesn't carry a
 // stale-tenant access token for the remaining 15 min of its TTL.
+// Rotate forces a refresh-token rotation on the current session.
+//
+//	@Summary	Rotate session tokens
+//	@Tags		session
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/auth/session/rotate [post]
 func (h *ActiveTenantHandler) Rotate(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {
@@ -90,6 +103,15 @@ func (h *ActiveTenantHandler) Rotate(c *fiber.Ctx) error {
 }
 
 // SwitchActive handles PATCH /auth/session/active-tenant.
+// SwitchActive pins the session to a different tenant the user belongs to.
+//
+//	@Summary	Switch active tenant
+//	@Tags		session
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body	map[string]string	true	"{ tenant_id: string }"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/session/active-tenant [patch]
 func (h *ActiveTenantHandler) SwitchActive(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {

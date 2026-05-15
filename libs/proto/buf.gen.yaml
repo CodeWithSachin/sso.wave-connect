@@ -6,3 +6,7 @@ plugins:
   - local: protoc-gen-go-grpc
     out: gen/go
     opt: module=github.com/wave-connect/sso-platform/libs/proto/gen/go
+# Note: there are no HTTP transcoding annotations on the .proto services
+# (services are pure gRPC). A hand-curated OpenAPI reference for the gRPC
+# surface lives at `docs/api/grpc/services.yaml` and is served by the Scalar
+# developer portal under "gRPC (reflection)".

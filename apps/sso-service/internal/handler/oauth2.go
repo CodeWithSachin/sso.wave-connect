@@ -57,6 +57,23 @@ func NewOAuth2Handler(
 }
 
 // Authorize handles GET /oauth2/authorize — the OAuth2 authorization endpoint.
+//
+//	@Summary		OAuth2 authorization endpoint
+//	@Description	Initiates an OAuth2/OIDC authorization-code flow. May redirect to the login portal, an external IdP, or the consent screen.
+//	@Tags			oauth2
+//	@Produce		json
+//	@Param			client_id				query		string	true	"Registered OAuth client ID"
+//	@Param			response_type			query		string	true	"Must be `code`"
+//	@Param			redirect_uri			query		string	true	"Redirect URI registered with the client"
+//	@Param			scope					query		string	false	"Space-separated scopes"
+//	@Param			state					query		string	false	"Opaque value returned to the client"
+//	@Param			code_challenge			query		string	false	"PKCE challenge"
+//	@Param			code_challenge_method	query		string	false	"PKCE method (S256)"
+//	@Param			nonce					query		string	false	"OIDC nonce"
+//	@Param			idp_hint				query		string	false	"External IdP ID for federated auth"
+//	@Success		302	"Redirect to login portal, IdP, consent, or the client's redirect_uri"
+//	@Failure		400	{object}	map[string]string
+//	@Router			/oauth2/authorize [get]
 func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 	req := &model.AuthorizeRequest{}
 	if err := c.QueryParser(req); err != nil {
@@ -225,6 +242,23 @@ func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 }
 
 // Token handles POST /oauth2/token — the token endpoint.
+//
+//	@Summary		OAuth2 token endpoint
+//	@Description	Exchange an authorization code or refresh token for access/refresh/ID tokens.
+//	@Tags			oauth2
+//	@Accept			x-www-form-urlencoded
+//	@Produce		json
+//	@Param			grant_type		formData	string	true	"authorization_code or refresh_token"
+//	@Param			code			formData	string	false	"Authorization code (authorization_code grant)"
+//	@Param			redirect_uri	formData	string	false	"Redirect URI used in /authorize"
+//	@Param			client_id		formData	string	false	"OAuth client ID (or via Basic auth)"
+//	@Param			client_secret	formData	string	false	"OAuth client secret (or via Basic auth)"
+//	@Param			refresh_token	formData	string	false	"Refresh token (refresh_token grant)"
+//	@Param			code_verifier	formData	string	false	"PKCE verifier"
+//	@Success		200	{object}	model.TokenResponse
+//	@Failure		400	{object}	map[string]string
+//	@Failure		401	{object}	map[string]string
+//	@Router			/oauth2/token [post]
 func (h *OAuth2Handler) Token(c *fiber.Ctx) error {
 	req := &model.TokenRequest{}
 	if err := c.BodyParser(req); err != nil {

@@ -26,7 +26,17 @@ func NewTupleHandler(authz *service.AuthzService, validate *validator.Validate, 
 }
 
 // Write writes and/or deletes relationship tuples.
-// POST /authz/tuples
+//
+//	@Summary		Write or delete tuples
+//	@Description	Batch write and/or delete OpenFGA relationship tuples.
+//	@Tags			tuples
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		model.TupleWriteRequest	true	"Tuple writes and deletes"
+//	@Success		200		{object}	map[string]int
+//	@Failure		400		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/authz/tuples [post]
 func (h *TupleHandler) Write(c *fiber.Ctx) error {
 	var req model.TupleWriteRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -82,7 +92,17 @@ func (h *TupleHandler) Write(c *fiber.Ctx) error {
 }
 
 // Delete removes relationship tuples.
-// DELETE /authz/tuples
+//
+//	@Summary		Delete tuples
+//	@Description	Remove a batch of OpenFGA relationship tuples.
+//	@Tags			tuples
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		[]model.TupleWrite	true	"Tuples to delete"
+//	@Success		200		{object}	map[string]int
+//	@Failure		400		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/authz/tuples [delete]
 func (h *TupleHandler) Delete(c *fiber.Ctx) error {
 	var tuples []model.TupleWrite
 	if err := c.BodyParser(&tuples); err != nil {

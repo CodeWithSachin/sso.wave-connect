@@ -1,0 +1,963 @@
+basePath: /
+definitions:
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaEnrollRequest:
+    properties:
+      method:
+        enum:
+        - totp
+        - webauthn
+        type: string
+    required:
+    - method
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RefreshRequest:
+    properties:
+      grant_type:
+        type: string
+      refresh_token:
+        type: string
+    required:
+    - grant_type
+    - refresh_token
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RegisterRequest:
+    properties:
+      display_name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 128
+        minLength: 10
+        type: string
+    required:
+    - display_name
+    - email
+    - password
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_service.SignupOrgRequest:
+    properties:
+      domain:
+        maxLength: 255
+        minLength: 4
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      full_name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      org_name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      org_slug:
+        maxLength: 100
+        minLength: 3
+        type: string
+      password:
+        maxLength: 128
+        minLength: 10
+        type: string
+    required:
+    - domain
+    - email
+    - full_name
+    - org_name
+    - org_slug
+    - password
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_service.SignupRequest:
+    properties:
+      display_name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      locale:
+        maxLength: 10
+        type: string
+      password:
+        maxLength: 128
+        minLength: 10
+        type: string
+      timezone:
+        maxLength: 50
+        type: string
+    required:
+    - display_name
+    - email
+    - password
+    type: object
+info:
+  contact: {}
+  description: User auth, sessions, MFA, OAuth2 token, tenant domains, migration.
+  title: Identity Service API
+  version: "1.0"
+paths:
+  /.well-known/openid-configuration:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: OpenID Connect discovery
+      tags:
+      - oidc
+  /.well-known/paseto-keys:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: PASETO public keys
+      tags:
+      - oidc
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant ID
+        in: header
+        name: X-Tenant-ID
+        required: true
+        type: string
+      - description: Login credentials
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login
+      tags:
+      - auth
+  /auth/mfa/backup-codes/regenerate:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Regenerate MFA backup codes
+      tags:
+      - mfa
+  /auth/mfa/enroll:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Enrollment payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaEnrollRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Begin MFA enrollment
+      tags:
+      - mfa
+  /auth/mfa/enroll/{id}/verify:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Enrollment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: '{ code: string }'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Verify MFA enrollment
+      tags:
+      - mfa
+  /auth/mfa/enrollments:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List MFA enrollments
+      tags:
+      - mfa
+  /auth/mfa/enrollments/{id}:
+    delete:
+      parameters:
+      - description: Enrollment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete an MFA enrollment
+      tags:
+      - mfa
+  /auth/mfa/verify:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: '{ mfa_token: string, code: string }'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify second factor at login
+      tags:
+      - mfa
+  /auth/mfa/webauthn/login/begin:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Begin WebAuthn login
+      tags:
+      - mfa
+  /auth/mfa/webauthn/login/complete:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Complete WebAuthn login
+      tags:
+      - mfa
+  /auth/mfa/webauthn/register/begin:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Begin WebAuthn registration
+      tags:
+      - mfa
+  /auth/mfa/webauthn/register/complete:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Complete WebAuthn registration
+      tags:
+      - mfa
+  /auth/public/discover:
+    get:
+      parameters:
+      - description: Email or domain
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Discover login mode
+      tags:
+      - signup
+  /auth/public/invitation/{token}:
+    get:
+      parameters:
+      - description: Invitation token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Look up an invitation
+      tags:
+      - invitation
+  /auth/public/invitation/{token}/accept:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Invitation token
+        in: path
+        name: token
+        required: true
+        type: string
+      - description: Optional password if a new user is being created
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Accept an invitation
+      tags:
+      - invitation
+  /auth/public/invitation/{token}/decline:
+    post:
+      parameters:
+      - description: Invitation token
+        in: path
+        name: token
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Decline an invitation
+      tags:
+      - invitation
+  /auth/public/migration/{token}:
+    get:
+      parameters:
+      - description: Migration token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Look up a migration offer
+      tags:
+      - migration
+  /auth/public/migration/{token}/accept:
+    post:
+      parameters:
+      - description: Migration token
+        in: path
+        name: token
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Accept a migration
+      tags:
+      - migration
+  /auth/public/migration/{token}/decline:
+    post:
+      parameters:
+      - description: Migration token
+        in: path
+        name: token
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Decline a migration
+      tags:
+      - migration
+  /auth/public/signup:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Signup payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_service.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Public consumer signup
+      tags:
+      - signup
+  /auth/public/signup-org:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Org signup payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_service.SignupOrgRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Organisation signup with domain claim
+      tags:
+      - signup
+  /auth/public/verify-email:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: '{ token: string }'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Verify email
+      tags:
+      - signup
+  /auth/public/verify-email/resend:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: '{ email: string }'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too Many Requests
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Resend verification email
+      tags:
+      - signup
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant ID
+        in: header
+        name: X-Tenant-ID
+        required: true
+        type: string
+      - description: Registration payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a user
+      tags:
+      - auth
+  /auth/session/active-tenant:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: '{ tenant_id: string }'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Switch active tenant
+      tags:
+      - session
+  /auth/session/memberships:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List user tenant memberships
+      tags:
+      - session
+  /auth/session/rotate:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Rotate session tokens
+      tags:
+      - session
+  /logout:
+    post:
+      responses:
+        "204":
+          description: No Content
+      summary: Logout
+      tags:
+      - auth
+  /oauth2/revoke:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: '{ token: string }'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+      summary: Revoke a token
+      tags:
+      - oauth2
+  /oauth2/token:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant ID
+        in: header
+        name: X-Tenant-ID
+        required: true
+        type: string
+      - description: Refresh payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh access token
+      tags:
+      - oauth2
+  /sessions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List sessions
+      tags:
+      - sessions
+  /sessions/{id}:
+    delete:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Revoke a session
+      tags:
+      - sessions
+  /tenants/{tenantId}/domains:
+    get:
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      summary: List tenant domains
+      tags:
+      - domains
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: '{ domain: string }'
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Add a tenant domain
+      tags:
+      - domains
+  /tenants/{tenantId}/domains/{id}:
+    delete:
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Domain ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete a tenant domain
+      tags:
+      - domains
+  /tenants/{tenantId}/domains/{id}/verify:
+    post:
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Domain ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify a tenant domain
+      tags:
+      - domains
+  /tenants/{tenantId}/migrations:
+    get:
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List tenant migrations
+      tags:
+      - migration
+  /tenants/{tenantId}/migrations/{id}/force:
+    post:
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Migration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Force a migration
+      tags:
+      - migration
+  /tenants/{tenantId}/migrations/{id}/notify-force:
+    post:
+      parameters:
+      - description: Tenant ID
+        in: path
+        name: tenantId
+        required: true
+        type: string
+      - description: Migration ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Notify pending force-migration
+      tags:
+      - migration
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -69,6 +69,18 @@ func NewAuthHandler(
 	}
 }
 
+// Register creates a tenant-scoped user account from email + password.
+//
+//	@Summary	Register a user
+//	@Tags		auth
+//	@Accept		json
+//	@Produce	json
+//	@Param		X-Tenant-ID	header		string					true	"Tenant ID"
+//	@Param		body		body		model.RegisterRequest	true	"Registration payload"
+//	@Success	201			{object}	map[string]any
+//	@Failure	400			{object}	map[string]string
+//	@Failure	409			{object}	map[string]string
+//	@Router		/auth/register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var req model.RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -191,6 +203,17 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	})
 }
 
+// Login authenticates a user with email + password and starts a session.
+//
+//	@Summary	Login
+//	@Tags		auth
+//	@Accept		json
+//	@Produce	json
+//	@Param		X-Tenant-ID	header		string				true	"Tenant ID"
+//	@Param		body		body		model.LoginRequest	true	"Login credentials"
+//	@Success	200			{object}	map[string]any
+//	@Failure	401			{object}	map[string]string
+//	@Router		/auth/login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req model.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -356,6 +379,12 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 // discarded (the new session-cookie auth model).
 //
 // Returns 204 No Content on success or if there was nothing to revoke (idempotent).
+// Logout revokes the session bound to the sso_session cookie. Idempotent.
+//
+//	@Summary	Logout
+//	@Tags		auth
+//	@Success	204
+//	@Router		/logout [post]
 func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	cookieValue := c.Cookies("sso_session")
 	// Always clear the cookie, even if we can't find a matching session — the client

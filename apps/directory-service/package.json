@@ -41,6 +41,20 @@
             "buildTarget": "directory-service:build:production"
           }
         }
+      },
+      "openapi:export": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "dependsOn": ["build"],
+        "inputs": [
+          "{projectRoot}/src/**/*.ts",
+          "{projectRoot}/dist/main.js"
+        ],
+        "options": {
+          "command": "OPENAPI_EXPORT_PATH=../../docs/api/directory-service/openapi.json node dist/main.js",
+          "cwd": "apps/directory-service"
+        },
+        "outputs": ["{workspaceRoot}/docs/api/directory-service"]
       }
     },
     "tags": [

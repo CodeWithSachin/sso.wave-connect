@@ -17,6 +17,12 @@ func NewWellKnownHandler(tokenSvc *service.TokenService, cfg config.TokenConfig)
 }
 
 // OpenIDConfiguration returns an OIDC discovery document scaffold.
+//
+//	@Summary	OpenID Connect discovery
+//	@Tags		oidc
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/.well-known/openid-configuration [get]
 func (h *WellKnownHandler) OpenIDConfiguration(c *fiber.Ctx) error {
 	issuer := h.cfg.Issuer
 	return c.JSON(fiber.Map{
@@ -35,6 +41,12 @@ func (h *WellKnownHandler) OpenIDConfiguration(c *fiber.Ctx) error {
 }
 
 // PASETOKeys returns the public key for PASETO v4.public token verification.
+//
+//	@Summary	PASETO public keys
+//	@Tags		oidc
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/.well-known/paseto-keys [get]
 func (h *WellKnownHandler) PASETOKeys(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"keys": []fiber.Map{

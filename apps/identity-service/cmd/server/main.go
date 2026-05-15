@@ -1,3 +1,12 @@
+// Package main is the identity-service entry point.
+//
+//	@title						Identity Service API
+//	@version					1.0
+//	@description				User auth, sessions, MFA, OAuth2 token, tenant domains, migration.
+//	@BasePath					/
+//	@securityDefinitions.apikey	BearerAuth
+//	@in							header
+//	@name						Authorization
 package main
 
 import (
@@ -27,13 +36,17 @@ import (
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/handler"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/id"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/middleware"
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/openapi"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/subscriber"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/worker"
+	"github.com/wave-connect/sso-platform/libs/go-scalar"
 	ssonats "github.com/wave-connect/sso-platform/libs/nats"
 	pb "github.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1"
 )
+
+// To regenerate the OpenAPI spec, run: `pnpm nx run identity-service:openapi:export`
 
 func main() {
 	log := zerolog.New(os.Stdout).With().Timestamp().Caller().Logger()
@@ -325,6 +338,26 @@ func main() {
 	// --- Health Routes (no tenant/auth required) ---
 	app.Get("/healthz", healthHandler.Liveness)
 	app.Get("/readyz", healthHandler.Readiness)
+
+	// --- API Docs (env-gated; CORS open so the docs portal at :4500 can fetch
+	// the spec without origin coupling). Set ENABLE_OPENAPI=false in prod.
+	if os.Getenv("ENABLE_OPENAPI") != "false" {
+		referenceHTML, err := scalar.HTML("/openapi.json", "Identity Service API")
+		if err != nil {
+			log.Fatal().Err(err).Msg("scalar template execution failed")
+		}
+		app.Get("/openapi.json", func(c *fiber.Ctx) error {
+			c.Set("Content-Type", "application/json; charset=utf-8")
+			c.Set("Access-Control-Allow-Origin", "*")
+			c.Set("Cache-Control", "public, max-age=60")
+			return c.Send(openapi.Spec)
+		})
+		app.Get("/reference", func(c *fiber.Ctx) error {
+			c.Set("Content-Type", "text/html; charset=utf-8")
+			c.Set("Access-Control-Allow-Origin", "*")
+			return c.SendString(referenceHTML)
+		})
+	}
 
 	// --- Well-Known Routes ---
 	app.Get("/.well-known/openid-configuration", wellKnownHandler.OpenIDConfiguration)

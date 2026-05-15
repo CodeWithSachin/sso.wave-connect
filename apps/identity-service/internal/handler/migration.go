@@ -57,6 +57,14 @@ func NewMigrationHandler(svc *service.MigrationService, repo *repository.TenantD
 // return user_id, email, or raw tenant UUIDs — the URL's token is already
 // bound to a specific user, and the UI has no legitimate need for the org's
 // internal ID (which would be a defense-in-depth info-disclosure).
+// Lookup returns metadata for a pending user-migration offer.
+//
+//	@Summary	Look up a migration offer
+//	@Tags		migration
+//	@Produce	json
+//	@Param		token	path		string	true	"Migration token"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/public/migration/{token} [get]
 func (h *MigrationHandler) Lookup(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if token == "" {
@@ -89,6 +97,13 @@ func (h *MigrationHandler) Lookup(c *fiber.Ctx) error {
 }
 
 // Accept consumes the token and runs MigrationService.Accept.
+// Accept consumes the migration token and moves the user to the new tenant.
+//
+//	@Summary	Accept a migration
+//	@Tags		migration
+//	@Param		token	path	string	true	"Migration token"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/public/migration/{token}/accept [post]
 func (h *MigrationHandler) Accept(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if token == "" {
@@ -104,6 +119,13 @@ func (h *MigrationHandler) Accept(c *fiber.Ctx) error {
 }
 
 // Decline consumes the token and flips status=declined.
+// Decline rejects the migration offer.
+//
+//	@Summary	Decline a migration
+//	@Tags		migration
+//	@Param		token	path	string	true	"Migration token"
+//	@Success	204
+//	@Router		/auth/public/migration/{token}/decline [post]
 func (h *MigrationHandler) Decline(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if token == "" {
@@ -121,6 +143,15 @@ func (h *MigrationHandler) Decline(c *fiber.Ctx) error {
 // migration. Handler requires the caller to hold an owner membership on
 // `row.ToTenantID`; enforcement lives in the session-cookie-guarded route
 // registration (see main.go).
+// NotifyForce alerts a target user that a force-migration is about to happen.
+//
+//	@Summary	Notify pending force-migration
+//	@Tags		migration
+//	@Security	BearerAuth
+//	@Param		tenantId	path	string	true	"Tenant ID"
+//	@Param		id			path	string	true	"Migration ID"
+//	@Success	204
+//	@Router		/tenants/{tenantId}/migrations/{id}/notify-force [post]
 func (h *MigrationHandler) NotifyForce(c *fiber.Ctx) error {
 	tenantID, migrationID, ok := h.parseTenantAndMigration(c)
 	if !ok {
@@ -150,6 +181,15 @@ func (h *MigrationHandler) NotifyForce(c *fiber.Ctx) error {
 // The actor (admin invoking this) comes from c.Locals("user_id"), populated
 // by SessionCookieAuth upstream — threaded to the service so the outbox
 // tuple + audit event name the admin, not the migrated user.
+// Force completes an admin-initiated migration without user confirmation.
+//
+//	@Summary	Force a migration
+//	@Tags		migration
+//	@Security	BearerAuth
+//	@Param		tenantId	path	string	true	"Tenant ID"
+//	@Param		id			path	string	true	"Migration ID"
+//	@Success	200	{object}	map[string]any
+//	@Router		/tenants/{tenantId}/migrations/{id}/force [post]
 func (h *MigrationHandler) Force(c *fiber.Ctx) error {
 	tenantID, migrationID, ok := h.parseTenantAndMigration(c)
 	if !ok {
@@ -179,6 +219,14 @@ func (h *MigrationHandler) Force(c *fiber.Ctx) error {
 }
 
 // List returns all migrations targeting a tenant — for the admin dashboard.
+// List returns pending migrations for a tenant. Admin only.
+//
+//	@Summary	List tenant migrations
+//	@Tags		migration
+//	@Security	BearerAuth
+//	@Param		tenantId	path		string	true	"Tenant ID"
+//	@Success	200			{array}		map[string]any
+//	@Router		/tenants/{tenantId}/migrations [get]
 func (h *MigrationHandler) List(c *fiber.Ctx) error {
 	tenantID, err := uuid.Parse(c.Params("tenantId"))
 	if err != nil {

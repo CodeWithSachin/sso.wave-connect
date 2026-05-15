@@ -41,6 +41,19 @@ func NewConsentHandler(
 }
 
 // GetConsent handles GET /oauth2/consent — returns consent form data.
+//
+//	@Summary		Fetch consent form data
+//	@Description	Returns the client, scopes, and tenant context to be displayed on the consent screen.
+//	@Tags			oauth2
+//	@Produce		json
+//	@Param			client_id				query	string	true	"OAuth client ID"
+//	@Param			scope					query	string	true	"Requested scopes"
+//	@Param			redirect_uri			query	string	true	"Redirect URI"
+//	@Param			state					query	string	true	"OAuth state"
+//	@Param			tenant_id				query	string	true	"Pinned tenant ID"
+//	@Success		200	{object}	map[string]any
+//	@Failure		400	{object}	map[string]string
+//	@Router			/oauth2/consent [get]
 func (h *ConsentHandler) GetConsent(c *fiber.Ctx) error {
 	clientIDParam := c.Query("client_id")
 	if clientIDParam == "" {
@@ -82,6 +95,21 @@ func (h *ConsentHandler) GetConsent(c *fiber.Ctx) error {
 }
 
 // PostConsent handles POST /oauth2/consent — saves consent decision and redirects.
+//
+//	@Summary		Submit a consent decision
+//	@Description	Records the user's accept/deny decision and resumes the OAuth flow.
+//	@Tags			oauth2
+//	@Accept			x-www-form-urlencoded
+//	@Produce		json
+//	@Param			client_id		formData	string	true	"OAuth client ID"
+//	@Param			scope			formData	string	true	"Granted scopes"
+//	@Param			redirect_uri	formData	string	true	"Redirect URI"
+//	@Param			state			formData	string	true	"OAuth state"
+//	@Param			tenant_id		formData	string	true	"Pinned tenant ID"
+//	@Param			decision		formData	string	true	"`accept` or `deny`"
+//	@Success		302	"Redirect to OAuth client or login"
+//	@Failure		400	{object}	map[string]string
+//	@Router			/oauth2/consent [post]
 func (h *ConsentHandler) PostConsent(c *fiber.Ctx) error {
 	decision := &model.ConsentDecision{}
 	if err := c.BodyParser(decision); err != nil {

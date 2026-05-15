@@ -62,7 +62,15 @@ func NewMfaHandler(
 }
 
 // Enroll starts MFA enrollment for the authenticated user.
-// POST /auth/mfa/enroll
+//
+//	@Summary	Begin MFA enrollment
+//	@Tags		mfa
+//	@Accept		json
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Param		body	body		model.MfaEnrollRequest	true	"Enrollment payload"
+//	@Success	201		{object}	map[string]any
+//	@Router		/auth/mfa/enroll [post]
 func (h *MfaHandler) Enroll(c *fiber.Ctx) error {
 	var req model.MfaEnrollRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -90,6 +98,17 @@ func (h *MfaHandler) Enroll(c *fiber.Ctx) error {
 
 // VerifyEnrollment verifies a TOTP code to activate a pending enrollment.
 // POST /auth/mfa/enroll/:id/verify
+// VerifyEnrollment confirms an MFA enrollment with the first OTP code.
+//
+//	@Summary	Verify MFA enrollment
+//	@Tags		mfa
+//	@Accept		json
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Param		id		path		string	true	"Enrollment ID"
+//	@Param		body	body		map[string]string	true	"{ code: string }"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/mfa/enroll/{id}/verify [post]
 func (h *MfaHandler) VerifyEnrollment(c *fiber.Ctx) error {
 	var req model.MfaEnrollVerifyRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -119,6 +138,15 @@ func (h *MfaHandler) VerifyEnrollment(c *fiber.Ctx) error {
 
 // Verify validates an MFA code during the login flow (public endpoint).
 // POST /auth/mfa/verify
+// Verify completes the second factor during login.
+//
+//	@Summary	Verify second factor at login
+//	@Tags		mfa
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		map[string]string	true	"{ mfa_token: string, code: string }"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/mfa/verify [post]
 func (h *MfaHandler) Verify(c *fiber.Ctx) error {
 	var req model.MfaVerifyRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -223,6 +251,14 @@ func (h *MfaHandler) Verify(c *fiber.Ctx) error {
 
 // ListEnrollments returns all active MFA enrollments for the authenticated user.
 // GET /auth/mfa/enrollments
+// ListEnrollments returns the user's active MFA enrollments.
+//
+//	@Summary	List MFA enrollments
+//	@Tags		mfa
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Success	200	{object}	map[string]any
+//	@Router		/auth/mfa/enrollments [get]
 func (h *MfaHandler) ListEnrollments(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {
@@ -252,6 +288,14 @@ func (h *MfaHandler) ListEnrollments(c *fiber.Ctx) error {
 
 // RegenerateBackupCodes generates a new set of backup codes, replacing old ones.
 // POST /auth/mfa/backup-codes/regenerate
+// RegenerateBackupCodes issues a fresh set of one-time backup codes.
+//
+//	@Summary	Regenerate MFA backup codes
+//	@Tags		mfa
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Success	200	{object}	map[string]any
+//	@Router		/auth/mfa/backup-codes/regenerate [post]
 func (h *MfaHandler) RegenerateBackupCodes(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {
@@ -272,6 +316,14 @@ func (h *MfaHandler) RegenerateBackupCodes(c *fiber.Ctx) error {
 
 // BeginWebAuthnRegistration starts a WebAuthn registration ceremony.
 // POST /auth/mfa/webauthn/register/begin
+// BeginWebAuthnRegistration starts a WebAuthn credential registration ceremony.
+//
+//	@Summary	Begin WebAuthn registration
+//	@Tags		mfa
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Success	200	{object}	map[string]any
+//	@Router		/auth/mfa/webauthn/register/begin [post]
 func (h *MfaHandler) BeginWebAuthnRegistration(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {
 		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
@@ -302,6 +354,15 @@ func (h *MfaHandler) BeginWebAuthnRegistration(c *fiber.Ctx) error {
 
 // CompleteWebAuthnRegistration finishes a WebAuthn registration ceremony.
 // POST /auth/mfa/webauthn/register/complete
+// CompleteWebAuthnRegistration finalises a WebAuthn credential registration.
+//
+//	@Summary	Complete WebAuthn registration
+//	@Tags		mfa
+//	@Accept		json
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Success	201	{object}	map[string]any
+//	@Router		/auth/mfa/webauthn/register/complete [post]
 func (h *MfaHandler) CompleteWebAuthnRegistration(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {
 		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
@@ -338,6 +399,14 @@ func (h *MfaHandler) CompleteWebAuthnRegistration(c *fiber.Ctx) error {
 
 // BeginWebAuthnLogin starts a WebAuthn login ceremony.
 // POST /auth/mfa/webauthn/login/begin
+// BeginWebAuthnLogin starts a WebAuthn authentication ceremony at login.
+//
+//	@Summary	Begin WebAuthn login
+//	@Tags		mfa
+//	@Accept		json
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/auth/mfa/webauthn/login/begin [post]
 func (h *MfaHandler) BeginWebAuthnLogin(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {
 		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
@@ -364,6 +433,14 @@ func (h *MfaHandler) BeginWebAuthnLogin(c *fiber.Ctx) error {
 
 // CompleteWebAuthnLogin finishes a WebAuthn login ceremony.
 // POST /auth/mfa/webauthn/login/complete
+// CompleteWebAuthnLogin finalises a WebAuthn login.
+//
+//	@Summary	Complete WebAuthn login
+//	@Tags		mfa
+//	@Accept		json
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Router		/auth/mfa/webauthn/login/complete [post]
 func (h *MfaHandler) CompleteWebAuthnLogin(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {
 		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{"error": "WebAuthn is not configured"})
@@ -393,6 +470,14 @@ func (h *MfaHandler) CompleteWebAuthnLogin(c *fiber.Ctx) error {
 // When the tenant policy has password_require_mfa=true, this refuses to remove
 // the last active enrollment — the user must enroll a replacement first. The
 // race-free check lives in repository.DeleteEnrollmentEnforcingPolicy.
+// DeleteEnrollment removes an MFA enrollment.
+//
+//	@Summary	Delete an MFA enrollment
+//	@Tags		mfa
+//	@Param		id	path	string	true	"Enrollment ID"
+//	@Security	BearerAuth
+//	@Success	204
+//	@Router		/auth/mfa/enrollments/{id} [delete]
 func (h *MfaHandler) DeleteEnrollment(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {

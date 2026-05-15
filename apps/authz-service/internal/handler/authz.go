@@ -26,7 +26,17 @@ func NewAuthzHandler(authz *service.AuthzService, validate *validator.Validate, 
 }
 
 // Check performs a single permission check.
-// POST /authz/check
+//
+//	@Summary		Check a permission
+//	@Description	Evaluate whether a user has a given relation to an object.
+//	@Tags			authz
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		model.CheckRequest	true	"Permission check"
+//	@Success		200		{object}	model.CheckResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/authz/check [post]
 func (h *AuthzHandler) Check(c *fiber.Ctx) error {
 	var req model.CheckRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -51,7 +61,17 @@ func (h *AuthzHandler) Check(c *fiber.Ctx) error {
 }
 
 // BatchCheck performs multiple permission checks.
-// POST /authz/batch-check
+//
+//	@Summary		Batch check permissions
+//	@Description	Evaluate up to 50 permission checks in a single request.
+//	@Tags			authz
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		model.BatchCheckRequest	true	"Batch check"
+//	@Success		200		{object}	model.BatchCheckResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/authz/batch-check [post]
 func (h *AuthzHandler) BatchCheck(c *fiber.Ctx) error {
 	var req model.BatchCheckRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -83,7 +103,17 @@ func (h *AuthzHandler) BatchCheck(c *fiber.Ctx) error {
 }
 
 // ListObjects lists objects a user has a relation to.
-// POST /authz/list-objects
+//
+//	@Summary		List objects
+//	@Description	Return all object IDs of a given type to which the user has the requested relation.
+//	@Tags			authz
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		model.ListObjectsRequest	true	"List objects"
+//	@Success		200		{object}	model.ListObjectsResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/authz/list-objects [post]
 func (h *AuthzHandler) ListObjects(c *fiber.Ctx) error {
 	var req model.ListObjectsRequest
 	if err := c.BodyParser(&req); err != nil {

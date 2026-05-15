@@ -1,0 +1,3130 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/tenants": {
+      "post": {
+        "operationId": "TenantsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tenant created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session cookie"
+          },
+          "403": {
+            "description": "Caller is not a platform superadmin"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new tenant (superadmin only)",
+        "tags": [
+          "tenants"
+        ]
+      },
+      "get": {
+        "operationId": "TenantsController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedTenantsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List all tenants (paginated)",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/api/v1/tenants/{id}": {
+      "get": {
+        "operationId": "TenantsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a tenant by ID",
+        "tags": [
+          "tenants"
+        ]
+      },
+      "patch": {
+        "operationId": "TenantsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not a platform superadmin"
+          },
+          "404": {
+            "description": "Tenant not found"
+          },
+          "409": {
+            "description": "Version conflict — tenant was modified concurrently"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a tenant (superadmin only, optimistic locking via version)",
+        "tags": [
+          "tenants"
+        ]
+      },
+      "delete": {
+        "operationId": "TenantsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not a platform superadmin"
+          },
+          "404": {
+            "description": "Tenant not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Soft-delete a tenant (superadmin only)",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing token"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a user in a tenant",
+        "tags": [
+          "users"
+        ]
+      },
+      "get": {
+        "operationId": "UsersController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedUsersResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List users in a tenant (paginated)",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "operationId": "UsersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found in tenant"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a user by ID",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "409": {
+            "description": "Version conflict"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a user (optimistic locking)",
+        "tags": [
+          "users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Soft-delete a user",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/memberships": {
+      "post": {
+        "operationId": "MembershipsController_invite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteMemberDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User email not found"
+          },
+          "409": {
+            "description": "User already a member"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Invite a user to the tenant",
+        "tags": [
+          "memberships"
+        ]
+      },
+      "get": {
+        "operationId": "MembershipsController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by derived invitation status. Soft-deleted rows always excluded.",
+            "schema": {
+              "enum": [
+                "pending",
+                "accepted",
+                "expired"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedMembershipsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List tenant memberships (paginated, optional status filter)",
+        "tags": [
+          "memberships"
+        ]
+      }
+    },
+    "/api/v1/memberships/{id}": {
+      "get": {
+        "operationId": "MembershipsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Membership not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a membership by ID",
+        "tags": [
+          "memberships"
+        ]
+      },
+      "delete": {
+        "operationId": "MembershipsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Membership not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a member from the tenant",
+        "tags": [
+          "memberships"
+        ]
+      }
+    },
+    "/api/v1/memberships/{id}/role": {
+      "patch": {
+        "operationId": "MembershipsController_updateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Membership not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update a member role (writes to authz outbox)",
+        "tags": [
+          "memberships"
+        ]
+      }
+    },
+    "/api/v1/memberships/{id}/resend": {
+      "post": {
+        "operationId": "MembershipsController_resend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Membership not found"
+          },
+          "409": {
+            "description": "Membership already accepted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resend the invitation email for a pending membership",
+        "tags": [
+          "memberships"
+        ]
+      }
+    },
+    "/api/v1/groups": {
+      "post": {
+        "operationId": "GroupsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a group",
+        "tags": [
+          "groups"
+        ]
+      },
+      "get": {
+        "operationId": "GroupsController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedGroupsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List groups (paginated)",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/v1/groups/{id}": {
+      "get": {
+        "operationId": "GroupsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a group with members and nesting",
+        "tags": [
+          "groups"
+        ]
+      },
+      "delete": {
+        "operationId": "GroupsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Soft-delete a group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/v1/groups/{id}/members": {
+      "post": {
+        "operationId": "GroupsController_addMember",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGroupMemberDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Member added"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a member to a group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/v1/groups/{id}/members/{userId}": {
+      "delete": {
+        "operationId": "GroupsController_removeMember",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member removed"
+          },
+          "404": {
+            "description": "Member not in group"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a member from a group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/v1/groups/{id}/children": {
+      "post": {
+        "operationId": "GroupsController_nestGroup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestGroupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Group nested"
+          },
+          "409": {
+            "description": "Cannot nest a group under itself"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Nest a child group under this group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/v1/groups/{id}/children/{childGroupId}": {
+      "delete": {
+        "operationId": "GroupsController_unnestGroup",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "childGroupId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nesting removed"
+          },
+          "404": {
+            "description": "Nesting not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a nested child group",
+        "tags": [
+          "groups"
+        ]
+      }
+    },
+    "/api/v1/identity-providers/saml": {
+      "post": {
+        "operationId": "IdpController_createSaml",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSamlIdpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a SAML identity provider",
+        "tags": [
+          "identity-providers"
+        ]
+      }
+    },
+    "/api/v1/identity-providers/oidc": {
+      "post": {
+        "operationId": "IdpController_createOidc",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOidcIdpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create an OIDC identity provider",
+        "tags": [
+          "identity-providers"
+        ]
+      }
+    },
+    "/api/v1/identity-providers": {
+      "get": {
+        "operationId": "IdpController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedIdpsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List identity providers (paginated)",
+        "tags": [
+          "identity-providers"
+        ]
+      }
+    },
+    "/api/v1/identity-providers/{id}": {
+      "get": {
+        "operationId": "IdpController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "IdP not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get an identity provider by ID",
+        "tags": [
+          "identity-providers"
+        ]
+      },
+      "patch": {
+        "operationId": "IdpController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIdpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "IdP not found"
+          },
+          "409": {
+            "description": "Version conflict"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update an identity provider",
+        "tags": [
+          "identity-providers"
+        ]
+      },
+      "delete": {
+        "operationId": "IdpController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdpResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "IdP not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Soft-delete an identity provider",
+        "tags": [
+          "identity-providers"
+        ]
+      }
+    },
+    "/api/v1/identity-providers/{id}/test": {
+      "post": {
+        "operationId": "IdpController_test",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "details": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "IdP not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Test connectivity to an IdP without modifying its state",
+        "tags": [
+          "identity-providers"
+        ]
+      }
+    },
+    "/api/v1/settings/policies": {
+      "get": {
+        "operationId": "PoliciesController_findOne",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get tenant security policy",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "operationId": "PoliciesController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePolicyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not a tenant owner or admin"
+          },
+          "409": {
+            "description": "Version conflict"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update tenant security policy (optimistic locking)",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/platform/admins": {
+      "post": {
+        "operationId": "PlatformAdminsController_grant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantPlatformAdminDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAdminResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session cookie"
+          },
+          "403": {
+            "description": "Caller is not a superadmin"
+          },
+          "409": {
+            "description": "User is already an active platform admin"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Grant platform-admin privileges to a user (superadmin only)",
+        "tags": [
+          "platform-admins"
+        ]
+      },
+      "get": {
+        "operationId": "PlatformAdminsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAdminListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List active platform admins",
+        "tags": [
+          "platform-admins"
+        ]
+      }
+    },
+    "/api/v1/platform/admins/{userId}": {
+      "get": {
+        "operationId": "PlatformAdminsController_findOne",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAdminResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found or revoked"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a platform admin by user id",
+        "tags": [
+          "platform-admins"
+        ]
+      },
+      "delete": {
+        "operationId": "PlatformAdminsController_revoke",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformAdminResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not a superadmin"
+          },
+          "404": {
+            "description": "Not found or already revoked"
+          },
+          "409": {
+            "description": "Cannot revoke your own grant"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke platform-admin privileges (superadmin only)",
+        "tags": [
+          "platform-admins"
+        ]
+      }
+    },
+    "/api/v1/session/me": {
+      "get": {
+        "operationId": "SessionController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMeResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid sso_session cookie"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Return the authenticated session + memberships + capabilities for the admin-console shell",
+        "tags": [
+          "session"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "SSO Admin API",
+    "description": "Admin API for the SSO platform — tenant management, users, memberships, groups, identity providers, and security policies",
+    "version": "2.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "PASETO",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "CreateTenantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tenant name",
+            "example": "Acme Corp"
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL-safe slug (lowercase, alphanumeric, hyphens)",
+            "example": "acme-corp"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Acme Corporation"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Primary domain",
+            "example": "acme.com"
+          },
+          "logoUrl": {
+            "type": "string",
+            "description": "Logo URL"
+          },
+          "faviconUrl": {
+            "type": "string",
+            "description": "Favicon URL"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "starter",
+              "pro",
+              "enterprise"
+            ],
+            "default": "free",
+            "description": "Subscription plan"
+          },
+          "dataResidency": {
+            "type": "string",
+            "enum": [
+              "us",
+              "eu",
+              "ap",
+              "global"
+            ],
+            "description": "Data residency region"
+          },
+          "settings": {
+            "type": "object",
+            "description": "Settings JSON object"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Metadata JSON object"
+          },
+          "maxUsers": {
+            "type": "number",
+            "description": "Maximum number of users",
+            "example": 100
+          },
+          "maxApps": {
+            "type": "number",
+            "description": "Maximum number of apps",
+            "example": 10
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the tenant is active",
+            "default": true
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "plan"
+        ]
+      },
+      "TenantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Tenant UUID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tenant name"
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL-safe slug"
+          },
+          "displayName": {
+            "type": "object",
+            "description": "Display name"
+          },
+          "domain": {
+            "type": "object",
+            "description": "Primary domain"
+          },
+          "logoUrl": {
+            "type": "object",
+            "description": "Logo URL"
+          },
+          "faviconUrl": {
+            "type": "object",
+            "description": "Favicon URL"
+          },
+          "plan": {
+            "type": "string",
+            "description": "Subscription plan"
+          },
+          "dataResidency": {
+            "type": "object",
+            "description": "Data residency region"
+          },
+          "settings": {
+            "type": "object",
+            "description": "Settings JSON"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Metadata JSON"
+          },
+          "maxUsers": {
+            "type": "object",
+            "description": "Max users"
+          },
+          "maxApps": {
+            "type": "object",
+            "description": "Max apps"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether tenant is active"
+          },
+          "version": {
+            "type": "number",
+            "description": "Optimistic lock version"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp"
+          },
+          "deletedAt": {
+            "type": "object",
+            "description": "Soft-delete timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "plan",
+          "isActive",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedTenantsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of tenants"
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page"
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Page size"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "UpdateTenantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tenant name",
+            "example": "Acme Corp"
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL-safe slug (lowercase, alphanumeric, hyphens)",
+            "example": "acme-corp"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Acme Corporation"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Primary domain",
+            "example": "acme.com"
+          },
+          "logoUrl": {
+            "type": "string",
+            "description": "Logo URL"
+          },
+          "faviconUrl": {
+            "type": "string",
+            "description": "Favicon URL"
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "starter",
+              "pro",
+              "enterprise"
+            ],
+            "default": "free",
+            "description": "Subscription plan"
+          },
+          "dataResidency": {
+            "type": "string",
+            "enum": [
+              "us",
+              "eu",
+              "ap",
+              "global"
+            ],
+            "description": "Data residency region"
+          },
+          "settings": {
+            "type": "object",
+            "description": "Settings JSON object"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Metadata JSON object"
+          },
+          "maxUsers": {
+            "type": "number",
+            "description": "Maximum number of users",
+            "example": 100
+          },
+          "maxApps": {
+            "type": "number",
+            "description": "Maximum number of apps",
+            "example": 10
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether the tenant is active",
+            "default": true
+          },
+          "version": {
+            "type": "number",
+            "description": "Current version for optimistic locking (required)",
+            "example": 1
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "example": "jane@acme.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Initial password (min 8 chars)"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Jane Doe"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "First name",
+            "example": "Jane"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name",
+            "example": "Doe"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "Phone number",
+            "example": "+1234567890"
+          },
+          "locale": {
+            "type": "string",
+            "description": "Locale",
+            "example": "en",
+            "default": "en"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Timezone",
+            "example": "UTC",
+            "default": "UTC"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "deactivated",
+              "pending_verification"
+            ],
+            "default": "pending_verification"
+          },
+          "emailVerified": {
+            "type": "boolean",
+            "description": "Mark email as verified",
+            "default": false
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User UUID"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address"
+          },
+          "emailVerified": {
+            "type": "boolean",
+            "description": "Email verified"
+          },
+          "displayName": {
+            "type": "object",
+            "description": "Display name"
+          },
+          "firstName": {
+            "type": "object",
+            "description": "First name"
+          },
+          "lastName": {
+            "type": "object",
+            "description": "Last name"
+          },
+          "avatarUrl": {
+            "type": "object",
+            "description": "Avatar URL"
+          },
+          "phoneNumber": {
+            "type": "object",
+            "description": "Phone number"
+          },
+          "locale": {
+            "type": "object",
+            "description": "Locale"
+          },
+          "timezone": {
+            "type": "object",
+            "description": "Timezone"
+          },
+          "status": {
+            "type": "string",
+            "description": "User status"
+          },
+          "lastLoginAt": {
+            "type": "object",
+            "description": "Last login timestamp"
+          },
+          "version": {
+            "type": "number",
+            "description": "Optimistic lock version"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "emailVerified",
+          "locale",
+          "timezone",
+          "status",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedUsersResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total count"
+          },
+          "page": {
+            "type": "number",
+            "description": "Current page"
+          },
+          "pageSize": {
+            "type": "number",
+            "description": "Page size"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "description": "Optimistic lock version",
+            "example": 1
+          },
+          "displayName": {
+            "type": "string",
+            "description": "Display name"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "First name"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "Avatar URL"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "Phone number"
+          },
+          "locale": {
+            "type": "string",
+            "description": "Locale"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Timezone"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "deactivated",
+              "pending_verification"
+            ]
+          },
+          "emailVerified": {
+            "type": "boolean",
+            "description": "Email verified flag"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "InviteMemberDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email of the user to invite",
+            "example": "jane@acme.com"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "billing_manager",
+              "readonly"
+            ],
+            "default": "member"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "MembershipResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Membership UUID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User UUID"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant UUID"
+          },
+          "role": {
+            "type": "string",
+            "description": "Role"
+          },
+          "invitedBy": {
+            "type": "object",
+            "description": "Invited by user UUID"
+          },
+          "joinedAt": {
+            "type": "object",
+            "description": "Joined timestamp"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Last update timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "tenantId",
+          "role",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedMembershipsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MembershipResponseDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "UpdateRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "billing_manager",
+              "readonly"
+            ],
+            "description": "New role"
+          },
+          "version": {
+            "type": "number",
+            "description": "Optimistic lock version (not on membership — use current known state)"
+          }
+        },
+        "required": [
+          "role",
+          "version"
+        ]
+      },
+      "CreateGroupDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Group name",
+            "example": "Engineering"
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL-safe slug",
+            "example": "engineering"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description"
+          },
+          "isManaged": {
+            "type": "boolean",
+            "description": "Whether managed by external directory",
+            "default": false
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Metadata JSON"
+          }
+        },
+        "required": [
+          "name",
+          "slug"
+        ]
+      },
+      "GroupResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "object"
+          },
+          "isManaged": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "object"
+          },
+          "externalId": {
+            "type": "object"
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "name",
+          "slug",
+          "isManaged",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PaginatedGroupsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupResponseDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "AddGroupMemberDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User UUID to add"
+          },
+          "role": {
+            "type": "string",
+            "description": "Role within the group",
+            "default": "member"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "NestGroupDto": {
+        "type": "object",
+        "properties": {
+          "childGroupId": {
+            "type": "string",
+            "description": "Child group UUID to nest under this group"
+          }
+        },
+        "required": [
+          "childGroupId"
+        ]
+      },
+      "CreateSamlIdpDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Okta SAML"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "saml"
+            ],
+            "default": "saml"
+          },
+          "domainHint": {
+            "type": "string",
+            "description": "Domain hint for auto-routing",
+            "example": "acme.com"
+          },
+          "samlEntityId": {
+            "type": "string",
+            "description": "SAML Entity ID"
+          },
+          "samlSsoUrl": {
+            "type": "string",
+            "description": "SAML SSO URL"
+          },
+          "samlSloUrl": {
+            "type": "string",
+            "description": "SAML SLO URL"
+          },
+          "samlCertificate": {
+            "type": "string",
+            "description": "Base64-encoded X.509 certificate"
+          },
+          "samlSigningAlgorithm": {
+            "type": "string",
+            "description": "Signing algorithm",
+            "default": "RSA-SHA256"
+          },
+          "samlNameIdFormat": {
+            "type": "string",
+            "description": "NameID format"
+          },
+          "attributeMapping": {
+            "type": "object",
+            "description": "Attribute mapping JSON"
+          },
+          "jitProvisioning": {
+            "type": "boolean",
+            "description": "Enable JIT provisioning",
+            "default": true
+          },
+          "defaultRole": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "billing_manager",
+              "readonly"
+            ],
+            "default": "member"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "samlEntityId",
+          "samlSsoUrl",
+          "samlCertificate"
+        ]
+      },
+      "IdpResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "domainHint": {
+            "type": "object"
+          },
+          "samlEntityId": {
+            "type": "object"
+          },
+          "samlSsoUrl": {
+            "type": "object"
+          },
+          "oidcIssuer": {
+            "type": "object"
+          },
+          "oidcClientId": {
+            "type": "object"
+          },
+          "jitProvisioning": {
+            "type": "boolean"
+          },
+          "autoSyncGroups": {
+            "type": "boolean"
+          },
+          "defaultRole": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "name",
+          "type",
+          "status",
+          "jitProvisioning",
+          "autoSyncGroups",
+          "defaultRole",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateOidcIdpDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Azure AD OIDC"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "oidc"
+            ],
+            "default": "oidc"
+          },
+          "domainHint": {
+            "type": "string",
+            "description": "Domain hint",
+            "example": "acme.com"
+          },
+          "oidcIssuer": {
+            "type": "string",
+            "description": "OIDC Issuer URL"
+          },
+          "oidcClientId": {
+            "type": "string",
+            "description": "Client ID"
+          },
+          "oidcClientSecret": {
+            "type": "string",
+            "description": "Client secret (will be encrypted at rest)"
+          },
+          "oidcDiscoveryUrl": {
+            "type": "string",
+            "description": "Discovery URL (defaults to issuer + .well-known)"
+          },
+          "oidcScopes": {
+            "description": "Scopes",
+            "default": [
+              "openid",
+              "profile",
+              "email"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributeMapping": {
+            "type": "object",
+            "description": "Attribute mapping JSON"
+          },
+          "jitProvisioning": {
+            "type": "boolean",
+            "description": "Enable JIT provisioning",
+            "default": true
+          },
+          "defaultRole": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "billing_manager",
+              "readonly"
+            ],
+            "default": "member"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "oidcIssuer",
+          "oidcClientId",
+          "oidcClientSecret"
+        ]
+      },
+      "PaginatedIdpsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdpResponseDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "UpdateIdpDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "description": "Optimistic lock version"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "pending_verification"
+            ]
+          },
+          "domainHint": {
+            "type": "string",
+            "description": "Domain hint"
+          },
+          "samlEntityId": {
+            "type": "string"
+          },
+          "samlSsoUrl": {
+            "type": "string"
+          },
+          "samlSloUrl": {
+            "type": "string"
+          },
+          "samlCertificate": {
+            "type": "string"
+          },
+          "oidcIssuer": {
+            "type": "string"
+          },
+          "oidcClientId": {
+            "type": "string"
+          },
+          "oidcClientSecret": {
+            "type": "string"
+          },
+          "oidcScopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributeMapping": {
+            "type": "object"
+          },
+          "jitProvisioning": {
+            "type": "boolean"
+          },
+          "autoSyncGroups": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "PolicyResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "passwordMinLength": {
+            "type": "number"
+          },
+          "passwordRequireUpper": {
+            "type": "boolean"
+          },
+          "passwordRequireLower": {
+            "type": "boolean"
+          },
+          "passwordRequireNumber": {
+            "type": "boolean"
+          },
+          "passwordRequireSymbol": {
+            "type": "boolean"
+          },
+          "passwordRequireMfa": {
+            "type": "boolean"
+          },
+          "allowedMfaMethods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sessionMaxAgeHours": {
+            "type": "number"
+          },
+          "idleTimeoutMinutes": {
+            "type": "number"
+          },
+          "ipAllowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowedEmailDomains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requireSso": {
+            "type": "boolean"
+          },
+          "maxSessionsPerUser": {
+            "type": "number"
+          },
+          "passwordHistoryCount": {
+            "type": "number"
+          },
+          "lockoutThreshold": {
+            "type": "number"
+          },
+          "lockoutDurationMin": {
+            "type": "number"
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "passwordMinLength",
+          "passwordRequireUpper",
+          "passwordRequireLower",
+          "passwordRequireNumber",
+          "passwordRequireSymbol",
+          "passwordRequireMfa",
+          "allowedMfaMethods",
+          "sessionMaxAgeHours",
+          "idleTimeoutMinutes",
+          "ipAllowlist",
+          "allowedEmailDomains",
+          "requireSso",
+          "maxSessionsPerUser",
+          "passwordHistoryCount",
+          "lockoutThreshold",
+          "lockoutDurationMin",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdatePolicyDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "description": "Optimistic lock version"
+          },
+          "passwordMinLength": {
+            "type": "number",
+            "description": "Minimum password length",
+            "example": 12
+          },
+          "passwordRequireUpper": {
+            "type": "boolean",
+            "description": "Require uppercase letters"
+          },
+          "passwordRequireLower": {
+            "type": "boolean",
+            "description": "Require lowercase letters"
+          },
+          "passwordRequireNumber": {
+            "type": "boolean",
+            "description": "Require numbers"
+          },
+          "passwordRequireSymbol": {
+            "type": "boolean",
+            "description": "Require symbols"
+          },
+          "passwordRequireMfa": {
+            "type": "boolean",
+            "description": "Require MFA for all users"
+          },
+          "allowedMfaMethods": {
+            "description": "Allowed MFA methods",
+            "example": [
+              "totp",
+              "webauthn"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sessionMaxAgeHours": {
+            "type": "number",
+            "description": "Max session age in hours",
+            "example": 24
+          },
+          "idleTimeoutMinutes": {
+            "type": "number",
+            "description": "Idle timeout in minutes",
+            "example": 30
+          },
+          "ipAllowlist": {
+            "description": "IP allowlist (CIDR notation)",
+            "example": [
+              "10.0.0.0/8"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowedEmailDomains": {
+            "description": "Allowed email domains",
+            "example": [
+              "acme.com"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requireSso": {
+            "type": "boolean",
+            "description": "Require SSO for login"
+          },
+          "maxSessionsPerUser": {
+            "type": "number",
+            "description": "Max concurrent sessions per user",
+            "example": 5
+          },
+          "passwordHistoryCount": {
+            "type": "number",
+            "description": "Password history count (prevent reuse)",
+            "example": 5
+          },
+          "lockoutThreshold": {
+            "type": "number",
+            "description": "Failed login lockout threshold",
+            "example": 5
+          },
+          "lockoutDurationMin": {
+            "type": "number",
+            "description": "Lockout duration in minutes",
+            "example": 15
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "GrantPlatformAdminDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User UUID to grant platform admin to"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "superadmin",
+              "support",
+              "readonly"
+            ],
+            "default": "support",
+            "description": "Platform role — only superadmin can grant superadmin"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Short human-readable justification for the grant"
+          }
+        },
+        "required": [
+          "userId",
+          "role"
+        ]
+      },
+      "PlatformAdminResponseDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User UUID"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email (denormalized from users table)"
+          },
+          "role": {
+            "type": "string",
+            "description": "Platform role"
+          },
+          "grantedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "When the grant was made"
+          },
+          "grantedBy": {
+            "type": "object",
+            "description": "User UUID that created the grant"
+          },
+          "revokedAt": {
+            "type": "object",
+            "description": "Timestamp of revocation (null if still active)"
+          },
+          "notes": {
+            "type": "object",
+            "description": "Optional justification"
+          }
+        },
+        "required": [
+          "userId",
+          "email",
+          "role",
+          "grantedAt"
+        ]
+      },
+      "PlatformAdminListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformAdminResponseDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Total active platform admins"
+          }
+        },
+        "required": [
+          "data",
+          "total"
+        ]
+      },
+      "SessionMeUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User UUID"
+          },
+          "email": {
+            "type": "string"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "emailVerified"
+        ]
+      },
+      "SessionMeSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Session row UUID (sessions.id)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "ISO timestamp when the session expires"
+          }
+        },
+        "required": [
+          "id",
+          "expiresAt"
+        ]
+      },
+      "SessionMeActiveTenantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Tenant UUID"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "organization"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "kind"
+        ]
+      },
+      "SessionMeMembershipClass": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "tenantSlug": {
+            "type": "string"
+          },
+          "tenantName": {
+            "type": "string"
+          },
+          "tenantKind": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "organization"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "billing_manager",
+              "readonly"
+            ]
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "True for the tenant matching sessions.tenant_id"
+          }
+        },
+        "required": [
+          "tenantId",
+          "tenantSlug",
+          "tenantName",
+          "tenantKind",
+          "role",
+          "isActive"
+        ]
+      },
+      "SessionMePlatformClass": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "superadmin",
+              "support",
+              "readonly"
+            ]
+          },
+          "grantedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "grantedAt"
+        ]
+      },
+      "SessionMeResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/SessionMeUserDto"
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionMeSessionDto"
+          },
+          "activeTenant": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionMeActiveTenantDto"
+              }
+            ]
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionMeMembershipClass"
+            }
+          },
+          "platform": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionMePlatformClass"
+              }
+            ]
+          },
+          "capabilities": {
+            "description": "Pre-computed capability list. Frontend reads verbatim — no re-derivation. See apps/admin-api/src/session/capabilities.ts.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "user",
+          "session",
+          "memberships",
+          "capabilities"
+        ]
+      }
+    }
+  }
+}

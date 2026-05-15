@@ -37,6 +37,32 @@
         "command": "golangci-lint run"
       },
       "cache": true
+    },
+    "openapi:export": {
+      "executor": "nx:run-commands",
+      "inputs": [
+        "go-source",
+        {
+          "runtime": "swag --version"
+        }
+      ],
+      "cache": true,
+      "options": {
+        "cwd": "apps/sso-service",
+        "commands": [
+          "swag init -g cmd/server/main.go -o internal/openapi --parseDependency --parseInternal",
+          "rm -f internal/openapi/docs.go",
+          "mkdir -p ../../docs/api/sso-service",
+          "cp internal/openapi/swagger.json ../../docs/api/sso-service/openapi.json",
+          "cp internal/openapi/swagger.yaml ../../docs/api/sso-service/openapi.yaml"
+        ],
+        "parallel": false
+      },
+      "outputs": [
+        "{projectRoot}/internal/openapi/swagger.json",
+        "{projectRoot}/internal/openapi/swagger.yaml",
+        "{workspaceRoot}/docs/api/sso-service"
+      ]
     }
   }
 }

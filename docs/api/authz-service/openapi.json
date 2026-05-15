@@ -1,0 +1,408 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Permission checks and OpenFGA tuple management (ReBAC).",
+        "title": "Authz Service API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/authz/batch-check": {
+            "post": {
+                "description": "Evaluate up to 50 permission checks in a single request.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authz"
+                ],
+                "summary": "Batch check permissions",
+                "parameters": [
+                    {
+                        "description": "Batch check",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/authz/check": {
+            "post": {
+                "description": "Evaluate whether a user has a given relation to an object.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authz"
+                ],
+                "summary": "Check a permission",
+                "parameters": [
+                    {
+                        "description": "Permission check",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/authz/list-objects": {
+            "post": {
+                "description": "Return all object IDs of a given type to which the user has the requested relation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authz"
+                ],
+                "summary": "List objects",
+                "parameters": [
+                    {
+                        "description": "List objects",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/authz/tuples": {
+            "post": {
+                "description": "Batch write and/or delete OpenFGA relationship tuples.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tuples"
+                ],
+                "summary": "Write or delete tuples",
+                "parameters": [
+                    {
+                        "description": "Tuple writes and deletes",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove a batch of OpenFGA relationship tuples.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tuples"
+                ],
+                "summary": "Delete tuples",
+                "parameters": [
+                    {
+                        "description": "Tuples to delete",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckRequest": {
+            "type": "object",
+            "required": [
+                "checks"
+            ],
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckRequest"
+                    }
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckResponse"
+                    }
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckRequest": {
+            "type": "object",
+            "required": [
+                "object",
+                "relation",
+                "user"
+            ],
+            "properties": {
+                "object": {
+                    "type": "string"
+                },
+                "relation": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckResponse": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsRequest": {
+            "type": "object",
+            "required": [
+                "relation",
+                "type",
+                "user"
+            ],
+            "properties": {
+                "relation": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsResponse": {
+            "type": "object",
+            "properties": {
+                "objects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite": {
+            "type": "object",
+            "required": [
+                "object",
+                "relation",
+                "user"
+            ],
+            "properties": {
+                "object": {
+                    "type": "string"
+                },
+                "relation": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteRequest": {
+            "type": "object",
+            "properties": {
+                "deletes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite"
+                    }
+                },
+                "writes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite"
+                    }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

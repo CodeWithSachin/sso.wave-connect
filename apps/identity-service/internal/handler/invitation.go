@@ -46,6 +46,13 @@ func NewInvitationHandler(svc *service.InvitationService, validate *validator.Va
 // Lookup handles GET /auth/public/invitation/:token. Returns the minimal
 // offer metadata the UI needs: tenant display name, role being offered,
 // invited email, and whether the user needs to set a password.
+//
+//	@Summary	Look up an invitation
+//	@Tags		invitation
+//	@Produce	json
+//	@Param		token	path		string	true	"Invitation token"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/public/invitation/{token} [get]
 func (h *InvitationHandler) Lookup(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if token == "" {
@@ -72,6 +79,16 @@ func (h *InvitationHandler) Lookup(c *fiber.Ctx) error {
 // optional password + display_name (required iff needs_password_setup was
 // true in Lookup). On success, sets the sso_session cookie and returns
 // 204 — the UI then navigates to login-portal's post-auth landing.
+// Accept consumes the invitation token and joins the user to the tenant.
+//
+//	@Summary	Accept an invitation
+//	@Tags		invitation
+//	@Accept		json
+//	@Produce	json
+//	@Param		token	path		string				true	"Invitation token"
+//	@Param		body	body		map[string]string	true	"Optional password if a new user is being created"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/public/invitation/{token}/accept [post]
 func (h *InvitationHandler) Accept(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if token == "" {
@@ -105,6 +122,13 @@ func (h *InvitationHandler) Accept(c *fiber.Ctx) error {
 }
 
 // Decline handles POST /auth/public/invitation/:token/decline.
+// Decline rejects the invitation. Idempotent.
+//
+//	@Summary	Decline an invitation
+//	@Tags		invitation
+//	@Param		token	path	string	true	"Invitation token"
+//	@Success	204
+//	@Router		/auth/public/invitation/{token}/decline [post]
 func (h *InvitationHandler) Decline(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if token == "" {

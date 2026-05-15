@@ -26,6 +26,20 @@
           "development": { "buildTarget": "webhook-service:build:development" },
           "production": { "buildTarget": "webhook-service:build:production" }
         }
+      },
+      "openapi:export": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "dependsOn": ["build"],
+        "inputs": [
+          "{projectRoot}/src/**/*.ts",
+          "{projectRoot}/dist/main.js"
+        ],
+        "options": {
+          "command": "OPENAPI_EXPORT_PATH=../../docs/api/webhook-service/openapi.json node dist/main.js",
+          "cwd": "apps/webhook-service"
+        },
+        "outputs": ["{workspaceRoot}/docs/api/webhook-service"]
       }
     },
     "tags": ["scope:webhook", "type:api"]

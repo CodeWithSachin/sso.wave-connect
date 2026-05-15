@@ -1,0 +1,33 @@
+{
+  "name": "api-docs",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/api-docs/src",
+  "tags": ["scope:platform", "type:app"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/src/**/*",
+        "{projectRoot}/scripts/build.mjs",
+        "{workspaceRoot}/docs/api/**/*.json",
+        "{workspaceRoot}/docs/api/grpc/services.yaml"
+      ],
+      "outputs": ["{workspaceRoot}/dist/apps/api-docs"],
+      "options": {
+        "command": "node scripts/build.mjs",
+        "cwd": "apps/api-docs"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "dependsOn": ["build"],
+      "options": {
+        "command": "pnpm dlx http-server ../../dist/apps/api-docs -p 4500 -c-1",
+        "cwd": "apps/api-docs"
+      }
+    }
+  }
+}

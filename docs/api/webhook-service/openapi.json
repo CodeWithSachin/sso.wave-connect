@@ -1,0 +1,155 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/webhooks": {
+      "get": {
+        "operationId": "EndpointsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook Endpoints"
+        ]
+      },
+      "post": {
+        "operationId": "EndpointsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook Endpoints"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}": {
+      "delete": {
+        "operationId": "EndpointsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook Endpoints"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{endpointId}/deliveries": {
+      "get": {
+        "operationId": "DeliveriesController_list",
+        "parameters": [
+          {
+            "name": "endpointId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook Deliveries"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{endpointId}/deliveries/{deliveryId}": {
+      "get": {
+        "operationId": "DeliveriesController_getDetail",
+        "parameters": [
+          {
+            "name": "deliveryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook Deliveries"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{endpointId}/deliveries/{deliveryId}/retry": {
+      "post": {
+        "operationId": "DeliveriesController_retry",
+        "parameters": [
+          {
+            "name": "deliveryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Webhook Deliveries"
+        ]
+      }
+    },
+    "/internal/dispatch": {
+      "post": {
+        "operationId": "InternalDispatchController_dispatch",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Internal"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "SSO Webhook Service",
+    "description": "Webhook endpoint management and event delivery with retry logic",
+    "version": "2.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "PASETO",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}

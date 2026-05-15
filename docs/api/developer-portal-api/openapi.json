@@ -1,0 +1,391 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/api-keys": {
+      "post": {
+        "operationId": "ApiKeysController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a new API key (full key shown only once)",
+        "tags": [
+          "API Keys"
+        ]
+      },
+      "get": {
+        "operationId": "ApiKeysController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List API keys for the current tenant",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "get": {
+        "operationId": "ApiKeysController_getById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get API key details (key hash never exposed)",
+        "tags": [
+          "API Keys"
+        ]
+      },
+      "delete": {
+        "operationId": "ApiKeysController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke an API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}/usage": {
+      "get": {
+        "operationId": "ApiKeysController_getUsage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get usage metrics for an API key",
+        "tags": [
+          "API Keys"
+        ]
+      }
+    },
+    "/api/v1/oauth-apps": {
+      "post": {
+        "operationId": "OAuthAppsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register a new OAuth application",
+        "tags": [
+          "OAuth Applications"
+        ]
+      },
+      "get": {
+        "operationId": "OAuthAppsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List OAuth applications",
+        "tags": [
+          "OAuth Applications"
+        ]
+      }
+    },
+    "/api/v1/oauth-apps/{id}/rotate-secret": {
+      "post": {
+        "operationId": "OAuthAppsController_rotateSecret",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rotate client secret (new secret shown once)",
+        "tags": [
+          "OAuth Applications"
+        ]
+      }
+    },
+    "/api/v1/oauth-apps/{id}": {
+      "delete": {
+        "operationId": "OAuthAppsController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OAuth Applications"
+        ]
+      }
+    },
+    "/api/v1/scim-tokens": {
+      "post": {
+        "operationId": "ScimTokensController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Generate a new SCIM provisioning token",
+        "tags": [
+          "SCIM Tokens"
+        ]
+      },
+      "get": {
+        "operationId": "ScimTokensController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List SCIM tokens",
+        "tags": [
+          "SCIM Tokens"
+        ]
+      }
+    },
+    "/api/v1/scim-tokens/{id}": {
+      "delete": {
+        "operationId": "ScimTokensController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke a SCIM token",
+        "tags": [
+          "SCIM Tokens"
+        ]
+      }
+    },
+    "/api/v1/scim-tokens/sync-logs": {
+      "get": {
+        "operationId": "ScimTokensController_syncLogs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "View SCIM sync operation history",
+        "tags": [
+          "SCIM Tokens"
+        ]
+      }
+    },
+    "/api/v1/docs/sdks": {
+      "get": {
+        "operationId": "DocsController_getSdks",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List available SDKs with versions",
+        "tags": [
+          "Documentation"
+        ]
+      }
+    },
+    "/api/v1/docs/sdks/{language}": {
+      "get": {
+        "operationId": "DocsController_getSdkDocs",
+        "parameters": [
+          {
+            "name": "language",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get SDK documentation for a language",
+        "tags": [
+          "Documentation"
+        ]
+      }
+    },
+    "/api/v1/docs/examples/{type}": {
+      "get": {
+        "operationId": "DocsController_getExample",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get code examples",
+        "tags": [
+          "Documentation"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "SSO Developer Portal API",
+    "description": "API key management, OAuth app registration, SDK documentation, and SCIM token management",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "PASETO",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}

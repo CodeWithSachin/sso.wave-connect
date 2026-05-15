@@ -29,6 +29,16 @@ func NewTokenHandler(
 }
 
 // Refresh handles POST /oauth2/token with grant_type=refresh_token
+//
+//	@Summary	Refresh access token
+//	@Tags		oauth2
+//	@Accept		json
+//	@Produce	json
+//	@Param		X-Tenant-ID	header		string					true	"Tenant ID"
+//	@Param		body		body		model.RefreshRequest	true	"Refresh payload"
+//	@Success	200			{object}	map[string]any
+//	@Failure	401			{object}	map[string]string
+//	@Router		/oauth2/token [post]
 func (h *TokenHandler) Refresh(c *fiber.Ctx) error {
 	var req model.RefreshRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -53,6 +63,14 @@ func (h *TokenHandler) Refresh(c *fiber.Ctx) error {
 }
 
 // Revoke handles POST /oauth2/revoke
+// Revoke invalidates a refresh token family.
+//
+//	@Summary	Revoke a token
+//	@Tags		oauth2
+//	@Accept		json
+//	@Param		body	body	map[string]string	true	"{ token: string }"
+//	@Success	200
+//	@Router		/oauth2/revoke [post]
 func (h *TokenHandler) Revoke(c *fiber.Ctx) error {
 	var req model.RevokeRequest
 	if err := c.BodyParser(&req); err != nil {

@@ -1,0 +1,270 @@
+basePath: /
+definitions:
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckRequest:
+    properties:
+      checks:
+        items:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckRequest'
+        maxItems: 50
+        minItems: 1
+        type: array
+    required:
+    - checks
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckResponse'
+        type: array
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckRequest:
+    properties:
+      object:
+        type: string
+      relation:
+        type: string
+      user:
+        type: string
+    required:
+    - object
+    - relation
+    - user
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckResponse:
+    properties:
+      allowed:
+        type: boolean
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsRequest:
+    properties:
+      relation:
+        type: string
+      type:
+        type: string
+      user:
+        type: string
+    required:
+    - relation
+    - type
+    - user
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsResponse:
+    properties:
+      objects:
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite:
+    properties:
+      object:
+        type: string
+      relation:
+        type: string
+      user:
+        type: string
+    required:
+    - object
+    - relation
+    - user
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteRequest:
+    properties:
+      deletes:
+        items:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite'
+        type: array
+      writes:
+        items:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite'
+        type: array
+    type: object
+info:
+  contact: {}
+  description: Permission checks and OpenFGA tuple management (ReBAC).
+  title: Authz Service API
+  version: "1.0"
+paths:
+  /authz/batch-check:
+    post:
+      consumes:
+      - application/json
+      description: Evaluate up to 50 permission checks in a single request.
+      parameters:
+      - description: Batch check
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.BatchCheckResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Batch check permissions
+      tags:
+      - authz
+  /authz/check:
+    post:
+      consumes:
+      - application/json
+      description: Evaluate whether a user has a given relation to an object.
+      parameters:
+      - description: Permission check
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.CheckResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Check a permission
+      tags:
+      - authz
+  /authz/list-objects:
+    post:
+      consumes:
+      - application/json
+      description: Return all object IDs of a given type to which the user has the
+        requested relation.
+      parameters:
+      - description: List objects
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List objects
+      tags:
+      - authz
+  /authz/tuples:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a batch of OpenFGA relationship tuples.
+      parameters:
+      - description: Tuples to delete
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete tuples
+      tags:
+      - tuples
+    post:
+      consumes:
+      - application/json
+      description: Batch write and/or delete OpenFGA relationship tuples.
+      parameters:
+      - description: Tuple writes and deletes
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Write or delete tuples
+      tags:
+      - tuples
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

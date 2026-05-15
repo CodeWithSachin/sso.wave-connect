@@ -80,6 +80,16 @@ func NewOIDCCallbackHandler(
 }
 
 // Callback handles GET /idp/oidc/callback?code=...&state=...
+//
+//	@Summary		External OIDC IdP callback
+//	@Description	Receives the authorization code from an external OIDC IdP, exchanges it for tokens, provisions the user via JIT, and starts an SSO session.
+//	@Tags			oidc
+//	@Produce		json
+//	@Param			code	query	string	true	"Authorization code returned by the IdP"
+//	@Param			state	query	string	true	"Relay-state token previously stored in Redis"
+//	@Success		302		"Redirect back to the original OAuth client redirect_uri"
+//	@Failure		400		{object}	map[string]string
+//	@Router			/idp/oidc/callback [get]
 func (h *OIDCCallbackHandler) Callback(c *fiber.Ctx) error {
 	code := c.Query("code")
 	stateID := c.Query("state")

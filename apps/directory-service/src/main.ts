@@ -1,7 +1,12 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
+import { apiReference } from '@scalar/nestjs-api-reference';
+import type { Request, Response } from 'express';
 import { AppModule } from './app/app.module';
+import { buildSwaggerConfig } from './openapi.config';
 import { AllExceptionsFilter } from './shared/filters/http-exception.filter';
 import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
 
@@ -20,22 +25,42 @@ async function bootstrap() {
 
   app.enableCors({ origin: ['http://localhost:4300', 'http://localhost:4301', 'http://localhost:4302'] });
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('SSO Directory Service')
-    .setDescription(
-      'SCIM 2.0 provisioning API — enterprise user and group sync from IdPs (Okta, Azure AD, etc.)'
-    )
-    .setVersion('2.0')
-    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'SCIM' })
-    .build();
+  const document = SwaggerModule.createDocument(app, buildSwaggerConfig());
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  const exportPath = process.env.OPENAPI_EXPORT_PATH;
+  if (exportPath) {
+    mkdirSync(dirname(exportPath), { recursive: true });
+    writeFileSync(exportPath, JSON.stringify(document, null, 2));
+    Logger.log(`wrote ${exportPath}`);
+    await app.close();
+    return;
+  }
+
+  const openApiEnabled = process.env.ENABLE_OPENAPI !== 'false';
+  if (openApiEnabled) {
+    app.use('/openapi.json', (_req: Request, res: Response) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cache-Control', 'public, max-age=60');
+      res.json(document);
+    });
+    app.use('/reference', (req, res, next) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      next();
+    });
+    app.use(
+      '/reference',
+      apiReference({
+        spec: { content: document },
+        theme: 'default',
+      }),
+    );
+  }
 
   const port = process.env.DIRECTORY_SERVICE_PORT || 3200;
   await app.listen(port);
   Logger.log(`Directory Service is running on: http://localhost:${port}`);
-  Logger.log(`Swagger docs available at: http://localhost:${port}/docs`);
+  Logger.log(`API reference (Scalar): http://localhost:${port}/reference`);
+  Logger.log(`OpenAPI spec: http://localhost:${port}/openapi.json`);
 }
 
 bootstrap();

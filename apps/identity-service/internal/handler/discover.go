@@ -41,6 +41,14 @@ func NewDiscoverHandler(svc *service.DiscoverService, validate *validator.Valida
 // Query param `email` is required — the service is tolerant to a raw domain
 // too (anything after the last `@`), but we prefer the email form so caching
 // always happens on the domain part not a trailing-slashed raw input.
+// Discover routes a login email to consumer/IdP/portal based on tenant claim.
+//
+//	@Summary	Discover login mode
+//	@Tags		signup
+//	@Produce	json
+//	@Param		email	query		string	true	"Email or domain"
+//	@Success	200		{object}	map[string]any
+//	@Router		/auth/public/discover [get]
 func (h *DiscoverHandler) Discover(c *fiber.Ctx) error {
 	email := c.Query("email")
 	if email == "" {
