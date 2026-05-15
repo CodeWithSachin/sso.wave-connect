@@ -54,6 +54,20 @@ type AuthorizeRequest struct {
 	CodeChallenge       string `query:"code_challenge"`
 	CodeChallengeMethod string `query:"code_challenge_method"`
 	Nonce               string `query:"nonce"`
+
+	// IdPHint, when present, routes the request to an external IdP (SAML or
+	// OIDC) configured for the tenant. Validated by the handler against the
+	// three-layer trust binding (discover_token / email-domain match /
+	// interstitial confirm). Empty for password tenants — the request falls
+	// through to the existing login-portal redirect.
+	IdPHint string `query:"idp_hint"`
+
+	// DiscoverToken is the signed PASETO minted by `/auth/public/discover`
+	// when the user's email-domain mapped to a tenant_sso IdP. Presence
+	// proves the user arrived from discover (not a hand-crafted deep link)
+	// and pins the (email, tenant, idp) triple to defeat idp_hint
+	// confusion attacks.
+	DiscoverToken string `query:"discover_token"`
 }
 
 // TokenRequest represents the incoming /oauth2/token parameters.

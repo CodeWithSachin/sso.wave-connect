@@ -277,6 +277,195 @@ func (x *GetUserResponse) GetRole() string {
 	return ""
 }
 
+// ProvisionFederatedRequest carries the verified external-IdP identity
+// (already validated by sso-service's SAML/OIDC verifier) plus connection
+// metadata. Identity-service is the sole writer to users + memberships +
+// authz_outbox — sso-service never inserts directly.
+type ProvisionFederatedRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// idp_id is the UUID of the configured IdP in `identity_providers`.
+	IdpId string `protobuf:"bytes,1,opt,name=idp_id,json=idpId,proto3" json:"idp_id,omitempty"`
+	// external_user_id is the stable identifier the IdP assigns to the user
+	// (sub for OIDC, NameID for SAML). Join key with federated_identities.
+	ExternalUserId string `protobuf:"bytes,2,opt,name=external_user_id,json=externalUserId,proto3" json:"external_user_id,omitempty"`
+	// email + display_name + picture come from the IdP's claims / assertion
+	// attributes after attribute-mapping (Slice 3) is applied.
+	Email       string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	DisplayName string `protobuf:"bytes,4,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Picture     string `protobuf:"bytes,5,opt,name=picture,proto3" json:"picture,omitempty"`
+	// ip + user_agent for audit + session metadata.
+	Ip            string `protobuf:"bytes,6,opt,name=ip,proto3" json:"ip,omitempty"`
+	UserAgent     string `protobuf:"bytes,7,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProvisionFederatedRequest) Reset() {
+	*x = ProvisionFederatedRequest{}
+	mi := &file_identity_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProvisionFederatedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProvisionFederatedRequest) ProtoMessage() {}
+
+func (x *ProvisionFederatedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_identity_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProvisionFederatedRequest.ProtoReflect.Descriptor instead.
+func (*ProvisionFederatedRequest) Descriptor() ([]byte, []int) {
+	return file_identity_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ProvisionFederatedRequest) GetIdpId() string {
+	if x != nil {
+		return x.IdpId
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedRequest) GetExternalUserId() string {
+	if x != nil {
+		return x.ExternalUserId
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedRequest) GetPicture() string {
+	if x != nil {
+		return x.Picture
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedRequest) GetIp() string {
+	if x != nil {
+		return x.Ip
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedRequest) GetUserAgent() string {
+	if x != nil {
+		return x.UserAgent
+	}
+	return ""
+}
+
+type ProvisionFederatedResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// user_id is the WaveConnect user (typeid-prefixed) that the federated
+	// identity resolves to — either an existing row or one just JIT-created.
+	UserId   string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	TenantId string `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// session_token is the raw sso_session cookie value. The caller writes it
+	// verbatim into a Set-Cookie header; never log or persist outside the
+	// browser. Single-use bind only — identity-service has already stored
+	// the SHA-256 hash in the `sessions` table.
+	SessionToken string `protobuf:"bytes,3,opt,name=session_token,json=sessionToken,proto3" json:"session_token,omitempty"`
+	// expires_at is the absolute expiry (unix seconds) of the session token.
+	ExpiresAt int64 `protobuf:"varint,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// newly_provisioned distinguishes "we just JIT-created this user" from
+	// "we matched an existing federated_identities row" — useful for the
+	// post-callback redirect logic (welcome screen vs. straight to dashboard)
+	// and audit.
+	NewlyProvisioned bool `protobuf:"varint,5,opt,name=newly_provisioned,json=newlyProvisioned,proto3" json:"newly_provisioned,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ProvisionFederatedResponse) Reset() {
+	*x = ProvisionFederatedResponse{}
+	mi := &file_identity_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProvisionFederatedResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProvisionFederatedResponse) ProtoMessage() {}
+
+func (x *ProvisionFederatedResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_identity_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProvisionFederatedResponse.ProtoReflect.Descriptor instead.
+func (*ProvisionFederatedResponse) Descriptor() ([]byte, []int) {
+	return file_identity_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ProvisionFederatedResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedResponse) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedResponse) GetSessionToken() string {
+	if x != nil {
+		return x.SessionToken
+	}
+	return ""
+}
+
+func (x *ProvisionFederatedResponse) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+func (x *ProvisionFederatedResponse) GetNewlyProvisioned() bool {
+	if x != nil {
+		return x.NewlyProvisioned
+	}
+	return false
+}
+
 var File_identity_proto protoreflect.FileDescriptor
 
 const file_identity_proto_rawDesc = "" +
@@ -300,10 +489,27 @@ const file_identity_proto_rawDesc = "" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1b\n" +
 	"\ttenant_id\x18\x05 \x01(\tR\btenantId\x12\x12\n" +
-	"\x04role\x18\x06 \x01(\tR\x04role2\xbf\x01\n" +
+	"\x04role\x18\x06 \x01(\tR\x04role\"\xde\x01\n" +
+	"\x19ProvisionFederatedRequest\x12\x15\n" +
+	"\x06idp_id\x18\x01 \x01(\tR\x05idpId\x12(\n" +
+	"\x10external_user_id\x18\x02 \x01(\tR\x0eexternalUserId\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12!\n" +
+	"\fdisplay_name\x18\x04 \x01(\tR\vdisplayName\x12\x18\n" +
+	"\apicture\x18\x05 \x01(\tR\apicture\x12\x0e\n" +
+	"\x02ip\x18\x06 \x01(\tR\x02ip\x12\x1d\n" +
+	"\n" +
+	"user_agent\x18\a \x01(\tR\tuserAgent\"\xc3\x01\n" +
+	"\x1aProvisionFederatedResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12#\n" +
+	"\rsession_token\x18\x03 \x01(\tR\fsessionToken\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x04 \x01(\x03R\texpiresAt\x12+\n" +
+	"\x11newly_provisioned\x18\x05 \x01(\bR\x10newlyProvisioned2\xae\x02\n" +
 	"\x0fIdentityService\x12^\n" +
 	"\rValidateToken\x12%.sso.identity.v1.ValidateTokenRequest\x1a&.sso.identity.v1.ValidateTokenResponse\x12L\n" +
-	"\aGetUser\x12\x1f.sso.identity.v1.GetUserRequest\x1a .sso.identity.v1.GetUserResponseBDZBgithub.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1b\x06proto3"
+	"\aGetUser\x12\x1f.sso.identity.v1.GetUserRequest\x1a .sso.identity.v1.GetUserResponse\x12m\n" +
+	"\x12ProvisionFederated\x12*.sso.identity.v1.ProvisionFederatedRequest\x1a+.sso.identity.v1.ProvisionFederatedResponseBDZBgithub.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1b\x06proto3"
 
 var (
 	file_identity_proto_rawDescOnce sync.Once
@@ -317,20 +523,24 @@ func file_identity_proto_rawDescGZIP() []byte {
 	return file_identity_proto_rawDescData
 }
 
-var file_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_identity_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_identity_proto_goTypes = []any{
-	(*ValidateTokenRequest)(nil),  // 0: sso.identity.v1.ValidateTokenRequest
-	(*ValidateTokenResponse)(nil), // 1: sso.identity.v1.ValidateTokenResponse
-	(*GetUserRequest)(nil),        // 2: sso.identity.v1.GetUserRequest
-	(*GetUserResponse)(nil),       // 3: sso.identity.v1.GetUserResponse
+	(*ValidateTokenRequest)(nil),       // 0: sso.identity.v1.ValidateTokenRequest
+	(*ValidateTokenResponse)(nil),      // 1: sso.identity.v1.ValidateTokenResponse
+	(*GetUserRequest)(nil),             // 2: sso.identity.v1.GetUserRequest
+	(*GetUserResponse)(nil),            // 3: sso.identity.v1.GetUserResponse
+	(*ProvisionFederatedRequest)(nil),  // 4: sso.identity.v1.ProvisionFederatedRequest
+	(*ProvisionFederatedResponse)(nil), // 5: sso.identity.v1.ProvisionFederatedResponse
 }
 var file_identity_proto_depIdxs = []int32{
 	0, // 0: sso.identity.v1.IdentityService.ValidateToken:input_type -> sso.identity.v1.ValidateTokenRequest
 	2, // 1: sso.identity.v1.IdentityService.GetUser:input_type -> sso.identity.v1.GetUserRequest
-	1, // 2: sso.identity.v1.IdentityService.ValidateToken:output_type -> sso.identity.v1.ValidateTokenResponse
-	3, // 3: sso.identity.v1.IdentityService.GetUser:output_type -> sso.identity.v1.GetUserResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	4, // 2: sso.identity.v1.IdentityService.ProvisionFederated:input_type -> sso.identity.v1.ProvisionFederatedRequest
+	1, // 3: sso.identity.v1.IdentityService.ValidateToken:output_type -> sso.identity.v1.ValidateTokenResponse
+	3, // 4: sso.identity.v1.IdentityService.GetUser:output_type -> sso.identity.v1.GetUserResponse
+	5, // 5: sso.identity.v1.IdentityService.ProvisionFederated:output_type -> sso.identity.v1.ProvisionFederatedResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -347,7 +557,7 @@ func file_identity_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_identity_proto_rawDesc), len(file_identity_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

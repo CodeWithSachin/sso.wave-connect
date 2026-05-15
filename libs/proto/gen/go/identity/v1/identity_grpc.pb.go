@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IdentityService_ValidateToken_FullMethodName = "/sso.identity.v1.IdentityService/ValidateToken"
-	IdentityService_GetUser_FullMethodName       = "/sso.identity.v1.IdentityService/GetUser"
+	IdentityService_ValidateToken_FullMethodName      = "/sso.identity.v1.IdentityService/ValidateToken"
+	IdentityService_GetUser_FullMethodName            = "/sso.identity.v1.IdentityService/GetUser"
+	IdentityService_ProvisionFederated_FullMethodName = "/sso.identity.v1.IdentityService/ProvisionFederated"
 )
 
 // IdentityServiceClient is the client API for IdentityService service.
@@ -29,6 +30,11 @@ const (
 type IdentityServiceClient interface {
 	ValidateToken(ctx context.Context, in *ValidateTokenRequest, opts ...grpc.CallOption) (*ValidateTokenResponse, error)
 	GetUser(ctx context.Context, in *GetUserRequest, opts ...grpc.CallOption) (*GetUserResponse, error)
+	// ProvisionFederated is the JIT bridge sso-service calls after a
+	// successful external IdP authentication (Milestone A Slice 2 for OIDC,
+	// Slice 4 for SAML). Idempotent on (idp_id, external_user_id) — a second
+	// call for the same pair just refreshes profile + mints a new session.
+	ProvisionFederated(ctx context.Context, in *ProvisionFederatedRequest, opts ...grpc.CallOption) (*ProvisionFederatedResponse, error)
 }
 
 type identityServiceClient struct {
@@ -59,12 +65,27 @@ func (c *identityServiceClient) GetUser(ctx context.Context, in *GetUserRequest,
 	return out, nil
 }
 
+func (c *identityServiceClient) ProvisionFederated(ctx context.Context, in *ProvisionFederatedRequest, opts ...grpc.CallOption) (*ProvisionFederatedResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProvisionFederatedResponse)
+	err := c.cc.Invoke(ctx, IdentityService_ProvisionFederated_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IdentityServiceServer is the server API for IdentityService service.
 // All implementations must embed UnimplementedIdentityServiceServer
 // for forward compatibility.
 type IdentityServiceServer interface {
 	ValidateToken(context.Context, *ValidateTokenRequest) (*ValidateTokenResponse, error)
 	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
+	// ProvisionFederated is the JIT bridge sso-service calls after a
+	// successful external IdP authentication (Milestone A Slice 2 for OIDC,
+	// Slice 4 for SAML). Idempotent on (idp_id, external_user_id) — a second
+	// call for the same pair just refreshes profile + mints a new session.
+	ProvisionFederated(context.Context, *ProvisionFederatedRequest) (*ProvisionFederatedResponse, error)
 	mustEmbedUnimplementedIdentityServiceServer()
 }
 
@@ -80,6 +101,9 @@ func (UnimplementedIdentityServiceServer) ValidateToken(context.Context, *Valida
 }
 func (UnimplementedIdentityServiceServer) GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUser not implemented")
+}
+func (UnimplementedIdentityServiceServer) ProvisionFederated(context.Context, *ProvisionFederatedRequest) (*ProvisionFederatedResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProvisionFederated not implemented")
 }
 func (UnimplementedIdentityServiceServer) mustEmbedUnimplementedIdentityServiceServer() {}
 func (UnimplementedIdentityServiceServer) testEmbeddedByValue()                         {}
@@ -138,6 +162,24 @@ func _IdentityService_GetUser_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IdentityService_ProvisionFederated_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProvisionFederatedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IdentityServiceServer).ProvisionFederated(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IdentityService_ProvisionFederated_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IdentityServiceServer).ProvisionFederated(ctx, req.(*ProvisionFederatedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IdentityService_ServiceDesc is the grpc.ServiceDesc for IdentityService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -152,6 +194,10 @@ var IdentityService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUser",
 			Handler:    _IdentityService_GetUser_Handler,
+		},
+		{
+			MethodName: "ProvisionFederated",
+			Handler:    _IdentityService_ProvisionFederated_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

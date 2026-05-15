@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -13,6 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	pb "github.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1"
 
 	"github.com/wave-connect/sso-platform/apps/sso-service/internal/config"
 	"github.com/wave-connect/sso-platform/apps/sso-service/internal/handler"
@@ -64,6 +69,7 @@ func main() {
 	clientRepo := repository.NewOAuthClientRepository(pool)
 	consentRepo := repository.NewConsentRepository(pool)
 	sessionRepo := repository.NewSessionRepository(pool)
+	userRepo := repository.NewUserRepository(pool)
 
 	// --- Services ---
 	oauth2Svc, err := service.NewOAuth2Service(cfg.Token, clientRepo, log)
@@ -76,15 +82,67 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to create oidc service")
 	}
 
+	// Slice 2 — External OIDC federation runtime. SecretsService decrypts
+	// per-IdP client secrets (admin-api wrote them encrypted via
+	// AesGcmService); both services read the SAME OIDC_SECRET_KEY env var.
+	secretsSvc, err := service.NewSecretsService()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to construct secrets service (set OIDC_SECRET_KEY)")
+	}
+	idpRepo := repository.NewIdentityProviderRepository(pool)
+	relayStore := service.NewRelayStateStore(rdb, log)
+
+	// callbackURL is what we register in the IdP's app config. In dev we
+	// derive from the issuer; in prod set SSO_CALLBACK_URL explicitly.
+	callbackURL := os.Getenv("SSO_CALLBACK_URL")
+	if callbackURL == "" {
+		callbackURL = strings.TrimRight(cfg.Token.Issuer, "/") + "/idp/oidc/callback"
+	}
+	externalOIDC := service.NewExternalOIDCService(idpRepo, secretsSvc, callbackURL, log)
+
+	// Real IdPInitiator (replaces the Slice 1 stub). SAML's initiator lands
+	// in Slice 4 with its own concrete type plugged in alongside.
+	idpInitiator := service.NewOIDCIdPInitiator(externalOIDC, relayStore, log)
+
+	// gRPC client → identity-service for ProvisionFederated. Address is
+	// configurable via IDENTITY_GRPC_ADDR; default matches docker-compose.
+	identityGRPCAddr := os.Getenv("IDENTITY_GRPC_ADDR")
+	if identityGRPCAddr == "" {
+		identityGRPCAddr = "localhost:50052"
+	}
+	identityConn, err := grpc.NewClient(identityGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Fatal().Err(err).Str("addr", identityGRPCAddr).Msg("failed to dial identity-service gRPC")
+	}
+	defer identityConn.Close()
+	identityCli := pb.NewIdentityServiceClient(identityConn)
+
+	// Cookie config — must match identity-service's setSSOCookie so both
+	// writers produce indistinguishable cookies. Configurable via env for
+	// staging/prod where Secure=true + a real Domain are required.
+	cookieCfg := handler.CookieConfig{
+		Name:     "sso_session",
+		Path:     "/",
+		Domain:   os.Getenv("SSO_COOKIE_DOMAIN"),
+		Secure:   os.Getenv("SSO_COOKIE_SECURE") == "true",
+		SameSite: "Lax",
+	}
+
 	// --- Auth Code Tracker (single-use enforcement via Redis) ---
 	codeTracker := repository.NewAuthCodeTracker(rdb)
 
 	// --- Handlers ---
 	validate := validator.New()
 	loginURL := cfg.LoginPortalURL
-	oauth2Handler := handler.NewOAuth2Handler(oauth2Svc, oidcSvc, clientRepo, consentRepo, codeTracker, validate, log, loginURL)
+	oauth2Handler := handler.NewOAuth2Handler(
+		oauth2Svc, oidcSvc, clientRepo, consentRepo, userRepo,
+		codeTracker, idpInitiator, validate, log, loginURL,
+	)
 	consentHandler := handler.NewConsentHandler(oauth2Svc, clientRepo, consentRepo, validate, log)
 	oidcHandler := handler.NewOIDCHandler(oidcSvc, cfg.Token.Issuer, log)
+	idpOIDCHandler := handler.NewOIDCCallbackHandler(externalOIDC, relayStore, oauth2Svc, identityCli, cookieCfg, log)
 	healthHandler := handler.NewHealthHandler(pool, rdb)
 
 	// --- Fiber App ---
@@ -107,8 +165,9 @@ func main() {
 	app.Get("/healthz", healthHandler.Liveness)
 	app.Get("/readyz", healthHandler.Readiness)
 
-	// --- OIDC Discovery (no auth required) ---
+	// --- OIDC Discovery + JWKS (no auth required) ---
 	app.Get("/.well-known/openid-configuration", oidcHandler.Discovery)
+	app.Get("/.well-known/jwks.json", oidcHandler.JWKS)
 
 	// --- OAuth2 Authorization (checks Bearer token OR sso_session cookie) ---
 	app.Get("/oauth2/authorize", middleware.SessionOrTokenAuth(cfg.Token.SymmetricKeyHex, sessionRepo, log), oauth2Handler.Authorize)
@@ -123,6 +182,9 @@ func main() {
 
 	// --- UserInfo (requires Bearer token) ---
 	app.Get("/userinfo", oidcHandler.UserInfo)
+
+	// --- External IdP callbacks (Milestone A Slice 2 for OIDC) ---
+	app.Get("/idp/oidc/callback", idpOIDCHandler.Callback)
 
 	// --- Graceful Shutdown ---
 	go func() {

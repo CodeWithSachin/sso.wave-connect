@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -17,17 +18,26 @@ import (
 // IdentityServer implements the gRPC IdentityServiceServer interface.
 type IdentityServer struct {
 	pb.UnimplementedIdentityServiceServer
-	tokenSvc *service.TokenService
-	userRepo *repository.UserRepository
-	log      zerolog.Logger
+	tokenSvc     *service.TokenService
+	userRepo     *repository.UserRepository
+	federatedSvc *service.FederatedService
+	log          zerolog.Logger
 }
 
-// NewIdentityServer creates a new gRPC identity server.
-func NewIdentityServer(tokenSvc *service.TokenService, userRepo *repository.UserRepository, log zerolog.Logger) *IdentityServer {
+// NewIdentityServer creates a new gRPC identity server. `federatedSvc` may
+// be nil if Milestone A isn't enabled — ProvisionFederated then returns
+// Unimplemented via the embedded UnimplementedIdentityServiceServer.
+func NewIdentityServer(
+	tokenSvc *service.TokenService,
+	userRepo *repository.UserRepository,
+	federatedSvc *service.FederatedService,
+	log zerolog.Logger,
+) *IdentityServer {
 	return &IdentityServer{
-		tokenSvc: tokenSvc,
-		userRepo: userRepo,
-		log:      log.With().Str("component", "grpc-identity").Logger(),
+		tokenSvc:     tokenSvc,
+		userRepo:     userRepo,
+		federatedSvc: federatedSvc,
+		log:          log.With().Str("component", "grpc-identity").Logger(),
 	}
 }
 
@@ -73,5 +83,46 @@ func (s *IdentityServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 		Status:      user.Status,
+	}, nil
+}
+
+// ProvisionFederated is the JIT bridge sso-service calls after a successful
+// external IdP authentication (Milestone A Slice 2 for OIDC, Slice 4 for
+// SAML). Idempotent on (idp_id, external_user_id) — see federated.go.
+func (s *IdentityServer) ProvisionFederated(ctx context.Context, req *pb.ProvisionFederatedRequest) (*pb.ProvisionFederatedResponse, error) {
+	if s.federatedSvc == nil {
+		return nil, status.Error(codes.Unimplemented, "federated provisioning is not enabled in this deployment")
+	}
+	if req.IdpId == "" || req.ExternalUserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "idp_id and external_user_id are required")
+	}
+	idpID, err := uuid.Parse(req.IdpId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid idp_id format")
+	}
+
+	result, err := s.federatedSvc.ProvisionFederated(ctx, service.ProvisionFederatedRequest{
+		IdPID:          idpID,
+		ExternalUserID: req.ExternalUserId,
+		Email:          req.Email,
+		DisplayName:    req.DisplayName,
+		Picture:        req.Picture,
+		IP:             req.Ip,
+		UserAgent:      req.UserAgent,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrIdPJITDisabled) {
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		}
+		s.log.Error().Err(err).Str("idp_id", req.IdpId).Msg("ProvisionFederated failed")
+		return nil, status.Errorf(codes.Internal, "provision failed: %v", err)
+	}
+
+	return &pb.ProvisionFederatedResponse{
+		UserId:           result.UserID.String(),
+		TenantId:         result.TenantID.String(),
+		SessionToken:     result.SessionToken,
+		ExpiresAt:        result.ExpiresAt.Unix(),
+		NewlyProvisioned: result.NewlyProvisioned,
 	}, nil
 }

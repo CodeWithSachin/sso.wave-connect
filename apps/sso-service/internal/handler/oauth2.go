@@ -18,14 +18,16 @@ import (
 )
 
 type OAuth2Handler struct {
-	oauth2Svc    *service.OAuth2Service
-	oidcSvc      *service.OIDCService
-	clientRepo   *repository.OAuthClientRepository
-	consentRepo  *repository.ConsentRepository
-	codeTracker  *repository.AuthCodeTracker
-	validate     *validator.Validate
-	log          zerolog.Logger
-	loginURL     string
+	oauth2Svc     *service.OAuth2Service
+	oidcSvc       *service.OIDCService
+	clientRepo    *repository.OAuthClientRepository
+	consentRepo   *repository.ConsentRepository
+	userRepo      *repository.UserRepository
+	codeTracker   *repository.AuthCodeTracker
+	idpInitiator  service.IdPInitiator
+	validate      *validator.Validate
+	log           zerolog.Logger
+	loginURL      string
 }
 
 func NewOAuth2Handler(
@@ -33,7 +35,9 @@ func NewOAuth2Handler(
 	oidcSvc *service.OIDCService,
 	clientRepo *repository.OAuthClientRepository,
 	consentRepo *repository.ConsentRepository,
+	userRepo *repository.UserRepository,
 	codeTracker *repository.AuthCodeTracker,
+	idpInitiator service.IdPInitiator,
 	validate *validator.Validate,
 	log zerolog.Logger,
 	loginURL string,
@@ -43,10 +47,12 @@ func NewOAuth2Handler(
 		oidcSvc:      oidcSvc,
 		clientRepo:   clientRepo,
 		consentRepo:  consentRepo,
+		userRepo:     userRepo,
 		codeTracker:  codeTracker,
+		idpInitiator: idpInitiator,
 		validate:     validate,
 		log:          log.With().Str("handler", "oauth2").Logger(),
-		loginURL:    loginURL,
+		loginURL:     loginURL,
 	}
 }
 
@@ -114,6 +120,41 @@ func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 	// Validate grant type
 	if !service.ContainsGrantType("authorization_code", client.AllowedGrantTypes) {
 		return redirectWithError(c, req.RedirectURI, req.State, "unauthorized_client", "client not authorized for authorization_code grant")
+	}
+
+	// External IdP routing — branch BEFORE the local auth check. When
+	// `idp_hint` is present, the user delegates authentication to an external
+	// IdP (Entra, Google, Okta, generic SAML/OIDC) rather than to our
+	// login-portal. Slice 1 ships the param-parsing + stub; Slices 2 & 4 land
+	// the OIDC and SAML implementations respectively.
+	if req.IdPHint != "" {
+		initiateRes, err := h.idpInitiator.Initiate(c.Context(), service.InitiateRequest{
+			IdPID:          req.IdPHint,
+			DiscoverToken:  req.DiscoverToken,
+			OAuthState:     req.State,
+			RedirectURI:    req.RedirectURI,
+			ClientID:       req.ClientID,
+			Scopes:         scopes,
+			CodeChallenge:  req.CodeChallenge,
+			CodeChallengeM: req.CodeChallengeMethod,
+			Nonce:          req.Nonce,
+			UserAgent:      c.Get("User-Agent"),
+			ClientIP:       c.IP(),
+		})
+		if err != nil {
+			if errors.Is(err, service.ErrIdPNotImplemented) {
+				// Stable 501 with a documented body — keeps Slice 1 demoable
+				// without breaking password flows.
+				return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+					"error":             "not_implemented",
+					"error_description": "external IdP runtime ships in Milestone A Slice 2 (OIDC) / Slice 4 (SAML)",
+					"idp_id":            req.IdPHint,
+				})
+			}
+			h.log.Error().Err(err).Str("idp_id", req.IdPHint).Msg("idp initiator failed")
+			return redirectWithError(c, req.RedirectURI, req.State, "server_error", "external IdP routing failed")
+		}
+		return c.Redirect(initiateRes.RedirectURL, fiber.StatusFound)
 	}
 
 	// Check if user is authenticated (userID set by auth middleware)
@@ -308,8 +349,10 @@ func (h *OAuth2Handler) handleAuthorizationCodeGrant(c *fiber.Ctx, req *model.To
 
 	// Build ID token if openid scope requested
 	if containsScope("openid", authCode.Scopes) {
+		email, displayName, picture := h.loadUserClaims(c, authCode.UserID, authCode.Scopes)
 		idToken, err := h.oidcSvc.BuildIDToken(
-			authCode.UserID, "", "", authCode.TenantID, authCode.ClientID,
+			authCode.UserID, email, displayName, picture,
+			authCode.TenantID, authCode.ClientID,
 			authCode.Scopes, authCode.Nonce,
 		)
 		if err != nil {
@@ -320,6 +363,33 @@ func (h *OAuth2Handler) handleAuthorizationCodeGrant(c *fiber.Ctx, req *model.To
 	}
 
 	return c.JSON(resp)
+}
+
+// loadUserClaims fetches the email / display_name / avatar_url for a user,
+// short-circuiting when the requested scopes don't grant any of those
+// claims (saves a DB roundtrip on token grants that only requested openid).
+// Returns empty strings on lookup failure — BuildIDToken correctly omits
+// empty claims so a transient DB error degrades to a claim-less token
+// rather than a 500. The failure is logged for observability.
+func (h *OAuth2Handler) loadUserClaims(c *fiber.Ctx, userID uuid.UUID, scopes []string) (email, displayName, picture string) {
+	wantEmail := containsScope("email", scopes)
+	wantProfile := containsScope("profile", scopes)
+	if !wantEmail && !wantProfile {
+		return "", "", ""
+	}
+	user, err := h.userRepo.GetByID(c.Context(), userID)
+	if err != nil {
+		h.log.Warn().Err(err).Str("user_id", userID.String()).Msg("failed to load user for ID token claims")
+		return "", "", ""
+	}
+	if wantEmail {
+		email = user.Email
+	}
+	if wantProfile {
+		displayName = user.DisplayName
+		picture = user.AvatarURL
+	}
+	return email, displayName, picture
 }
 
 func (h *OAuth2Handler) handleRefreshTokenGrant(c *fiber.Ctx, req *model.TokenRequest) error {
@@ -417,8 +487,10 @@ func (h *OAuth2Handler) handleRefreshTokenGrant(c *fiber.Ctx, req *model.TokenRe
 	}
 
 	if containsScope("openid", scopes) {
+		email, displayName, picture := h.loadUserClaims(c, userID, scopes)
 		idToken, err := h.oidcSvc.BuildIDToken(
-			userID, "", "", client.TenantID, client.ClientID, scopes, "",
+			userID, email, displayName, picture,
+			client.TenantID, client.ClientID, scopes, "",
 		)
 		if err != nil {
 			h.log.Error().Err(err).Msg("failed to build id token on refresh")

@@ -30,6 +30,29 @@ func (h *OIDCHandler) Discovery(c *fiber.Ctx) error {
 	return c.JSON(doc)
 }
 
+// JWKS handles GET /.well-known/jwks.json — exposes our Ed25519 ID-token
+// signing key as a JSON Web Key Set so OIDC clients (Django Authlib, Angular
+// angular-auth-oidc-client, Flutter flutter_appauth) can verify ID-token
+// signatures without preconfiguring a public key.
+//
+// CORS is intentionally permissive (Access-Control-Allow-Origin: *) — the
+// JWKS is public by design and downstream RPs running on arbitrary origins
+// must be able to fetch it.
+func (h *OIDCHandler) JWKS(c *fiber.Ctx) error {
+	jwks, err := h.oidcSvc.BuildJWKS()
+	if err != nil {
+		h.log.Error().Err(err).Msg("failed to build JWKS")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "server_error",
+		})
+	}
+	c.Set("Access-Control-Allow-Origin", "*")
+	// Cache for 1h — kid is content-derived so a key rotation produces a new
+	// JWKS doc with a new kid; consumers refetch on cache miss.
+	c.Set("Cache-Control", "public, max-age=3600")
+	return c.JSON(jwks)
+}
+
 // UserInfo handles GET /userinfo — returns user claims based on access token scopes.
 func (h *OIDCHandler) UserInfo(c *fiber.Ctx) error {
 	// Extract token from Authorization header

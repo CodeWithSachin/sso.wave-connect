@@ -1112,6 +1112,10 @@ For anything else, the request ID is in the response header `X-Request-ID`
 
 ## Where to read next
 
+- [docs/concepts/communication-flows.md](concepts/communication-flows.md)
+  — sequence diagrams for every Miles-frontend ↔ Miles-backend ↔
+  WaveConnect interaction (sign-in, API call, refresh, logout, failure
+  modes). Read this once after Part 2 to anchor the integration.
 - [docs/concepts/paseto-tokens.md](concepts/paseto-tokens.md) — how our
   internal session tokens work (you don't need to know this for OIDC
   integration; useful for security review).

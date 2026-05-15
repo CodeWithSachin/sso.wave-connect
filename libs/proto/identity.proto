@@ -7,6 +7,12 @@ option go_package = "github.com/wave-connect/sso-platform/libs/proto/gen/go/iden
 service IdentityService {
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  // ProvisionFederated is the JIT bridge sso-service calls after a
+  // successful external IdP authentication (Milestone A Slice 2 for OIDC,
+  // Slice 4 for SAML). Idempotent on (idp_id, external_user_id) — a second
+  // call for the same pair just refreshes profile + mints a new session.
+  rpc ProvisionFederated(ProvisionFederatedRequest) returns (ProvisionFederatedResponse);
 }
 
 message ValidateTokenRequest {
@@ -33,4 +39,43 @@ message GetUserResponse {
   string status = 4;
   string tenant_id = 5;
   string role = 6;
+}
+
+// ProvisionFederatedRequest carries the verified external-IdP identity
+// (already validated by sso-service's SAML/OIDC verifier) plus connection
+// metadata. Identity-service is the sole writer to users + memberships +
+// authz_outbox — sso-service never inserts directly.
+message ProvisionFederatedRequest {
+  // idp_id is the UUID of the configured IdP in `identity_providers`.
+  string idp_id = 1;
+  // external_user_id is the stable identifier the IdP assigns to the user
+  // (sub for OIDC, NameID for SAML). Join key with federated_identities.
+  string external_user_id = 2;
+  // email + display_name + picture come from the IdP's claims / assertion
+  // attributes after attribute-mapping (Slice 3) is applied.
+  string email = 3;
+  string display_name = 4;
+  string picture = 5;
+  // ip + user_agent for audit + session metadata.
+  string ip = 6;
+  string user_agent = 7;
+}
+
+message ProvisionFederatedResponse {
+  // user_id is the WaveConnect user (typeid-prefixed) that the federated
+  // identity resolves to — either an existing row or one just JIT-created.
+  string user_id = 1;
+  string tenant_id = 2;
+  // session_token is the raw sso_session cookie value. The caller writes it
+  // verbatim into a Set-Cookie header; never log or persist outside the
+  // browser. Single-use bind only — identity-service has already stored
+  // the SHA-256 hash in the `sessions` table.
+  string session_token = 3;
+  // expires_at is the absolute expiry (unix seconds) of the session token.
+  int64 expires_at = 4;
+  // newly_provisioned distinguishes "we just JIT-created this user" from
+  // "we matched an existing federated_identities row" — useful for the
+  // post-callback redirect logic (welcome screen vs. straight to dashboard)
+  // and audit.
+  bool newly_provisioned = 5;
 }

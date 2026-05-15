@@ -132,6 +132,16 @@ func main() {
 
 	sessionSvc := service.NewSessionService(sessionRepo, publisher, log, cfg.Token.RefreshTTL)
 
+	// Slice 2 — JIT bridge invoked by sso-service after external IdP auth.
+	// Wired here so the gRPC ProvisionFederated RPC has a non-nil impl.
+	federatedSvc := service.NewFederatedService(service.FederatedServiceDeps{
+		Pool:            pool,
+		AuthzOutboxRepo: authzOutboxRepo,
+		SessionSvc:      sessionSvc,
+		Publisher:       publisher,
+		Log:             log,
+	})
+
 	// --- Email provider (console default in dev; SES stub until Phase 2) ---
 	emailKind, err := email.FromEnv(cfg.Email.Provider)
 	if err != nil {
@@ -201,6 +211,16 @@ func main() {
 		MinResponseDelay:    cfg.Discover.MinResponseDelay,
 		MaxResponseDelay:    cfg.Discover.MaxResponseDelay,
 	}, log)
+	// Slice 1: mint signed discover_tokens that sso-service's IdPInitiator
+	// (Slice 2+) will verify to bind the email-domain → tenant → IdP triple.
+	// If construction fails (e.g., symmetric key missing), discover degrades
+	// gracefully to token-less URLs — Slice 1's stub IdPInitiator wouldn't
+	// have honored the token anyway.
+	if discoverTokenSvc, err := service.NewDiscoverTokenService(cfg.Token, rdb, log); err != nil {
+		log.Warn().Err(err).Msg("discover_token service init failed; discover URLs will be token-less")
+	} else {
+		discoverSvc.SetDiscoverTokenService(discoverTokenSvc)
+	}
 	domainVerifySvc := service.NewDomainVerifyService(pool, tenantDomainRepo, dnsResolver, outbox, log)
 	domainVerifyWorker := worker.NewDomainVerifyWorker(domainVerifySvc, 10*time.Minute, 200, log)
 	eventOutboxWorker := worker.NewEventOutboxWorker(outbox, publisher, 2*time.Second, 50, log)
@@ -418,7 +438,7 @@ func main() {
 
 	// --- Start gRPC Server ---
 	grpcServer := grpc.NewServer()
-	pb.RegisterIdentityServiceServer(grpcServer, identitygrpc.NewIdentityServer(tokenSvc, userRepo, log))
+	pb.RegisterIdentityServiceServer(grpcServer, identitygrpc.NewIdentityServer(tokenSvc, userRepo, federatedSvc, log))
 	reflection.Register(grpcServer)
 
 	go func() {

@@ -1,6 +1,9 @@
 package service
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -54,10 +57,17 @@ func NewOIDCService(cfg config.TokenConfig, log zerolog.Logger) (*OIDCService, e
 }
 
 // BuildIDToken creates a PASETO v4.public signed ID token.
+//
+// `email`, `displayName`, and `picture` should be the real user attributes
+// (loaded from the users table by the caller). If empty strings are passed,
+// the corresponding claim is omitted entirely so consumers can distinguish
+// "claim not granted" from "claim was empty". Slice 1 fix — these used to
+// be hardcoded to "" at the call sites and ID tokens carried empty claims.
 func (s *OIDCService) BuildIDToken(
 	userID uuid.UUID,
 	email string,
 	displayName string,
+	picture string,
 	tenantID uuid.UUID,
 	clientID string,
 	scopes []string,
@@ -73,15 +83,25 @@ func (s *OIDCService) BuildIDToken(
 	token.SetJti(uuid.New().String())
 	token.Set("tid", tenantID.String())
 	token.Set("aud", clientID)
-	token.Set("nonce", nonce)
+	if nonce != "" {
+		token.Set("nonce", nonce)
+	}
 
-	// Add claims based on scopes
+	// Add claims based on scopes. Skip empty values so a downstream RP can
+	// tell "user has no avatar" from "we didn't grant profile scope".
 	for _, scope := range scopes {
 		switch scope {
 		case "email":
-			token.Set("email", email)
+			if email != "" {
+				token.Set("email", email)
+			}
 		case "profile":
-			token.Set("name", displayName)
+			if displayName != "" {
+				token.Set("name", displayName)
+			}
+			if picture != "" {
+				token.Set("picture", picture)
+			}
 		}
 	}
 
@@ -187,6 +207,7 @@ func GetDiscoveryDocument(issuer string) map[string]interface{} {
 		"authorization_endpoint":                issuer + "/oauth2/authorize",
 		"token_endpoint":                        issuer + "/oauth2/token",
 		"userinfo_endpoint":                     issuer + "/userinfo",
+		"jwks_uri":                              issuer + "/.well-known/jwks.json",
 		"response_types_supported":              []string{"code"},
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"EdDSA"},
@@ -194,11 +215,50 @@ func GetDiscoveryDocument(issuer string) map[string]interface{} {
 		"token_endpoint_auth_methods_supported": []string{"client_secret_basic", "client_secret_post", "none"},
 		"grant_types_supported":                 []string{"authorization_code", "refresh_token"},
 		"code_challenge_methods_supported":      []string{"S256"},
-		"claims_supported":                      []string{"sub", "iss", "aud", "exp", "iat", "nonce", "email", "name"},
+		"claims_supported":                      []string{"sub", "iss", "aud", "exp", "iat", "nonce", "email", "name", "picture"},
 	}
 }
 
 // PublicKeyHex returns the hex-encoded public verification key.
 func (s *OIDCService) PublicKeyHex() string {
 	return s.verifyKey.ExportHex()
+}
+
+// BuildJWKS returns the JSON Web Key Set for our ID-token signing key.
+//
+// Format follows RFC 7517 with the OKP key-type extension (RFC 8037) for
+// Ed25519: `{"keys":[{"kty":"OKP","crv":"Ed25519","alg":"EdDSA","use":"sig",
+// "kid":"<stable-id>","x":"<base64url(public_key)>"}]}`.
+//
+// `kid` is a stable, deterministic identifier derived from the public key
+// (`SHA-256(pubkey)` truncated + base64url). When the key rotates, the new
+// kid changes; downstream RPs that cache by kid will refetch automatically.
+// We do NOT use a random kid because that would cause caching libraries to
+// re-fetch the JWKS on every service restart.
+func (s *OIDCService) BuildJWKS() (map[string]interface{}, error) {
+	rawHex := s.verifyKey.ExportHex()
+	raw, err := hex.DecodeString(rawHex)
+	if err != nil {
+		return nil, fmt.Errorf("decode public key hex: %w", err)
+	}
+	if len(raw) != 32 {
+		// Ed25519 public keys are always 32 bytes — defense against a future
+		// PASETO version change that silently shifts the format.
+		return nil, fmt.Errorf("unexpected public key length: %d (want 32)", len(raw))
+	}
+
+	digest := sha256.Sum256(raw)
+	kid := base64.RawURLEncoding.EncodeToString(digest[:8])
+
+	jwk := map[string]interface{}{
+		"kty": "OKP",
+		"crv": "Ed25519",
+		"alg": "EdDSA",
+		"use": "sig",
+		"kid": kid,
+		"x":   base64.RawURLEncoding.EncodeToString(raw),
+	}
+	return map[string]interface{}{
+		"keys": []map[string]interface{}{jwk},
+	}, nil
 }

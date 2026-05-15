@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -68,11 +69,21 @@ type DiscoverTenant struct {
 // DiscoverSSO is the IdP-initiation blob when require_sso=TRUE and an active
 // IdP exists. LoginURL is either the IdP's SAML SSO endpoint (type=saml) or
 // a sso-service initiator URL for OIDC.
+//
+// For OIDC initiators, LoginURL also carries a `discover_token` query
+// parameter — a 5-min single-use PASETO that sso-service's IdPInitiator
+// (Slice 2+) verifies to bind the email-domain → tenant → IdP triple. The
+// token is minted PER-REQUEST in `Discover()` after the cache read, so two
+// callers for the same domain never receive the same token.
 type DiscoverSSO struct {
-	IdpID    string `json:"idp_id"`
-	IdpType  string `json:"idp_type"`
-	Name     string `json:"name"`
-	LoginURL string `json:"login_url"`
+	IdpID      string `json:"idp_id"`
+	IdpType    string `json:"idp_type"`
+	Name       string `json:"name"`
+	LoginURL   string `json:"login_url"`
+	// TenantUUID is the raw UUID of the resolved tenant. Used internally by
+	// `Discover()` to mint a fresh discover_token; safe to serialize for
+	// cache round-trip alongside IdpID (which is also a raw UUID).
+	TenantUUID string `json:"tenant_uuid,omitempty"`
 }
 
 // discoverCacheEntry is what we marshal to Redis. Matches DiscoverResult but
@@ -97,6 +108,11 @@ type DiscoverService struct {
 	cacheTTL            time.Duration
 	minDelay            time.Duration
 	maxDelay            time.Duration
+	// tokenSvc, when non-nil, mints a fresh discover_token for OIDC SSO
+	// routing — see DiscoverSSO.LoginURL doc. Nil-safe: discover falls back
+	// to the legacy token-less URL when this is absent (smooth boot before
+	// Slice 1's `NewDiscoverTokenService` is wired into main.go).
+	tokenSvc *DiscoverTokenService
 }
 
 // DiscoverServiceConfig is optional tuning. Pass `SsoInitiatorBaseURL=""` to
@@ -128,6 +144,13 @@ func NewDiscoverService(pool *pgxpool.Pool, rdb *redis.Client, cfg DiscoverServi
 		minDelay:            cfg.MinResponseDelay,
 		maxDelay:            cfg.MaxResponseDelay,
 	}
+}
+
+// SetDiscoverTokenService installs the token minter post-construction.
+// Separate setter so the NewDiscoverService signature stays binary-compatible
+// while main.go opts into discover_token issuance. Pass nil to disable.
+func (s *DiscoverService) SetDiscoverTokenService(svc *DiscoverTokenService) {
+	s.tokenSvc = svc
 }
 
 // Discover returns the routing decision for the email's domain. Applies a
@@ -162,7 +185,59 @@ func (s *DiscoverService) Discover(ctx context.Context, emailOrDomain string) (*
 
 	// 3. Cache-write (errors are non-fatal).
 	s.cacheSet(ctx, domain, result)
+
+	// 4. Mint a fresh discover_token AFTER cache write so each requestor
+	//    gets a unique single-use token. (Caching the token would defeat
+	//    single-use.) Only OIDC initiators need it — SAML goes direct.
+	s.decorateWithDiscoverToken(result)
 	return result, nil
+}
+
+// decorateWithDiscoverToken is called by Discover() on both cache hits and
+// fresh DB resolves. Idempotent: returns silently if the token service is
+// not wired or the result isn't a tenant_sso OIDC route. The minted token is
+// embedded as a `discover_token` query param on the existing LoginURL.
+func (s *DiscoverService) decorateWithDiscoverToken(r *DiscoverResult) {
+	if r == nil || r.Mode != DiscoverModeSSO || r.SSO == nil {
+		return
+	}
+	if r.SSO.IdpType == "saml" {
+		// SAML redirects direct to the IdP; sso-service's IdPInitiator isn't
+		// in the loop today (Slice 4 changes this; we'll start minting then).
+		return
+	}
+	if s.tokenSvc == nil {
+		return // graceful no-op pre-wiring
+	}
+	if r.SSO.TenantUUID == "" || r.SSO.IdpID == "" {
+		s.log.Warn().Msg("discover: cannot mint token, missing tenant or idp uuid in result")
+		return
+	}
+	tenantID, err := uuid.Parse(r.SSO.TenantUUID)
+	if err != nil {
+		s.log.Warn().Err(err).Msg("discover: cannot mint token, bad tenant uuid in result")
+		return
+	}
+	idpID, err := uuid.Parse(r.SSO.IdpID)
+	if err != nil {
+		s.log.Warn().Err(err).Msg("discover: cannot mint token, bad idp uuid in result")
+		return
+	}
+
+	// Domain isn't stored on DiscoverResult — pull from Tenant.Slug as a
+	// best-effort hint. The verifier (sso-service Slice 2) treats `dom` as
+	// advisory metadata; the binding-critical claims are tid + idp.
+	domain := ""
+	if r.Tenant != nil {
+		domain = r.Tenant.Slug
+	}
+
+	token, err := s.tokenSvc.Mint(tenantID, idpID, domain)
+	if err != nil {
+		s.log.Warn().Err(err).Msg("discover: token mint failed; URL falls back to token-less")
+		return
+	}
+	r.SSO.LoginURL = appendQueryParam(r.SSO.LoginURL, "discover_token", token)
 }
 
 // InvalidateDomain drops a cached entry. Called when a tenant_domains row
@@ -299,10 +374,11 @@ LIMIT 1`
 			Mode:   DiscoverModeSSO,
 			Tenant: tenant,
 			SSO: &DiscoverSSO{
-				IdpID:    idpID,
-				IdpType:  idpTyp,
-				Name:     idpName,
-				LoginURL: loginURL,
+				IdpID:      idpID,
+				IdpType:    idpTyp,
+				Name:       idpName,
+				LoginURL:   loginURL,
+				TenantUUID: tenantIDRaw,
 			},
 		}, nil
 	}
@@ -351,6 +427,17 @@ func (s *DiscoverService) buildSSOInitiator(idpID string) string {
 		return "/oauth2/authorize?idp_hint=" + idpID
 	}
 	return strings.TrimRight(s.ssoInitiatorBaseURL, "/") + "/oauth2/authorize?idp_hint=" + idpID
+}
+
+// appendQueryParam adds `key=value` to an existing URL. Picks `?` or `&`
+// based on whether a query string is already present. Caller is responsible
+// for URL-encoding the value if it contains reserved characters.
+func appendQueryParam(rawURL, key, value string) string {
+	sep := "?"
+	if strings.Contains(rawURL, "?") {
+		sep = "&"
+	}
+	return rawURL + sep + key + "=" + value
 }
 
 // padDelay sleeps until `started + jittered(minDelay, maxDelay)` to defeat

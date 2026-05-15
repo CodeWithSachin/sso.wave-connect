@@ -1,0 +1,532 @@
+# Communication Flows — Miles Masterclass ↔ WaveConnect
+
+End-to-end sequence diagrams for every interaction between the Miles
+Masterclass frontends (Angular + Flutter), the Miles backend (Django),
+and WaveConnect. Read [docs/integration-guide.md](../integration-guide.md)
+first if you haven't — that doc covers the integration mechanics; this
+one focuses on the runtime interactions.
+
+> **Diagrams use Mermaid.** GitHub, GitLab, VS Code, and most modern
+> Markdown viewers render them natively. If yours doesn't, the source is
+> readable and copy-paste-able into [mermaid.live](https://mermaid.live).
+
+---
+
+## 1. Component overview
+
+The three Miles surfaces (Angular web, Flutter mobile, Django backend)
+talk to WaveConnect via two protocols:
+
+- **Angular ↔ Django ↔ WaveConnect:** OIDC authorization-code flow with
+  Django as a Backend-for-Frontend. Angular never sees WaveConnect tokens.
+- **Flutter ↔ WaveConnect (direct), Flutter ↔ Django (bearer):** Flutter
+  performs OIDC itself via `flutter_appauth`, then sends the access token
+  to Django on every API call. Django validates via `/userinfo`.
+
+```mermaid
+graph TB
+    subgraph Miles_FE["Miles Masterclass — Frontends"]
+        Angular[Angular SPA<br/>learn.milesmasterclass.com]
+        Flutter[Flutter Mobile<br/>com.milesmasterclass.app]
+    end
+
+    subgraph Miles_BE["Miles Masterclass — Backend (Django)"]
+        Views[Auth views<br/>login / callback / logout]
+        Mid[Bearer middleware<br/>+ userinfo cache]
+        API[LMS APIs<br/>courses / progress / billing]
+        DB[(Learners DB<br/>sso_subject keyed)]
+    end
+
+    subgraph WaveConnect["WaveConnect (sso.wave-connect.com)"]
+        LP[login-portal<br/>:4300]
+        IDS[identity-service<br/>:3000]
+        SSO[sso-service<br/>:8083<br/>OAuth2.1 / OIDC issuer]
+        UI[/userinfo/]
+        JWKS[/.well-known/jwks.json/]
+    end
+
+    subgraph External["External IdPs — Slice 2+ (rolling out)"]
+        Entra[Microsoft Entra]
+        Google[Google Workspace]
+        Okta[Okta SAML]
+    end
+
+    Angular -->|"session cookie<br/>(withCredentials)"| Views
+    Angular -->|"session cookie"| API
+    Flutter -->|"OIDC redirect<br/>(SafariVC / Chrome Tabs)"| LP
+    Flutter -->|"Bearer access_token"| Mid
+    Mid --> API
+    API --> DB
+
+    Views -->|"OIDC redirect"| LP
+    LP --> IDS
+    Views -->|"code exchange<br/>(server-to-server)"| SSO
+    Mid -->|"GET /userinfo<br/>Bearer token"| UI
+    UI --> SSO
+    Views -.->|"JWKS verify<br/>(boot or cached)"| JWKS
+
+    LP -.->|"tenant_sso route"| Entra
+    LP -.->|"tenant_sso route"| Google
+    LP -.->|"tenant_sso route"| Okta
+```
+
+---
+
+## 2. Web sign-in — Angular + Django BFF (password tenant)
+
+The default path for tenants without an external IdP configured. User
+enters email + password on WaveConnect's branded login-portal; MFA
+challenge if the tenant policy requires it.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User (Browser)
+    participant A as Angular SPA
+    participant D as Django LMS
+    participant LP as login-portal
+    participant IDS as identity-service
+    participant SSO as sso-service
+
+    U->>A: Visit /dashboard
+    A->>A: AuthService.me.value() = null
+    A->>D: GET /auth/login/?next=/dashboard
+    D->>SSO: 302 /oauth2/authorize?<br/>client_id, redirect_uri,<br/>state, code_challenge
+    SSO->>SSO: Validate client + PKCE
+    SSO->>LP: 302 to login-portal (no session yet)
+    LP->>U: Branded sign-in page
+    U->>LP: Email + password
+    LP->>IDS: GET /auth/public/discover?email=...
+    IDS->>LP: {mode: tenant_password, tenant: {...}}
+    LP->>IDS: POST /auth/login<br/>(X-Tenant-ID, email, password)
+    alt Tenant policy requires MFA
+        IDS-->>LP: 200 {mfa_required: true,<br/>challenge_token, allowed_methods}
+        LP->>U: MFA challenge UI
+        U->>LP: TOTP / WebAuthn / backup code
+        LP->>IDS: POST /auth/mfa/verify
+    end
+    IDS-->>LP: 200 {user, session, tokens}<br/>Set-Cookie: sso_session
+    LP->>SSO: Redirect back to /oauth2/authorize<br/>(with session cookie)
+    SSO->>SSO: Read sso_session,<br/>look up sessions table
+    SSO->>SSO: Mint authorization_code<br/>(PASETO, 60s TTL)
+    SSO-->>D: 302 redirect_uri?code=...&state=...
+    D->>SSO: POST /oauth2/token<br/>code + code_verifier + client_secret
+    SSO->>SSO: Verify code + PKCE
+    SSO-->>D: 200 {access_token, refresh_token,<br/>id_token, expires_in}
+    D->>SSO: GET /userinfo<br/>(or trust id_token claims)
+    SSO-->>D: 200 {sub, email, name, picture}
+    D->>D: Learner.objects.update_or_create(<br/>sso_subject=sub, ...)<br/>learner.backend = ModelBackend<br/>login(request, learner)
+    D->>D: Store tokens in DB session
+    D-->>A: 302 /dashboard<br/>Set-Cookie: sessionid (Django)
+    A->>A: AuthService.me.value() = {...}
+    A->>U: Render dashboard
+```
+
+**Key invariants:**
+
+- The `state` parameter (line 4) and `code_verifier` (line 19) are
+  generated by Authlib in Django and never leave the Django process.
+  Angular has zero exposure to OIDC.
+- The Django session cookie (line 30) is separate from WaveConnect's
+  `sso_session`. They never cross domain boundaries.
+- `sso_subject` (the OIDC `sub` claim) is the join key Django stores;
+  emails can change without breaking the link.
+
+---
+
+## 3. Web sign-in — Angular + Django BFF (tenant with SSO)
+
+Pinion-style scenario: the tenant has `require_sso=true` and an external
+IdP (Entra/Google/Okta) configured. User types email at login-portal;
+discover routes them to their IdP instead of the password screen.
+
+> **Status:** Discover routing works today. Steps 9–14 (`sso-service`
+> hand-off to external IdP + JIT) ship in Milestone A Slice 2 (OIDC) and
+> Slice 4 (SAML). Steps 1–8 and 17–end work the same as section 2.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User (Browser)
+    participant A as Angular SPA
+    participant D as Django LMS
+    participant LP as login-portal
+    participant IDS as identity-service
+    participant SSO as sso-service
+    participant IdP as Entra / Google / Okta
+
+    U->>A: Visit /dashboard
+    A->>D: GET /auth/login/
+    D->>SSO: 302 /oauth2/authorize?...
+    SSO->>LP: 302 to login-portal
+    LP->>U: Branded sign-in page
+    U->>LP: Enter alice@pinion.com
+    LP->>IDS: GET /auth/public/discover?email=alice@pinion.com
+    IDS->>IDS: Match tenant_domains → tenants → identity_providers
+    IDS-->>LP: {mode: tenant_sso, idp_id,<br/>login_url, discover_token}
+    LP->>SSO: 302 /oauth2/authorize?<br/>idp_hint=idp_id&discover_token=...
+
+    rect rgb(255, 240, 220)
+        Note over SSO,IdP: Slice 2 (OIDC) / Slice 4 (SAML) territory
+        SSO->>SSO: Verify discover_token (PASETO),<br/>load IdP config,<br/>decrypt client_secret
+        SSO->>SSO: Store RelayState in Redis<br/>(tenant_id, oauth state, code_challenge)
+        SSO-->>U: 302 to IdP authorize endpoint
+        U->>IdP: Sign in (corporate SSO,<br/>MFA enforced by IdP)
+        IdP-->>SSO: POST /idp/oidc/callback or<br/>/idp/saml/<id>/acs
+        SSO->>SSO: Verify ID token / SAML assertion<br/>(signature, audience, NotBefore, ...)
+        SSO->>IDS: gRPC ProvisionFederated(<br/>idp_id, external_user_id, claims, ip, ua)
+        IDS->>IDS: WithTenantTx:<br/>SELECT federated_identities FOR UPDATE,<br/>INSERT users + memberships if new,<br/>authz_outbox tuple, NATS publish
+        IDS-->>SSO: {user_id, session_token, expires_at}
+        SSO->>SSO: Set-Cookie: sso_session<br/>(SameSite=Lax)
+        SSO-->>D: 302 redirect_uri?code=...&state=...
+    end
+
+    D->>SSO: POST /oauth2/token (code exchange)
+    SSO-->>D: {access_token, refresh_token, id_token}
+    D->>D: Learner.objects.update_or_create(...)
+    D-->>A: 302 /dashboard
+    A->>U: Render dashboard
+```
+
+**RelayState is critical here.** Cookies don't reliably survive the
+cross-site IdP round-trip (privacy-mode browsers, SameSite=Lax on POST
+back from IdP), so the tenant binding lives in Redis keyed by an opaque
+ID passed through the protocol's state parameter.
+
+---
+
+## 4. Authenticated API call — Angular (session cookie)
+
+After sign-in, every Angular HTTP call rides on the Django session
+cookie. No tokens in the browser, no JWT verification per-request.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User (Browser)
+    participant A as Angular SPA
+    participant D as Django LMS
+    participant DB as Postgres
+    participant SSO as sso-service
+
+    U->>A: Click "My Courses"
+    A->>D: GET /api/courses<br/>Cookie: sessionid=...<br/>(withCredentials: true)
+    D->>D: SessionMiddleware loads<br/>request.session from sessionid
+    D->>D: AuthenticationMiddleware<br/>hydrates request.user (Learner)
+    D->>DB: SELECT * FROM courses<br/>WHERE learner_id = request.user.id
+    DB-->>D: rows
+    D-->>A: 200 [{...}, {...}]
+    A->>U: Render course list
+
+    Note over A,D: Access token in Django session<br/>refreshed lazily when expired
+
+    opt If Django needs to call WaveConnect /userinfo to refresh attributes
+        D->>D: Check token expiry in session
+        alt access_token expired
+            D->>SSO: POST /oauth2/token<br/>grant_type=refresh_token
+            SSO-->>D: {access_token, refresh_token (rotated), ...}
+            D->>D: Overwrite session tokens<br/>(CRITICAL: rotation)
+        end
+        D->>SSO: GET /userinfo<br/>Bearer access_token
+        SSO-->>D: {sub, email, name, picture}
+        D->>DB: UPDATE learner SET name=...,<br/>avatar_url=...
+    end
+```
+
+**Performance note:** In steady state, only steps 1–7 run. The
+`/userinfo` round-trip (steps 9–15) is rare — only when an attribute
+sync is explicitly triggered or the cached attributes are stale.
+
+---
+
+## 5. Mobile sign-in — Flutter (direct OIDC, no BFF)
+
+Flutter cannot use cookies easily, so it performs OIDC itself via
+`flutter_appauth` and stores tokens in OS-encrypted secure storage.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant F as Flutter App
+    participant BW as Safari VC /<br/>Chrome Custom Tabs
+    participant LP as login-portal
+    participant SSO as sso-service
+    participant IDS as identity-service
+    participant KC as Keychain (iOS) /<br/>Keystore (Android)
+
+    U->>F: Tap "Sign in"
+    F->>F: flutter_appauth.authorizeAndExchangeCode(<br/>clientId, redirectUri, scopes,<br/>PKCE verifier generated)
+    F->>BW: Open WaveConnect /oauth2/authorize<br/>via OS-native browser surface
+    BW->>SSO: GET /oauth2/authorize?...
+    SSO->>LP: 302 to login-portal (no session yet)
+    LP->>BW: Branded sign-in page
+    U->>BW: Email + password + MFA
+    LP->>IDS: POST /auth/login (+ MFA verify)
+    IDS-->>LP: Set-Cookie: sso_session
+    LP->>SSO: Redirect to /authorize with session
+    SSO->>SSO: Mint authorization_code
+    SSO-->>BW: 302 com.milesmasterclass.app:/oauth/callback?code=...
+    BW->>F: OS resolves custom URI scheme,<br/>hands code back to Flutter
+    F->>SSO: POST /oauth2/token<br/>(authorization_code grant,<br/>code_verifier — no client_secret,<br/>this is a public client)
+    SSO->>SSO: Verify PKCE, mint tokens
+    SSO-->>F: {access_token, refresh_token, id_token,<br/>expires_in: 900}
+    F->>F: Verify id_token signature<br/>(library does this; uses /jwks.json)
+    F->>KC: Persist access_token, refresh_token,<br/>id_token (encrypted at OS level)
+    F->>U: Show home screen
+```
+
+**Why custom URI scheme:** Apple/Google block third-party apps from
+intercepting `https://` redirects unless universal/app links are
+configured. The `com.milesmasterclass.app:/oauth/callback` form is
+registered in `Info.plist` (iOS) and `build.gradle` (Android), and the
+OS hands the response back to Flutter. AppAuth handles this seamlessly.
+
+---
+
+## 6. Authenticated API call — Flutter (bearer token + Django cache)
+
+Flutter sends the access token on every Django API call. Django
+validates via WaveConnect's `/userinfo` and caches the result (5min
+default) so the network hop only happens once per token per worker
+cluster.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant F as Flutter App
+    participant KC as Keychain
+    participant D as Django LMS
+    participant Cache as Redis Cache
+    participant SSO as sso-service
+    participant DB as Postgres
+
+    U->>F: Tap "Take quiz"
+    F->>KC: Read access_token
+    F->>D: GET /api/quizzes/42<br/>Authorization: Bearer <access_token>
+
+    D->>D: WaveConnectBearerMiddleware
+    D->>D: cache_key = SHA-256(token)[:hex]
+    D->>Cache: GET wc_userinfo:<hash>
+
+    alt Cache hit (most common after first request)
+        Cache-->>D: {sub, email, name, ...}
+    else Cache miss (first request, or after 5min)
+        D->>SSO: GET /userinfo<br/>Authorization: Bearer <access_token>
+        SSO->>SSO: Validate PASETO,<br/>look up user
+        SSO-->>D: {sub, email, name, picture}
+        D->>Cache: SET wc_userinfo:<hash><br/>TTL 300s
+    end
+
+    D->>D: request.wc_user = userinfo
+    D->>DB: SELECT * FROM quizzes WHERE id=42<br/>AND visible_to(request.wc_user[sub])
+    DB-->>D: quiz row
+    D-->>F: 200 {quiz: {...}}
+    F->>U: Render quiz
+```
+
+**Cache-key correctness:** SHA-256(token), not Python's built-in
+`hash()`. The built-in is PYTHONHASHSEED-randomized and process-local;
+gunicorn worker N's cache key for a given token differs from worker
+N+1's. SHA-256 gives a stable cluster-wide key — important when Django
+scales horizontally.
+
+**TTL choice:** 5 minutes is shorter than the typical 15-minute
+access-token lifetime. A revoked token stops working within at most 5
+min without explicit cache invalidation. If revocation latency must be
+faster, lower the TTL or wire a revocation webhook.
+
+---
+
+## 7. Token refresh — Flutter (rotating refresh tokens)
+
+When the access token expires (HTTP 401), Flutter quietly refreshes and
+retries.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant F as Flutter App
+    participant KC as Keychain
+    participant D as Django LMS
+    participant SSO as sso-service
+
+    F->>D: GET /api/profile<br/>Bearer <expired_access_token>
+    D->>SSO: GET /userinfo<br/>Bearer <expired>
+    SSO-->>D: 401 {error: "invalid_token",<br/>error_description: "expired"}
+    D-->>F: 401 {error: "invalid_token"}
+
+    F->>KC: Read refresh_token
+    F->>SSO: POST /oauth2/token<br/>grant_type=refresh_token<br/>refresh_token=<...>
+
+    SSO->>SSO: Validate refresh token,<br/>rotate family
+    SSO-->>F: 200 {access_token: <NEW>,<br/>refresh_token: <NEW_ROTATED>,<br/>id_token, expires_in}
+
+    F->>KC: WRITE access_token (NEW)
+    Note over F,KC: CRITICAL — if refresh_token<br/>came back, overwrite stored one.<br/>If null (some IdPs don't rotate),<br/>KEEP the existing one (do NOT<br/>write null — that deletes the key).
+    alt response.refresh_token != null
+        F->>KC: WRITE refresh_token (NEW_ROTATED)
+    end
+
+    F->>D: GET /api/profile<br/>Bearer <NEW access_token>
+    D->>SSO: GET /userinfo (or cache hit)
+    SSO-->>D: 200 {sub, ...}
+    D-->>F: 200 {profile: {...}}
+    F->>U: Render profile
+```
+
+**Refresh-token family rotation is enforced.** Sending an old (already-
+rotated) refresh token revokes the entire family — every Flutter
+instance signed into the same account is logged out. Treat the storage
+write at step 11 as load-bearing.
+
+---
+
+## 8. Logout
+
+Two scenarios: local-only logout (Django session ends, WaveConnect
+session continues for other apps) vs full logout (WaveConnect session
+ends too, plus SAML SLO if applicable).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant A as Angular / Flutter
+    participant D as Django LMS
+    participant SSO as sso-service
+    participant IDS as identity-service
+    participant IdP as External IdP<br/>(SAML SLO)
+
+    U->>A: Tap "Sign out"
+
+    A->>D: POST /auth/logout/
+    D->>D: django.contrib.auth.logout()<br/>(clears session, deletes session row)
+    D-->>A: 302 to WaveConnect logout
+    A->>SSO: GET /auth/logout?return_to=<miles-root>
+
+    SSO->>IDS: Revoke session<br/>(sessions.status='revoked')
+    IDS->>IDS: Read federation metadata<br/>from session
+
+    alt User was federated via SAML
+        SSO->>IdP: POST /slo/logout-request<br/>(SAMLRequest with NameID)
+        IdP-->>SSO: 200 logout response
+    end
+
+    SSO->>SSO: Clear sso_session cookie
+    SSO-->>A: 302 to return_to
+
+    A->>U: Show signed-out screen
+
+    Note over A,D: For Flutter, step 1 also clears Keychain:<br/>storage.deleteAll() before redirect
+```
+
+**Why two hops (Django + WaveConnect):** Killing only the Django
+session would leave the user still signed into WaveConnect. If they hit
+another Miles property (or another tenant they belong to), they'd be
+silently re-authenticated. The two-hop logout is the safe default; if
+you want "Miles-only logout", skip the redirect to `/auth/logout` and
+just clear Django's session.
+
+---
+
+## 9. Failure modes — what happens when…
+
+### 9.1 WaveConnect is unreachable during sign-in
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant D as Django LMS
+    participant SSO as sso-service
+
+    U->>D: GET /auth/login/
+    D->>SSO: 302 /oauth2/authorize (browser follows)
+    Note over SSO: WaveConnect down
+    D--xSSO: TCP refused / timeout / 5xx
+    D-->>U: Render fallback error page:<br/>"Sign-in temporarily unavailable.<br/>Try again in a few minutes."
+```
+
+Django's Authlib has no retry on the authorize redirect (it's
+browser-initiated). Surface a friendly error page with the correlation
+ID; on recovery, the next click works.
+
+### 9.2 Access token expired during a Flutter API call
+
+Handled by section 7 (Token refresh). The 401 → refresh → retry loop is
+transparent to the user.
+
+### 9.3 Refresh token also expired (long absence)
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant F as Flutter
+    participant SSO as sso-service
+
+    F->>SSO: POST /oauth2/token<br/>grant_type=refresh_token
+    SSO-->>F: 400 {error: "invalid_grant"}
+    F->>F: Clear all stored tokens
+    F->>U: Show login screen<br/>(or trigger interactive sign-in if app supports it)
+```
+
+Refresh-token TTL is typically 30 days. If the user has been away
+longer, they re-authenticate from scratch.
+
+### 9.4 Identity-service is down but sso-service is up
+
+`/oauth2/token` and `/userinfo` work (sso-service reads its own
+`sessions` table copy). New sign-ins fail because identity-service
+issues sessions. Existing logged-in users continue to work until their
+access tokens expire.
+
+---
+
+## 10. Where the secrets live
+
+```mermaid
+graph LR
+    subgraph Django["Django backend"]
+        Session[(Session<br/>backend)]
+        Settings[settings.py<br/>env]
+    end
+
+    subgraph Flutter["Flutter app"]
+        Keychain[Keychain / Keystore<br/>encrypted]
+    end
+
+    subgraph WaveConnect["WaveConnect"]
+        DB[(sessions table)]
+        Vault[KMS / Vault]
+    end
+
+    Settings -- "WAVECONNECT_CLIENT_SECRET<br/>(server-only)" --> Vault
+    Session -- "access_token<br/>refresh_token<br/>id_token" --> Session
+    Keychain -- "access_token<br/>refresh_token<br/>id_token" --> Keychain
+    DB -- "sso_session token_hash<br/>(SHA-256, not plaintext)" --> DB
+    Vault -- "OIDC_SECRET_KEY<br/>(envelopes column secrets)" --> Vault
+```
+
+| Secret | Lives in | Never goes to |
+|---|---|---|
+| `WAVECONNECT_CLIENT_SECRET` (Django) | env var / KMS | the browser, mobile app, or logs |
+| Django session cookie value | browser, signed by Django | external services |
+| WaveConnect access + refresh tokens | Django DB-backed session ; Flutter Keychain | the Angular bundle, JS console, public logs |
+| `sso_session` cookie | browser, opaque token | Django (different domain) |
+| `OIDC_SECRET_KEY` (WaveConnect) | K8s Secret backed by KMS/Vault | git, env files committed to source |
+
+---
+
+## Cross-references
+
+- [docs/integration-guide.md](../integration-guide.md) — the developer
+  & admin onboarding guide. Code samples that produce the flows above.
+- [docs/plans/execution-roadmap.md](../plans/execution-roadmap.md) —
+  what's shipped vs rolling out. Sections 3 & 5 here flag what's still
+  in flight.
+- [docs/concepts/paseto-tokens.md](paseto-tokens.md) — internal token
+  format reference. Not needed for integration but useful for security
+  review.
+- [AGENT.md](../../AGENT.md) — workspace map.

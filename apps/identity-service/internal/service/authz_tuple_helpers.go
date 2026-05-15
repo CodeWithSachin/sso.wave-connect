@@ -34,6 +34,21 @@ func enqueueOwnerTuple(
 	repo *repository.AuthzOutboxRepository,
 	tenantID, userID, membershipID uuid.UUID,
 ) error {
+	return enqueueRoleTuple(ctx, tx, repo, tenantID, userID, membershipID, "owner")
+}
+
+// enqueueRoleTuple is the role-generic variant of enqueueOwnerTuple.
+// ProvisionFederated (Slice 2 JIT) uses this with the IdP's `default_role`
+// — typically "member", but configurable per IdP. The role is included
+// in the idempotency key so a downgrade / upgrade doesn't collide with
+// the prior tuple's outbox row.
+func enqueueRoleTuple(
+	ctx context.Context,
+	tx pgx.Tx,
+	repo *repository.AuthzOutboxRepository,
+	tenantID, userID, membershipID uuid.UUID,
+	role string,
+) error {
 	if repo == nil {
 		return nil
 	}
@@ -46,9 +61,9 @@ func enqueueOwnerTuple(
 		StoreID:        storeID,
 		Operation:      repository.AuthzOpWrite,
 		TupleUser:      repository.BuildUserRef(userID),
-		TupleRelation:  "owner",
+		TupleRelation:  role,
 		TupleObject:    repository.BuildOrgRef(tenantID),
-		IdempotencyKey: fmt.Sprintf("membership:%s:owner:write", membershipID),
+		IdempotencyKey: fmt.Sprintf("membership:%s:%s:write", membershipID, role),
 		Source:         repository.AuthzSourceSystem,
 	})
 }
