@@ -14,6 +14,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import {
   CurrentUser,
   RequireCapability,
+  RequirePermission,
   RequireVerifiedEmail,
   TenantId,
   type AuthSession,
@@ -90,6 +91,7 @@ export class ApiKeysController {
 
   @Delete(':id')
   @RequireCapability('manage_api_keys')
+  @RequirePermission('can_delete', 'api_key')
   @RequireVerifiedEmail()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke an API key' })

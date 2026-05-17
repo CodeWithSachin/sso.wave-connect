@@ -53,14 +53,37 @@ export class ApiKeysService {
     const id = crypto.randomUUID();
     const now = new Date();
 
-    await this.prisma.$executeRaw`
-      INSERT INTO api_keys (id, tenant_id, user_id, name, key_prefix, key_hash, status, scopes, rate_limit_per_min, expires_at, created_at)
-      VALUES (
-        ${id}::uuid, ${tenantId}::uuid, ${userId}::uuid, ${name},
-        ${prefix}, ${keyHash}, 'active', ${scopes}::text[],
-        ${rateLimitPerMin}, ${expiresAt ?? null}, ${now}
-      )
-    `;
+    // Phase 4: insert + authz_outbox row in one transaction so the tuple
+    // is durable iff the api_keys insert lands. Outbox worker drains
+    // asynchronously into OpenFGA (eventual consistency; capability layer
+    // is the immediate gate per ADR-0003). developer-portal-api uses
+    // schema-less Prisma so the outbox INSERT is hand-written rather than
+    // going through tx.authzOutbox.create().
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        INSERT INTO api_keys (id, tenant_id, user_id, name, key_prefix, key_hash, status, scopes, rate_limit_per_min, expires_at, created_at)
+        VALUES (
+          ${id}::uuid, ${tenantId}::uuid, ${userId}::uuid, ${name},
+          ${prefix}, ${keyHash}, 'active', ${scopes}::text[],
+          ${rateLimitPerMin}, ${expiresAt ?? null}, ${now}
+        )
+      `;
+      const tenantRow = await tx.$queryRaw<{ openfga_store_id: string | null }[]>`
+        SELECT openfga_store_id FROM tenants WHERE id = ${tenantId}::uuid LIMIT 1
+      `;
+      const storeId = tenantRow[0]?.openfga_store_id ?? '';
+      await tx.$executeRaw`
+        INSERT INTO authz_outbox (
+          tenant_id, store_id, operation, tuple_user, tuple_relation, tuple_object,
+          idempotency_key, actor_user_id, source
+        ) VALUES (
+          ${tenantId}::uuid, ${storeId}, 'write',
+          ${'user:' + userId}, 'owner', ${'api_key:' + id},
+          ${'api_key:' + id + ':owner:create'},
+          ${userId}::uuid, 'developer-portal-api'
+        )
+      `;
+    });
 
     this.logger.log(`API key created: ${prefix}... for tenant ${tenantId}`);
 

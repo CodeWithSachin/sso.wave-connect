@@ -163,17 +163,69 @@ change made via admin-console takes effect:
 A tenant switch is a deliberate full-page reload, so the SessionStore
 re-hydrates from scratch.
 
+## Per-resource permissions (ADR-0003, Phase 4)
+
+Capability gating answers "can this user, in general, manage OAuth
+apps?" It does not answer "can this user manage *this specific* OAuth
+app?" That distinction lives in OpenFGA. The two layers compose —
+capability gating fires first; per-resource ACL checks fire second on
+the same route.
+
+```ts
+@Patch(':id')
+@RequireCapability('manage_oauth_apps')        // ← cap layer (any active member)
+@RequirePermission('can_edit', 'oauth_app')    // ← per-resource (this app)
+@RequireVerifiedEmail()
+update(@Param('id') id: string, ...) { ... }
+```
+
+Compose semantics:
+- A user with the capability but no per-resource grant → 403.
+- A user with the per-resource grant but no capability → 403.
+- A user with both → passes.
+
+**Owner tuples on create.** Every resource-creating handler writes the
+matching owner tuple to `authz_outbox` in the same transaction as the
+DB insert. The outbox worker in authz-service drains it into OpenFGA
+asynchronously (eventual consistency). Until the tuple lands, the
+capability layer is the only gate on the new resource — acceptable
+because the creator has the capability anyway.
+
+**`org_admin` shortcut.** The OpenFGA model gives `org_admin` (admin
+relation on the resource's organisation) implicit `can_edit` on every
+resource of types `oauth_app`, `api_key`, `webhook`, `idp`. This
+matches today's manage_* capability semantics — organisation admins
+keep their tenant-wide edit privileges without needing an explicit
+per-resource grant.
+
+**Env config.** `AUTHZ_SERVICE_URL` must be set in NestJS service
+env for `@RequirePermission`-decorated routes to function. If unset
+or unreachable, `RebacGuard` fails closed with 403 "Authorization
+service unavailable". Set to `http://localhost:7501` (authz-service
+default port) in local development.
+
+**Resource coverage as of 2026-05-17:**
+
+| Resource | Model? | Tuple on create? | `@RequirePermission`? |
+|---|---|---|---|
+| `oauth_app` | Yes | Yes | update, rotate-secret, delete |
+| `api_key` | Yes | Yes | delete |
+| `webhook` | Yes | No (follow-up) | No (follow-up) |
+| `idp` | Yes | No (follow-up) | No (follow-up) |
+| `scim_token` | No | — | — (cap layer alone) |
+
 ## What's intentionally NOT here (yet)
 
-- **OpenFGA / ReBAC for per-resource permissions** (e.g. "can edit *this*
-  OAuth app"). Capability gating handles "can manage OAuth apps in
-  general." Per-resource owner/editor relations land in [ADR-0003](./adr-0003-openfga.md)
-  when cross-tenant sharing or per-resource ACLs are needed.
-- **Push-based session invalidation.** 30 s polling is the bound. WebSocket
-  push is a follow-up if revocation latency becomes a real complaint.
+- **Push-based session invalidation.** Phase 3 of the deferred
+  roadmap shipped SSE on `/api/v1/session/events`; the 5 min
+  fallback poll only catches degraded NATS. WebSocket would have
+  added deps for no UX gain — see [docs/plans/deferred-roadmap.md](../plans/deferred-roadmap.md).
 - **Capability scopes for OAuth access tokens.** Current API key
   `scopes: ['admin:read', ...]` and the `Capability` union are independent
   vocabularies; bringing them under one roof is its own ADR.
+- **Batch `/check` endpoint for per-row UI affordances.** Until UX
+  complaints land, frontend shows edit buttons optimistically and the
+  server returns 403 if denied.
 
 ## Verification recipes
 

@@ -1,6 +1,13 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { RequireCapability, RequireVerifiedEmail, TenantId } from '@sso-platform/nestjs-auth';
+import {
+  CurrentUser,
+  RequireCapability,
+  RequirePermission,
+  RequireVerifiedEmail,
+  TenantId,
+  type AuthSession,
+} from '@sso-platform/nestjs-auth';
 import { OAuthAppsService } from './oauth-apps.service';
 
 /**
@@ -21,9 +28,10 @@ export class OAuthAppsController {
   @ApiOperation({ summary: 'Register a new OAuth application' })
   async create(
     @TenantId() tenantId: string,
+    @CurrentUser() user: AuthSession,
     @Body() body: { name: string; redirect_uris: string[]; allowed_scopes?: string[] },
   ) {
-    return this.oauthAppsService.create(tenantId, body);
+    return this.oauthAppsService.create(tenantId, user.id, body);
   }
 
   @Get()
@@ -40,6 +48,7 @@ export class OAuthAppsController {
 
   @Post(':id/rotate-secret')
   @RequireCapability('manage_oauth_apps')
+  @RequirePermission('can_edit', 'oauth_app')
   @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Rotate client secret (new secret shown once)' })
   async rotateSecret(
@@ -51,6 +60,7 @@ export class OAuthAppsController {
 
   @Patch(':id')
   @RequireCapability('manage_oauth_apps')
+  @RequirePermission('can_edit', 'oauth_app')
   @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Update an OAuth application (name, redirect URIs, scopes)' })
   async update(
@@ -63,6 +73,7 @@ export class OAuthAppsController {
 
   @Delete(':id')
   @RequireCapability('manage_oauth_apps')
+  @RequirePermission('can_delete', 'oauth_app')
   @RequireVerifiedEmail()
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(

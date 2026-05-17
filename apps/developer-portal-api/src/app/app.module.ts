@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import {
+  RebacGuard,
   RequireCapabilityGuard,
   RequireVerifiedEmailGuard,
   SessionCookieGuard,
@@ -40,6 +41,12 @@ import { SessionModule } from '../session/session.module';
     // E2E review A1 — @RequireVerifiedEmail() routes 403 unverified users
     // with `email_not_verified`. No-op on undecorated routes.
     { provide: APP_GUARD, useClass: RequireVerifiedEmailGuard },
+    // Phase 4 / ADR-0003 — RebacGuard runs last in the chain. No-op for
+    // routes without @RequirePermission(); for decorated routes, calls
+    // authz-service /authz/check at $AUTHZ_SERVICE_URL. Fail-closed:
+    // unset env or unreachable service returns 403 "Authorization
+    // service unavailable" so a misconfig is visible, not silent.
+    { provide: APP_GUARD, useClass: RebacGuard },
   ],
 })
 export class AppModule {}

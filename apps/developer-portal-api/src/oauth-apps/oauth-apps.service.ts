@@ -9,20 +9,39 @@ export class OAuthAppsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(tenantId: string, body: { name: string; redirect_uris: string[]; allowed_scopes?: string[] }) {
+  async create(tenantId: string, userId: string, body: { name: string; redirect_uris: string[]; allowed_scopes?: string[] }) {
     const id = crypto.randomUUID();
     const clientId = `app_${randomBytes(16).toString('hex')}`;
     const clientSecret = randomBytes(32).toString('hex');
     const secretHash = createHash('sha256').update(clientSecret).digest('hex');
     const now = new Date();
 
-    await this.prisma.$executeRaw`
-      INSERT INTO oauth_clients (id, tenant_id, client_id, client_secret_hash, name, redirect_uris,
-        allowed_scopes, is_first_party, is_public, require_pkce, require_consent, is_active, created_at, updated_at)
-      VALUES (${id}::uuid, ${tenantId}::uuid, ${clientId}, ${secretHash}, ${body.name},
-        ${body.redirect_uris}::text[], ${body.allowed_scopes ?? ['openid', 'profile', 'email']}::text[],
-        false, false, true, true, true, ${now}, ${now})
-    `;
+    // Phase 4: insert + owner-tuple outbox row in one transaction so the
+    // OpenFGA grant is durable iff the oauth_clients insert lands.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        INSERT INTO oauth_clients (id, tenant_id, client_id, client_secret_hash, name, redirect_uris,
+          allowed_scopes, is_first_party, is_public, require_pkce, require_consent, is_active, created_at, updated_at)
+        VALUES (${id}::uuid, ${tenantId}::uuid, ${clientId}, ${secretHash}, ${body.name},
+          ${body.redirect_uris}::text[], ${body.allowed_scopes ?? ['openid', 'profile', 'email']}::text[],
+          false, false, true, true, true, ${now}, ${now})
+      `;
+      const tenantRow = await tx.$queryRaw<{ openfga_store_id: string | null }[]>`
+        SELECT openfga_store_id FROM tenants WHERE id = ${tenantId}::uuid LIMIT 1
+      `;
+      const storeId = tenantRow[0]?.openfga_store_id ?? '';
+      await tx.$executeRaw`
+        INSERT INTO authz_outbox (
+          tenant_id, store_id, operation, tuple_user, tuple_relation, tuple_object,
+          idempotency_key, actor_user_id, source
+        ) VALUES (
+          ${tenantId}::uuid, ${storeId}, 'write',
+          ${'user:' + userId}, 'owner', ${'oauth_app:' + id},
+          ${'oauth_app:' + id + ':owner:create'},
+          ${userId}::uuid, 'developer-portal-api'
+        )
+      `;
+    });
 
     return { id, client_id: clientId, client_secret: clientSecret, name: body.name, redirect_uris: body.redirect_uris };
   }

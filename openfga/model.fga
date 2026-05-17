@@ -81,3 +81,60 @@ type feature_flag
   relations
     define owner: [organization]
     define enabled_for: [user, group#member, organization#member]
+
+# === ADR-0003 PHASE 4 — per-instance resource ACLs ===
+#
+# Every developer-facing mutable resource gets the same owner/editor/viewer
+# triad. owner can transfer + delete; editor can mutate; viewer can read.
+# org_admin shortcut lets organisation admins inherit edit access without
+# explicit per-resource grants (matches today's manage_* capability semantics
+# at the OpenFGA layer).
+
+type api_key
+  relations
+    define organization: [organization]
+    define owner: [user]
+    define editor: [user, group#member] or owner or org_admin
+    define viewer: [user, group#member] or editor
+    define org_admin: admin from organization
+    define can_view: viewer
+    define can_edit: editor
+    define can_delete: owner or org_admin
+
+type oauth_app
+  relations
+    define organization: [organization]
+    define owner: [user]
+    define editor: [user, group#member] or owner or org_admin
+    define viewer: [user, group#member] or editor
+    define org_admin: admin from organization
+    define can_view: viewer
+    define can_edit: editor
+    define can_delete: owner or org_admin
+
+type webhook
+  relations
+    define organization: [organization]
+    define owner: [user]
+    define editor: [user, group#member] or owner or org_admin
+    define viewer: [user, group#member] or editor
+    define org_admin: admin from organization
+    define can_view: viewer
+    define can_edit: editor
+    define can_delete: owner or org_admin
+
+type idp
+  relations
+    define organization: [organization]
+    define owner: [user]
+    define editor: [user, group#member] or owner or org_admin
+    define viewer: [user, group#member] or editor
+    define org_admin: admin from organization
+    define can_view: viewer
+    define can_edit: editor
+    define can_delete: owner or org_admin
+
+# scim_token is intentionally absent — the deferred-roadmap notes the
+# capability layer alone is sufficient (admins only), so the per-instance
+# overhead isn't warranted today. Re-evaluate if external service-account
+# delegation arrives.

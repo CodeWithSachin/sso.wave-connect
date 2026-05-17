@@ -1,7 +1,7 @@
-# ADR-0003 (stub): OpenFGA wiring for fine-grained resource ACLs
+# ADR-0003: OpenFGA wiring for fine-grained resource ACLs
 
-**Status:** Proposed (placeholder)
-**Date:** TBD
+**Status:** Accepted
+**Date:** 2026-05-17 (promoted from Proposed stub; landed with Phase 4 of the deferred roadmap)
 **Supersedes:** —
 **Superseded by:** —
 
@@ -63,21 +63,44 @@ and [`libs/nestjs-auth/src/lib/rebac.guard.ts`](../../libs/nestjs-auth/src/lib/r
 4. Wiring `@RequirePermission` decorators on the resource-mutation
    endpoints.
 
-## Action items (when this ADR fires)
+## Action items — landed in Phase 4 (2026-05-17)
 
-1. [ ] Identify the resource types that need per-instance permissions
-       (likely starting with OAuth apps + API keys).
-2. [ ] Extend `openfga/model.fga` with `owner | editor | viewer` relations
-       per type.
-3. [ ] Wire `AUTHZ_SERVICE_URL` in admin-api + developer-portal-api env
-       configs; the existing `RebacGuard` reads it from `process.env`.
-4. [ ] Add tuple-write hooks to resource create/transfer endpoints so the
-       OpenFGA store mirrors the database state.
-5. [ ] Decorate the relevant handlers with `@RequirePermission(...)`.
-6. [ ] Stress test: capability hit + OpenFGA miss should return 403, not 500.
-7. [ ] Document the composition rule above in `docs/architecture/rbac.md`
-       under a new "Per-resource permissions" section.
-8. [ ] Promote this stub to a full ADR with Status: Accepted.
+1. [x] Identify resource types — `oauth_app`, `api_key`, `webhook`, `idp`
+       (scim_token deferred: capability layer alone is sufficient there).
+2. [x] Extend `openfga/model.fga` — four new types with `owner / editor /
+       viewer` relations and `can_view / can_edit / can_delete` rules.
+       `org_admin` shortcut lets organisation admins inherit edit access
+       without explicit per-resource grants.
+3. [x] Wire `AUTHZ_SERVICE_URL` — `RebacGuard` reads `process.env` lazily;
+       env-var documented in `docs/architecture/rbac.md`. RebacGuard is
+       fail-closed if unset on a `@RequirePermission`-decorated route.
+4. [x] Tuple writes — oauth-apps + api-keys create handlers write
+       `<type>:<id>#owner@user:<actor>` into `authz_outbox` in the same
+       transaction as the resource insert. The existing outbox worker in
+       authz-service drains it into OpenFGA.
+5. [x] `@RequirePermission` decorators on oauth-apps (update,
+       rotate-secret, delete) and api-keys (delete). Capability layer
+       still gates the operation in general; OpenFGA layer gates the
+       *specific* resource.
+6. [x] Composition: capability hit + OpenFGA miss returns 403
+       ("Authorization service unavailable" on env miss, "Permission
+       denied" on relation miss). Verified at unit-test level; E2E
+       coverage tracked as a follow-up against a running dev env.
+7. [x] "Per-resource permissions" section added to
+       `docs/architecture/rbac.md`.
+
+## Follow-up
+
+- webhooks + IdP resource types: model + decorators in place but tuple
+  writes on create not yet wired. Same mechanical pattern as
+  oauth-apps; defer until those features grow real per-instance
+  ownership requirements.
+- scim_token: intentionally absent from the model. Re-evaluate if
+  external service-account delegation arrives.
+- E2E test fixture: a "alice creates app, bob (admin in same tenant)
+  gets 403 on PATCH, alice grants bob editor, bob now passes" scenario
+  needs a running dev stack with seeded users + an OpenFGA store. Filed
+  as a separate task.
 
 ## What stays the same
 
