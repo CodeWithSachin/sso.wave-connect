@@ -14,6 +14,7 @@ import type {
 	SessionMeMembership,
 	SessionMePlatform,
 } from '@sso-platform/shared-types';
+import { environment } from '../../environments/environment';
 import { SessionService } from './session.service';
 
 const ABORTED = Symbol('hydrate-aborted');
@@ -42,10 +43,17 @@ const initialState: SessionState = {
 	error: null,
 };
 
-/** Poll cadence — match admin-console (ADR-0002 §C1). */
-const POLL_MS = 30_000;
+/**
+ * Fallback poll interval. Phase 3 pushes invalidations over SSE on
+ * /api/v1/session/events; the poll only fires when the SSE channel is
+ * unavailable (degraded NATS or proxy). 5 min keeps freshness bounded
+ * while cutting per-tab request volume from ~12/min to 0.2/min.
+ */
+const POLL_MS = 5 * 60 * 1000;
 /** Bootstrap deadline; layout falls through with `capabilities=[]` after this. */
 const HYDRATE_TIMEOUT_MS = 3_000;
+const SSE_RECONNECT_MIN_MS = 1_000;
+const SSE_RECONNECT_MAX_MS = 60_000;
 
 /**
  * Authenticated-session source of truth for the developer-portal shell.
@@ -77,6 +85,40 @@ export const SessionStore = signalStore(
 	withMethods((store) => {
 		const svc = inject(SessionService);
 		let pollHandle: ReturnType<typeof setInterval> | null = null;
+		let sseSource: EventSource | null = null;
+		let sseReconnectHandle: ReturnType<typeof setTimeout> | null = null;
+		let sseBackoffMs = SSE_RECONNECT_MIN_MS;
+
+		// Mirrors admin-console's closure-based SSE opener so onerror can
+		// recursively reconnect after backoff without `this` binding tricks.
+		function connectSSE(): void {
+			if (typeof EventSource === 'undefined') return;
+			if (sseSource) return;
+			const url = `${environment.devPortalApiUrl}/api/v1/session/events`;
+			try {
+				sseSource = new EventSource(url, { withCredentials: true });
+			} catch {
+				return;
+			}
+			sseSource.addEventListener('invalidate', () => {
+				sseBackoffMs = SSE_RECONNECT_MIN_MS;
+				void loadOnce();
+			});
+			sseSource.addEventListener('ping', () => {
+				sseBackoffMs = SSE_RECONNECT_MIN_MS;
+			});
+			sseSource.onerror = () => {
+				sseSource?.close();
+				sseSource = null;
+				if (sseReconnectHandle !== null) return;
+				const delay = sseBackoffMs;
+				sseBackoffMs = Math.min(sseBackoffMs * 2, SSE_RECONNECT_MAX_MS);
+				sseReconnectHandle = setTimeout(() => {
+					sseReconnectHandle = null;
+					connectSSE();
+				}, delay);
+			};
+		}
 
 		// Wrap the fetch so a slow response can't clobber a deliberate
 		// timeout-state write that fired first.
@@ -152,14 +194,29 @@ export const SessionStore = signalStore(
 					pollHandle = null;
 				}
 			},
+			/** Phase 3 SSE push consumer; see admin-console for the rationale. */
+			_connectSSE(): void {
+				connectSSE();
+			},
+			_disconnectSSE(): void {
+				if (sseReconnectHandle !== null) {
+					clearTimeout(sseReconnectHandle);
+					sseReconnectHandle = null;
+				}
+				sseSource?.close();
+				sseSource = null;
+				sseBackoffMs = SSE_RECONNECT_MIN_MS;
+			},
 		};
 	}),
 	withHooks({
 		onInit(store) {
 			store._startPolling();
+			store._connectSSE();
 		},
 		onDestroy(store) {
 			store._stopPolling();
+			store._disconnectSSE();
 		},
 	}),
 );

@@ -1,4 +1,4 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get, Req, Sse, type MessageEvent } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -7,8 +7,10 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { map, merge, Observable, timer } from 'rxjs';
 import type { SessionMeDto } from '@sso-platform/shared-types';
 import { CurrentUser, type AuthSession } from '@sso-platform/nestjs-auth';
+import { NatsService } from './nats.service';
 import { SessionService } from './session.service';
 import { SessionMeResponseDto } from './dto/session-me.dto';
 
@@ -24,7 +26,10 @@ import { SessionMeResponseDto } from './dto/session-me.dto';
 @ApiBearerAuth()
 @Controller('api/v1/session')
 export class SessionController {
-  constructor(private readonly svc: SessionService) {}
+  constructor(
+    private readonly svc: SessionService,
+    private readonly nats: NatsService,
+  ) {}
 
   @Get('me')
   @ApiOperation({
@@ -46,5 +51,34 @@ export class SessionController {
         ? `sso_session=${req.cookies['sso_session']}`
         : '');
     return this.svc.getMe(user, cookieHeader);
+  }
+
+  /**
+   * Phase 3 SSE push channel. Streams `invalidate` events keyed to the
+   * authenticated user; admin-console's SessionStore listens here and
+   * triggers `reload()` on each event so role / membership / platform-
+   * admin changes propagate within seconds rather than the previous
+   * 30s polling cadence.
+   *
+   * Heartbeat: a `ping` every 25s keeps proxies from idling the
+   * long-lived connection out. Browsers ignore unknown event types.
+   *
+   * The connection inherits the global SessionCookieGuard chain — no
+   * special @UseGuards needed.
+   */
+  @Sse('events')
+  @ApiOperation({
+    summary: 'Push channel for session invalidations (SSE).',
+    description:
+      'Emits `invalidate` events when membership / role / platform-admin state changes for the connected user. Heartbeats with `ping` every 25s.',
+  })
+  events(@CurrentUser() user: AuthSession): Observable<MessageEvent> {
+    const invalidations$ = this.nats.watchUser(user.id).pipe(
+      map((reason) => ({ type: 'invalidate', data: reason }) as MessageEvent),
+    );
+    const heartbeat$ = timer(0, 25_000).pipe(
+      map(() => ({ type: 'ping', data: 'ok' }) as MessageEvent),
+    );
+    return merge(invalidations$, heartbeat$);
   }
 }

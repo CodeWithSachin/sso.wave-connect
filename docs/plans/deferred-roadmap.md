@@ -229,7 +229,30 @@ search across docs (Scalar has its own).
 
 ---
 
-## Phase 3 — Real-time session updates via WebSocket (2–3 days)
+## Phase 3 — Real-time session updates via SSE (shipped)
+
+> Shipped via SSE (Server-Sent Events) rather than WebSockets. The
+> use case is one-way (server pushes "your session changed"); SSE fits
+> with zero new client deps, reuses the existing SessionCookieGuard,
+> and avoids webpack-externalizing socket.io. The original
+> WebSocket-flavoured plan is preserved below for context — the actual
+> implementation uses `@Sse('events')` in both NestJS services and
+> `EventSource` in both consoles.
+>
+> Transport recap:
+> - admin-api: `GET /api/v1/session/events` returns
+>   `Observable<MessageEvent>` (NestJS `@Sse`). Multiplexes a single
+>   NATS wildcard subscription on
+>   `sso.events.session.invalidate.*` into per-user filtered Observables.
+> - developer-portal-api: same shape, subscribe-only.
+> - identity-service (Go): publishes the per-user subject on tenant
+>   switch + MFA enroll/remove.
+> - admin-api (NestJS): publishes on membership role change, membership
+>   removal, platform-admin grant, platform-admin revoke.
+> - Both `SessionStore`s open an `EventSource(withCredentials)` on init,
+>   handle the `invalidate` event with `reload()`, and reconnect with
+>   1 s → 60 s exponential backoff. The original 30 s poll is now a
+>   5 min liveness-fallback poll.
 
 ### Item 3.1 — Push-based session/me invalidation
 

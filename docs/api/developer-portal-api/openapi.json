@@ -436,6 +436,26 @@
           "session"
         ]
       }
+    },
+    "/api/v1/session/events": {
+      "get": {
+        "operationId": "SessionController_events",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Push channel for session invalidations (SSE).",
+        "tags": [
+          "session"
+        ]
+      }
     }
   },
   "info": {

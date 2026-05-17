@@ -25,4 +25,10 @@ const (
 	// Queue group names — ensures only one consumer in the group processes each message
 	QueueWebhookDelivery = "webhook-delivery"
 	QueueAuditLog        = "audit-log"
+
+	// Phase 3 session invalidation. Per-user subject suffix so the
+	// NestJS SSE relay can wildcard-subscribe once and fan out to the
+	// connected console for that user. Format:
+	//   sso.events.session.invalidate.<user_id_uuid>
+	SubjectEventSessionInvalidatePrefix = "sso.events.session.invalidate."
 )

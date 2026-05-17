@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { EmailService } from '@sso-platform/nestjs-email';
 import { PrismaService } from '../shared/prisma/prisma.service';
+import { NatsService } from '../session/nats.service';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { randomBytes, createHash, randomUUID } from 'crypto';
@@ -32,6 +33,7 @@ export class MembershipsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    private readonly nats: NatsService,
   ) {}
 
   /**
@@ -349,6 +351,9 @@ export class MembershipsService {
       this.logger.log(
         `Membership role updated: ${id} ${existing.role} -> ${dto.role}`
       );
+      // Phase 3: push notify so the affected user's open consoles refetch
+      // capabilities within seconds rather than waiting on the 5 min poll.
+      void this.nats.publishInvalidate(existing.userId, 'role_changed');
       return updated;
     });
   }
@@ -385,6 +390,9 @@ export class MembershipsService {
       });
 
       this.logger.log(`Membership removed: ${id}`);
+      // Phase 3: revoking access — push notify so the user's tabs reload
+      // and the sidebar collapses to whatever they can still access.
+      void this.nats.publishInvalidate(existing.userId, 'membership_removed');
       return deleted;
     });
   }

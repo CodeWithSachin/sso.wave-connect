@@ -787,6 +787,57 @@
         ]
       }
     },
+    "/api/v1/session/me": {
+      "get": {
+        "operationId": "SessionController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionMeResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid sso_session cookie"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Return the authenticated session + memberships + capabilities for the admin-console shell",
+        "tags": [
+          "session"
+        ]
+      }
+    },
+    "/api/v1/session/events": {
+      "get": {
+        "description": "Emits `invalidate` events when membership / role / platform-admin state changes for the connected user. Heartbeats with `ping` every 25s.",
+        "operationId": "SessionController_events",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Push channel for session invalidations (SSE).",
+        "tags": [
+          "session"
+        ]
+      }
+    },
     "/api/v1/groups": {
       "post": {
         "operationId": "GroupsController_create",
@@ -1654,36 +1705,6 @@
           "platform-admins"
         ]
       }
-    },
-    "/api/v1/session/me": {
-      "get": {
-        "operationId": "SessionController_me",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionMeResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid sso_session cookie"
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Return the authenticated session + memberships + capabilities for the admin-console shell",
-        "tags": [
-          "session"
-        ]
-      }
     }
   },
   "info": {
@@ -2332,6 +2353,186 @@
         "required": [
           "role",
           "version"
+        ]
+      },
+      "SessionMeUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User UUID"
+          },
+          "email": {
+            "type": "string"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "emailVerified"
+        ]
+      },
+      "SessionMeSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Session row UUID (sessions.id)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "ISO timestamp when the session expires"
+          }
+        },
+        "required": [
+          "id",
+          "expiresAt"
+        ]
+      },
+      "SessionMeActiveTenantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Tenant UUID"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "organization"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "kind"
+        ]
+      },
+      "SessionMeMembershipClass": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string"
+          },
+          "tenantSlug": {
+            "type": "string"
+          },
+          "tenantName": {
+            "type": "string"
+          },
+          "tenantKind": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "organization"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "billing_manager",
+              "readonly"
+            ]
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "True for the tenant matching sessions.tenant_id"
+          }
+        },
+        "required": [
+          "tenantId",
+          "tenantSlug",
+          "tenantName",
+          "tenantKind",
+          "role",
+          "isActive"
+        ]
+      },
+      "SessionMePlatformClass": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "superadmin",
+              "support",
+              "readonly"
+            ]
+          },
+          "grantedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "grantedAt"
+        ]
+      },
+      "SessionMeResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/SessionMeUserDto"
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionMeSessionDto"
+          },
+          "activeTenant": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionMeActiveTenantDto"
+              }
+            ]
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SessionMeMembershipClass"
+            }
+          },
+          "platform": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionMePlatformClass"
+              }
+            ]
+          },
+          "capabilities": {
+            "description": "Pre-computed capability list. Frontend reads verbatim — no re-derivation. See libs/nestjs-auth/src/lib/capabilities.ts (single source of truth).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "user",
+          "session",
+          "memberships",
+          "capabilities"
         ]
       },
       "CreateGroupDto": {
@@ -3092,186 +3293,6 @@
         "required": [
           "role",
           "grantedAt"
-        ]
-      },
-      "SessionMeUserDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "User UUID"
-          },
-          "email": {
-            "type": "string"
-          },
-          "emailVerified": {
-            "type": "boolean"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "avatarUrl": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "emailVerified"
-        ]
-      },
-      "SessionMeSessionDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Session row UUID (sessions.id)"
-          },
-          "expiresAt": {
-            "type": "string",
-            "description": "ISO timestamp when the session expires"
-          }
-        },
-        "required": [
-          "id",
-          "expiresAt"
-        ]
-      },
-      "SessionMeActiveTenantDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Tenant UUID"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "personal",
-              "organization"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "slug",
-          "name",
-          "kind"
-        ]
-      },
-      "SessionMeMembershipClass": {
-        "type": "object",
-        "properties": {
-          "tenantId": {
-            "type": "string"
-          },
-          "tenantSlug": {
-            "type": "string"
-          },
-          "tenantName": {
-            "type": "string"
-          },
-          "tenantKind": {
-            "type": "string",
-            "enum": [
-              "personal",
-              "organization"
-            ]
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "admin",
-              "member",
-              "billing_manager",
-              "readonly"
-            ]
-          },
-          "isActive": {
-            "type": "boolean",
-            "description": "True for the tenant matching sessions.tenant_id"
-          }
-        },
-        "required": [
-          "tenantId",
-          "tenantSlug",
-          "tenantName",
-          "tenantKind",
-          "role",
-          "isActive"
-        ]
-      },
-      "SessionMePlatformClass": {
-        "type": "object",
-        "properties": {
-          "role": {
-            "type": "string",
-            "enum": [
-              "superadmin",
-              "support",
-              "readonly"
-            ]
-          },
-          "grantedAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "role",
-          "grantedAt"
-        ]
-      },
-      "SessionMeResponseDto": {
-        "type": "object",
-        "properties": {
-          "user": {
-            "$ref": "#/components/schemas/SessionMeUserDto"
-          },
-          "session": {
-            "$ref": "#/components/schemas/SessionMeSessionDto"
-          },
-          "activeTenant": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SessionMeActiveTenantDto"
-              }
-            ]
-          },
-          "memberships": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SessionMeMembershipClass"
-            }
-          },
-          "platform": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SessionMePlatformClass"
-              }
-            ]
-          },
-          "capabilities": {
-            "description": "Pre-computed capability list. Frontend reads verbatim — no re-derivation. See libs/nestjs-auth/src/lib/capabilities.ts (single source of truth).",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "user",
-          "session",
-          "memberships",
-          "capabilities"
         ]
       }
     }

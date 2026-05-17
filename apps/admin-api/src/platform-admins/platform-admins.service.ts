@@ -5,13 +5,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../shared/prisma/prisma.service';
+import { NatsService } from '../session/nats.service';
 import { GrantPlatformAdminDto } from './dto/grant-platform-admin.dto';
 
 @Injectable()
 export class PlatformAdminsService {
   private readonly logger = new Logger(PlatformAdminsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly nats: NatsService,
+  ) {}
 
   /**
    * Grant platform-admin privileges. If a row already exists (active or revoked),
@@ -63,6 +67,9 @@ export class PlatformAdminsService {
     this.logger.log(
       `platform-admin granted: user=${result.userId} role=${result.role} by=${grantedBy}`,
     );
+    // Phase 3: push so the grantee's open consoles refetch and surface
+    // platform-admin nav within seconds.
+    void this.nats.publishInvalidate(result.userId, 'platform_admin_granted');
 
     return this.toResponse(result);
   }
@@ -117,6 +124,10 @@ export class PlatformAdminsService {
     this.logger.warn(
       `platform-admin revoked: user=${userId} previousRole=${row.role} by=${actingUserId}`,
     );
+    // Phase 3: revoking is the most latency-sensitive case — push so the
+    // user's platform nav disappears immediately rather than after the
+    // fallback poll.
+    void this.nats.publishInvalidate(userId, 'platform_admin_revoked');
 
     return this.toResponse(updated);
   }

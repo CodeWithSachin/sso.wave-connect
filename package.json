@@ -89,6 +89,7 @@
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "nats": "^2",
     "paseto-ts": "^2.0.6",
     "postcss": "^8.5.9",
     "primeng": "^21.1.6",

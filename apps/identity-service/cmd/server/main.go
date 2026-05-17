@@ -285,6 +285,7 @@ func main() {
 		mfaService, mfaRepo,
 		userRepo, membershipRepo, familyRepo,
 		tokenSvc, sessionSvc, webauthnSvc,
+		natsConn,
 		validate, log, cfg.Token.RefreshTTL,
 		cfg.Cookie,
 	)
@@ -315,7 +316,7 @@ func main() {
 		userRepo, familyRepo, tokenSvc, cfg.Token.RefreshTTL,
 		log,
 	)
-	activeTenantHandler := handler.NewActiveTenantHandler(activeTenantSvc, validate, log)
+	activeTenantHandler := handler.NewActiveTenantHandler(activeTenantSvc, natsConn, validate, log)
 
 	// --- Fiber App ---
 	app := fiber.New(fiber.Config{

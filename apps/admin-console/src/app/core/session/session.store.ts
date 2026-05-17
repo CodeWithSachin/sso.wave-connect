@@ -14,6 +14,7 @@ import type {
   SessionMeMembership,
   SessionMePlatform,
 } from '@sso-platform/shared-types';
+import { environment } from '../../environments/environment';
 import { SessionService } from './session.service';
 
 /**
@@ -56,8 +57,18 @@ const initialState: SessionState = {
   error: null,
 };
 
-/** Poll interval for cheap role-propagation staleness (plan v2 MVP: 30s). */
-const POLL_MS = 30_000;
+/**
+ * Fallback poll interval (Phase 3 default: 5 min). SSE on
+ * /api/v1/session/events drives push-based invalidations; this poll
+ * only catches the cases where the SSE channel is down or proxied out.
+ * Pre-Phase-3 value was 30s; the bump cuts steady-state request volume
+ * from ~12/min/tab to 0.2/min/tab while push keeps freshness ≤2s.
+ */
+const POLL_MS = 5 * 60 * 1000;
+
+/** Initial SSE reconnect delay; doubles up to MAX_RECONNECT_MS on each fail. */
+const SSE_RECONNECT_MIN_MS = 1_000;
+const SSE_RECONNECT_MAX_MS = 60_000;
 
 /** Bootstrap timeout; APP_INITIALIZER falls through after this, rendering a
  *  limited-capabilities shell + soft banner so a 500 on admin-api doesn't
@@ -92,6 +103,45 @@ export const SessionStore = signalStore(
   withMethods((store) => {
     const svc = inject(SessionService);
     let pollHandle: ReturnType<typeof setInterval> | null = null;
+    let sseSource: EventSource | null = null;
+    let sseReconnectHandle: ReturnType<typeof setTimeout> | null = null;
+    let sseBackoffMs = SSE_RECONNECT_MIN_MS;
+
+    /**
+     * Internal reconnect-capable SSE opener. Declared as a closure so the
+     * EventSource.onerror handler can call itself back through this same
+     * function after backoff without `this`-binding gymnastics.
+     */
+    function connectSSE(): void {
+      if (typeof EventSource === 'undefined') return;
+      if (sseSource) return;
+      const url = `${environment.adminApiUrl}/api/v1/session/events`;
+      try {
+        sseSource = new EventSource(url, { withCredentials: true });
+      } catch {
+        return;
+      }
+      sseSource.addEventListener('invalidate', () => {
+        sseBackoffMs = SSE_RECONNECT_MIN_MS;
+        void loadOnce();
+      });
+      sseSource.addEventListener('ping', () => {
+        sseBackoffMs = SSE_RECONNECT_MIN_MS;
+      });
+      sseSource.onerror = () => {
+        // Native EventSource reconnects on its own at a fixed cadence;
+        // we close + reopen so we control the backoff schedule.
+        sseSource?.close();
+        sseSource = null;
+        if (sseReconnectHandle !== null) return;
+        const delay = sseBackoffMs;
+        sseBackoffMs = Math.min(sseBackoffMs * 2, SSE_RECONNECT_MAX_MS);
+        sseReconnectHandle = setTimeout(() => {
+          sseReconnectHandle = null;
+          connectSSE();
+        }, delay);
+      };
+    }
 
     /**
      * Fetch /session/me and patch state — but bail before mutating if the
@@ -195,16 +245,38 @@ export const SessionStore = signalStore(
           pollHandle = null;
         }
       },
+      /**
+       * Phase 3 SSE entry point. Opens an EventSource against admin-api's
+       * /api/v1/session/events; each `invalidate` event triggers a
+       * non-blocking `reload()`. Manual exponential backoff (1s → 60s)
+       * runs on every disconnect. The 5-min fallback poll keeps freshness
+       * bounded if SSE is unreachable.
+       */
+      _connectSSE(): void {
+        connectSSE();
+      },
+      _disconnectSSE(): void {
+        if (sseReconnectHandle !== null) {
+          clearTimeout(sseReconnectHandle);
+          sseReconnectHandle = null;
+        }
+        sseSource?.close();
+        sseSource = null;
+        sseBackoffMs = SSE_RECONNECT_MIN_MS;
+      },
     };
   }),
   withHooks({
     onInit(store) {
-      // Kick the 30s poll once the store is live. APP_INITIALIZER still runs
-      // hydrate() first so the shell has a synchronous snapshot to read.
+      // 5-min fallback poll + push-driven SSE channel both come up once
+      // the store is live. APP_INITIALIZER still runs hydrate() first so
+      // the shell has a synchronous snapshot to read.
       store._startPolling();
+      store._connectSSE();
     },
     onDestroy(store) {
       store._stopPolling();
+      store._disconnectSSE();
     },
   }),
 );

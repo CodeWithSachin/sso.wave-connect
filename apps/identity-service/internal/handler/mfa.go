@@ -14,6 +14,7 @@ import (
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
+	ssonats "github.com/wave-connect/sso-platform/libs/nats"
 )
 
 type MfaHandler struct {
@@ -25,6 +26,7 @@ type MfaHandler struct {
 	tokenSvc       *service.TokenService
 	sessionSvc     *service.SessionService
 	webauthnSvc    *service.WebAuthnService
+	nats           *ssonats.Client
 	validate       *validator.Validate
 	log            zerolog.Logger
 	refreshTTL     time.Duration
@@ -40,6 +42,7 @@ func NewMfaHandler(
 	tokenSvc *service.TokenService,
 	sessionSvc *service.SessionService,
 	webauthnSvc *service.WebAuthnService,
+	natsClient *ssonats.Client,
 	validate *validator.Validate,
 	log zerolog.Logger,
 	refreshTTL time.Duration,
@@ -54,6 +57,7 @@ func NewMfaHandler(
 		tokenSvc:       tokenSvc,
 		sessionSvc:     sessionSvc,
 		webauthnSvc:    webauthnSvc,
+		nats:           natsClient,
 		validate:       validate,
 		log:            log.With().Str("component", "mfa_handler").Logger(),
 		refreshTTL:     refreshTTL,
@@ -132,6 +136,11 @@ func (h *MfaHandler) VerifyEnrollment(c *fiber.Ctx) error {
 		h.log.Warn().Err(err).Str("user_id", userID.String()).Msg("MFA enrollment verification failed")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid TOTP code"})
 	}
+
+	// Phase 3: enrolling a second factor changes the session's
+	// effective auth posture (login flow may now require MFA on next
+	// re-auth). Push so the console reloads /session/me promptly.
+	h.nats.PublishSessionInvalidate(userID.String(), "mfa_enrolled")
 
 	return c.JSON(fiber.Map{"status": "active"})
 }
@@ -509,6 +518,11 @@ func (h *MfaHandler) DeleteEnrollment(c *fiber.Ctx) error {
 		h.log.Error().Err(err).Str("user_id", userID.String()).Msg("failed to delete enrollment")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 	}
+
+	// Phase 3: removing an MFA enrollment changes the session's auth
+	// posture (one fewer factor available). Push the invalidate so
+	// consoles refresh their MFA state without waiting on the poll.
+	h.nats.PublishSessionInvalidate(userID.String(), "mfa_removed")
 
 	return c.SendStatus(fiber.StatusNoContent)
 }

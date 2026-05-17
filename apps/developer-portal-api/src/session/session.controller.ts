@@ -1,4 +1,4 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get, Req, Sse, type MessageEvent } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -7,8 +7,10 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { map, merge, Observable, timer } from 'rxjs';
 import type { SessionMeDto } from '@sso-platform/shared-types';
 import { CurrentUser, type AuthSession } from '@sso-platform/nestjs-auth';
+import { NatsService } from './nats.service';
 import { SessionService } from './session.service';
 
 /**
@@ -29,7 +31,10 @@ import { SessionService } from './session.service';
 @ApiBearerAuth()
 @Controller('api/v1/session')
 export class SessionController {
-  constructor(private readonly svc: SessionService) {}
+  constructor(
+    private readonly svc: SessionService,
+    private readonly nats: NatsService,
+  ) {}
 
   @Get('me')
   @ApiOperation({
@@ -46,5 +51,27 @@ export class SessionController {
     // membership-lookup as the same user. We never use developer-portal-api
     // credentials for this hop — the session belongs to the user.
     return this.svc.getMe(user, req.headers.cookie ?? '');
+  }
+
+  /**
+   * Phase 3 SSE push channel — counterpart of admin-api's /session/events.
+   * Emits `invalidate` events when membership / role state changes for
+   * the connected user. Developer-portal's SessionStore reloads on each
+   * event.
+   *
+   * Heartbeat `ping` every 25s prevents idle proxy disconnects.
+   */
+  @Sse('events')
+  @ApiOperation({
+    summary: 'Push channel for session invalidations (SSE).',
+  })
+  events(@CurrentUser() user: AuthSession): Observable<MessageEvent> {
+    const invalidations$ = this.nats.watchUser(user.id).pipe(
+      map((reason) => ({ type: 'invalidate', data: reason }) as MessageEvent),
+    );
+    const heartbeat$ = timer(0, 25_000).pipe(
+      map(() => ({ type: 'ping', data: 'ok' }) as MessageEvent),
+    );
+    return merge(invalidations$, heartbeat$);
   }
 }

@@ -21,17 +21,23 @@ import (
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
 
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
+	ssonats "github.com/wave-connect/sso-platform/libs/nats"
 )
 
 type ActiveTenantHandler struct {
 	svc      *service.ActiveTenantService
+	nats     *ssonats.Client
 	validate *validator.Validate
 	log      zerolog.Logger
 }
 
-func NewActiveTenantHandler(svc *service.ActiveTenantService, validate *validator.Validate, log zerolog.Logger) *ActiveTenantHandler {
+// NewActiveTenantHandler wires the handler. natsClient may be nil — Phase 3
+// session-invalidate publishes are best-effort; the SessionStore fallback
+// poll keeps freshness within bounds if NATS is unavailable.
+func NewActiveTenantHandler(svc *service.ActiveTenantService, natsClient *ssonats.Client, validate *validator.Validate, log zerolog.Logger) *ActiveTenantHandler {
 	return &ActiveTenantHandler{
 		svc:      svc,
+		nats:     natsClient,
 		validate: validate,
 		log:      log.With().Str("component", "active_tenant_handler").Logger(),
 	}
@@ -146,6 +152,11 @@ func (h *ActiveTenantHandler) SwitchActive(c *fiber.Ctx) error {
 		h.log.Error().Err(err).Msg("switch active tenant failed")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 	}
+	// Phase 3: tenant switch invalidates the session's UI capabilities
+	// (different tenant = different role + caps). Push so the console
+	// reloads /session/me without waiting for the fallback poll.
+	h.nats.PublishSessionInvalidate(userID.String(), "tenant_switched")
+
 	// 200 with the new active tenant so the client can update any local
 	// copy (e.g. X-Tenant-ID header) without a follow-up GET.
 	return c.JSON(fiber.Map{"active_tenant_id": targetTenantID})

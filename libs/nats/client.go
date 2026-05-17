@@ -65,6 +65,31 @@ func (c *Client) Publish(subject string, data interface{}) error {
 	return nil
 }
 
+// PublishRaw sends arbitrary bytes to a subject without JSON encoding.
+// Used for Phase 3 session invalidations where the payload is a short
+// human-readable reason string consumed across language boundaries
+// (Go publisher, TypeScript subscriber).
+func (c *Client) PublishRaw(subject string, payload []byte) error {
+	if err := c.conn.Publish(subject, payload); err != nil {
+		return fmt.Errorf("nats publish raw to %s: %w", subject, err)
+	}
+	c.log.Debug().Str("subject", subject).Msg("published-raw")
+	return nil
+}
+
+// PublishSessionInvalidate fires a Phase 3 push event for one user.
+// Best-effort: a nil receiver is a silent no-op so handlers can call this
+// unconditionally when NATS is optional (development, degraded mode).
+// Errors are logged at debug and swallowed — auth flow must never block.
+func (c *Client) PublishSessionInvalidate(userID, reason string) {
+	if c == nil {
+		return
+	}
+	if err := c.PublishRaw(SubjectEventSessionInvalidatePrefix+userID, []byte(reason)); err != nil {
+		c.log.Debug().Err(err).Str("user_id", userID).Msg("session invalidate publish failed")
+	}
+}
+
 // Subscribe registers a handler for a subject. Every subscriber receives every message
 // (fan-out). Use for cache invalidation where all replicas must process the event.
 func (c *Client) Subscribe(subject string, handler func(data []byte)) (*nats.Subscription, error) {
