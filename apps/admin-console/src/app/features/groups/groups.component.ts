@@ -1,9 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Dialog } from 'primeng/dialog';
 import { ConfirmationService } from 'primeng/api';
+import { SearchService } from '../../core/search/search.service';
+import type { Group } from './groups.service';
 import { GroupsStore } from './groups.store';
 
 @Component({
@@ -27,6 +29,19 @@ import { GroupsStore } from './groups.store';
         </button>
       </div>
 
+      <!-- Search (client-side filter; ANDs with the global top-bar search). -->
+      <div class="flex items-center gap-3">
+        <div class="relative flex-1 max-w-sm">
+          <ng-icon name="heroMagnifyingGlass" size="1rem" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search groups..."
+            [(ngModel)]="searchTerm"
+            class="w-full rounded-lg border border-border bg-input pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-colors"
+          />
+        </div>
+      </div>
+
       <!-- Groups Table -->
       <div class="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <table class="w-full text-left text-sm">
@@ -46,7 +61,7 @@ import { GroupsStore } from './groups.store';
                 <tr><td class="px-4 py-3" colspan="6"><div class="h-5 rounded bg-muted/50 animate-pulse"></div></td></tr>
               }
             } @else {
-              @for (group of store.groups(); track group.id) {
+              @for (group of visibleGroups(); track group.id) {
                 <tr class="hover:bg-muted/20 transition-colors">
                   <td class="px-4 py-3 font-medium text-foreground">{{ group.name }}</td>
                   <td class="px-4 py-3 text-muted-foreground font-mono text-xs">{{ group.slug }}</td>
@@ -149,10 +164,31 @@ import { GroupsStore } from './groups.store';
 export class GroupsComponent {
   readonly store = inject(GroupsStore);
   private confirmSvc = inject(ConfirmationService);
+  private readonly globalSearch = inject(SearchService);
 
   groupName = signal('');
   groupSlug = signal('');
   groupDesc = signal('');
+  // Per-page filter input. ANDs with the global top-bar SearchService query
+  // — same shape as the members component pattern (deferred-roadmap Item 1.3).
+  searchTerm = signal('');
+
+  readonly visibleGroups = computed<Group[]>(() => {
+    const localTerm = this.searchTerm().trim().toLowerCase();
+    const globalTerm = this.globalSearch.query().toLowerCase();
+    const groups = this.store.groups();
+    if (!localTerm && !globalTerm) return groups;
+    return groups.filter((g) => {
+      const haystack = [g.name, g.slug, g.description ?? ''].map((s) =>
+        s.toLowerCase(),
+      );
+      const matchLocal =
+        !localTerm || haystack.some((s) => s.includes(localTerm));
+      const matchGlobal =
+        !globalTerm || haystack.some((s) => s.includes(globalTerm));
+      return matchLocal && matchGlobal;
+    });
+  });
 
   onCreate() {
     if (!this.groupName() || !this.groupSlug()) return;

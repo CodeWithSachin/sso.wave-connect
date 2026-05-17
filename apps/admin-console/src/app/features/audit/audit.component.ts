@@ -1,7 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SearchService } from '../../core/search/search.service';
+import type { AuditEvent } from './audit.service';
 import { AuditStore } from './audit.store';
 
 @Component({
@@ -56,6 +58,11 @@ import { AuditStore } from './audit.store';
               <option value="policy">policy</option>
             </select>
           </div>
+          <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1">Quick filter</label>
+            <input type="text" [(ngModel)]="searchTerm" placeholder="Find in action / actor / resource…"
+              class="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-colors" />
+          </div>
           <div class="flex items-center gap-2">
             <button (click)="onSearch()"
               class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
@@ -87,7 +94,7 @@ import { AuditStore } from './audit.store';
               @for (i of [1,2,3,4,5]; track i) {
                 <tr><td class="px-4 py-3" colspan="5"><div class="h-5 rounded bg-muted/50 animate-pulse"></div></td></tr>
               }
-            } @else if (store.events().length === 0) {
+            } @else if (visibleEvents().length === 0) {
               <tr>
                 <td colspan="5" class="px-4 py-12 text-center text-muted-foreground text-sm">
                   <ng-icon name="heroClipboardDocumentList" size="2rem" class="mx-auto mb-3 opacity-40" />
@@ -95,7 +102,7 @@ import { AuditStore } from './audit.store';
                 </td>
               </tr>
             } @else {
-              @for (event of store.events(); track event.id) {
+              @for (event of visibleEvents(); track event.id) {
                 <tr class="hover:bg-muted/20 transition-colors">
                   <td class="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">{{ event.createdAt | date:'short' }}</td>
                   <td class="px-4 py-3">
@@ -138,11 +145,37 @@ import { AuditStore } from './audit.store';
 })
 export class AuditComponent {
   readonly store = inject(AuditStore);
+  private readonly globalSearch = inject(SearchService);
 
   startDate = signal('');
   endDate = signal('');
   action = signal('');
   resourceType = signal('');
+  // Client-side filter ANDed with the global top-bar SearchService query;
+  // narrows whatever page the user has already pulled from the backend
+  // (deferred-roadmap Item 1.3). Server-side search lands in Phase 2.
+  searchTerm = signal('');
+
+  readonly visibleEvents = computed<AuditEvent[]>(() => {
+    const localTerm = this.searchTerm().trim().toLowerCase();
+    const globalTerm = this.globalSearch.query().toLowerCase();
+    const events = this.store.events();
+    if (!localTerm && !globalTerm) return events;
+    return events.filter((e) => {
+      const haystack = [
+        e.action,
+        e.actorId,
+        e.resourceType,
+        e.resourceId ?? '',
+        e.description ?? '',
+      ].map((s) => s.toLowerCase());
+      const matchLocal =
+        !localTerm || haystack.some((s) => s.includes(localTerm));
+      const matchGlobal =
+        !globalTerm || haystack.some((s) => s.includes(globalTerm));
+      return matchLocal && matchGlobal;
+    });
+  });
 
   onSearch() {
     this.store.search({
@@ -158,6 +191,7 @@ export class AuditComponent {
     this.endDate.set('');
     this.action.set('');
     this.resourceType.set('');
+    this.searchTerm.set('');
     this.store.search({});
   }
 }
