@@ -10,9 +10,8 @@ import type {
   SessionMeDto,
   TenantKind,
 } from '@sso-platform/shared-types';
-import type { AuthSession } from '@sso-platform/nestjs-auth';
+import { computeCapabilities, type AuthSession } from '@sso-platform/nestjs-auth';
 import { PrismaService } from '../shared/prisma/prisma.service';
-import { computeCapabilities } from './capabilities';
 
 // Shape returned by identity-service's GET /auth/session/memberships.
 // Matches MembershipView in apps/identity-service/internal/service/active_tenant.go.

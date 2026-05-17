@@ -24,14 +24,19 @@ import { createHash } from 'crypto';
 export const SESSION_DB_CLIENT = Symbol('SESSION_DB_CLIENT');
 
 /**
- * Minimal DB client contract — works with any PrismaClient instance or
- * a custom wrapper that exposes `$queryRaw`.
+ * Minimal DB client contract — works with any PrismaClient instance or a
+ * custom wrapper. `$executeRaw` is used by the audit-emission helper
+ * (libs/nestjs-auth/src/lib/guard-audit.ts) to write rbac.* rejection rows.
  */
 export interface SessionDbClient {
   $queryRaw<T = unknown>(
     query: TemplateStringsArray,
     ...values: unknown[]
   ): Promise<T>;
+  $executeRaw(
+    query: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<number>;
 }
 
 /**

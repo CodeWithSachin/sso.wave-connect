@@ -11,6 +11,7 @@ import {
   HttpErrorResponse,
 } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
+import { MessageService } from 'primeng/api';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { providePrimeNG } from 'primeng/config';
 import Nora from '@primeng/themes/nora';
@@ -50,6 +51,8 @@ import {
   heroEnvelope,
   heroArrowsRightLeft,
   heroChevronUpDown,
+  heroLockClosed,
+  heroComputerDesktop,
 } from '@ng-icons/heroicons/outline';
 import { appRoutes } from './app.routes';
 import { HttpInterceptorFn } from '@angular/common/http';
@@ -70,21 +73,62 @@ const credentialsInterceptor: HttpInterceptorFn = (req, next) =>
 // → SSO authorize) because a still-valid sso_session cookie would silently
 // re-auth and land the user right back on the dashboard — indistinguishable
 // from "logout didn't work." The login-portal is the canonical signed-out UI.
-const unauthorizedInterceptor: HttpInterceptorFn = (req, next) =>
-  next(req).pipe(
+//
+// `/session/me` is intentionally exempt: SessionStore.hydrate() expects a 401
+// for unauthenticated visitors and turns it into a `hydrated:true,
+// error:'...'` state. Without the exemption, an anonymous user landing on
+// any route triggers an instant redirect-storm (route guard → sso-service,
+// hydrate → interceptor → login-portal), with login-portal usually losing
+// the race and leaving the user mid-bounce. A8 fix.
+const unauthorizedInterceptor: HttpInterceptorFn = (req, next) => {
+  // MessageService is lazily injected because the interceptor runs before
+  // LayoutComponent mounts on the first paint of a deep link; if it isn't
+  // available yet, the toast falls through silently.
+  const messages = inject(MessageService, { optional: true });
+  return next(req).pipe(
     catchError((err: unknown) => {
-      if (err instanceof HttpErrorResponse && err.status === 401) {
+      if (
+        err instanceof HttpErrorResponse &&
+        err.status === 401 &&
+        !req.url.includes('/api/v1/session/me')
+      ) {
         sessionStorage.clear();
         if (!window.location.pathname.startsWith('/callback')) {
           window.location.href = environment.loginPortalUrl;
         }
       }
+      // A1: surface verify-email 403s as a toast so the user knows WHY the
+      // action failed. The matching is intentionally string-based — `code`
+      // can live on either `err.error.message` (NestJS envelope) or
+      // `err.error.error` (identity-service envelope). Both are checked.
+      if (err instanceof HttpErrorResponse && err.status === 403) {
+        const body = err.error as
+          | { error?: string; message?: string; detail?: string }
+          | undefined;
+        const code = body?.message ?? body?.error;
+        if (code === 'email_not_verified') {
+          messages?.add({
+            severity: 'warn',
+            summary: 'Email not verified',
+            detail:
+              body?.detail ??
+              'Verify your email to unlock this action — check your inbox.',
+            life: 5000,
+          });
+        }
+      }
       return throwError(() => err);
     }),
   );
+};
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // PrimeNG MessageService at the root so both the http interceptor
+    // (A1 email_not_verified toast) AND the layout's <p-toast/> consume
+    // the same instance. Without this it would be component-scoped to
+    // LayoutComponent and the interceptor's inject() would return null.
+    MessageService,
     provideZonelessChangeDetection(),
     provideRouter(appRoutes),
     provideHttpClient(
@@ -147,6 +191,8 @@ export const appConfig: ApplicationConfig = {
       heroEnvelope,
       heroArrowsRightLeft,
       heroChevronUpDown,
+      heroLockClosed,
+      heroComputerDesktop,
     }),
     provideNgIconsConfig({ size: '1.25rem' }),
   ],

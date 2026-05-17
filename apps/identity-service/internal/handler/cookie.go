@@ -9,9 +9,17 @@ import (
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
 )
 
-// setSSOCookie sets the HttpOnly `sso_session` cookie for cross-app SSO.
-// Extracted from AuthHandler so handlers beyond /auth (e.g. /auth/public/signup)
-// can issue sessions without importing AuthHandler state.
+// setSSOCookie is the SOLE in-process writer of `sso_session` for the
+// identity-service binary. Every other handler in this service that needs
+// to issue a session MUST call this function — duplicating the
+// fiber.Cookie literal anywhere else risks Set-Cookie drift, which the
+// browser materializes as a *second* sibling cookie at the same name
+// instead of overwriting (ADR-0002 §C).
+//
+// Cross-service: sso-service has its own co-writer in
+// apps/sso-service/internal/handler/idp_oidc.go for the IdP-callback flow.
+// Until that writer is removed, both must produce byte-identical
+// Set-Cookie attributes (Domain, Path, Secure, SameSite, HTTPOnly).
 //
 // No-ops when the session has no raw token (Session.RawToken is transient —
 // set only at Session.Create time and zeroed after cookie issue).

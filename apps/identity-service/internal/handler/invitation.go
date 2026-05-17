@@ -21,6 +21,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
+	_ "github.com/wave-connect/sso-platform/apps/identity-service/internal/model" // referenced via swag annotations
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
 )
@@ -86,8 +87,8 @@ func (h *InvitationHandler) Lookup(c *fiber.Ctx) error {
 //	@Accept		json
 //	@Produce	json
 //	@Param		token	path		string				true	"Invitation token"
-//	@Param		body	body		map[string]string	true	"Optional password if a new user is being created"
-//	@Success	200		{object}	map[string]any
+//	@Param		body	body		model.AcceptInvitationRequest	true	"Optional password if a new user is being created"
+//	@Success	200		{object}	model.AuthResponse
 //	@Router		/auth/public/invitation/{token}/accept [post]
 func (h *InvitationHandler) Accept(c *fiber.Ctx) error {
 	token := c.Params("token")

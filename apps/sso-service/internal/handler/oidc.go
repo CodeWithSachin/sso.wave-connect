@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	_ "github.com/wave-connect/sso-platform/apps/sso-service/internal/model" // referenced via swag annotations
 	"github.com/wave-connect/sso-platform/apps/sso-service/internal/service"
 )
 
@@ -29,7 +30,7 @@ func NewOIDCHandler(oidcSvc *service.OIDCService, issuer string, log zerolog.Log
 //	@Summary	OpenID Connect discovery document
 //	@Tags		oidc
 //	@Produce	json
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.OIDCDiscoveryDocument
 //	@Router		/.well-known/openid-configuration [get]
 func (h *OIDCHandler) Discovery(c *fiber.Ctx) error {
 	doc := service.GetDiscoveryDocument(h.issuer)
@@ -49,7 +50,7 @@ func (h *OIDCHandler) Discovery(c *fiber.Ctx) error {
 //	@Description	Public signing keys used to verify ID tokens.
 //	@Tags		oidc
 //	@Produce	json
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.JWKSResponse
 //	@Router		/.well-known/jwks.json [get]
 func (h *OIDCHandler) JWKS(c *fiber.Ctx) error {
 	jwks, err := h.oidcSvc.BuildJWKS()
@@ -74,8 +75,8 @@ func (h *OIDCHandler) JWKS(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Security	BearerAuth
 //	@Param		X-Tenant-ID	header	string	true	"Tenant ID required to decrypt the token"
-//	@Success	200	{object}	map[string]any
-//	@Failure	401	{object}	map[string]string
+//	@Success	200	{object}	model.UserInfoResponse
+//	@Failure	401	{object}	model.OAuthErrorResponse
 //	@Router		/userinfo [get]
 func (h *OIDCHandler) UserInfo(c *fiber.Ctx) error {
 	// Extract token from Authorization header

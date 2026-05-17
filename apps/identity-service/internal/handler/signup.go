@@ -21,6 +21,7 @@ import (
 
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/config"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/id"
+	_ "github.com/wave-connect/sso-platform/apps/identity-service/internal/model" // referenced only via swag annotations
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/repository"
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
 )
@@ -56,9 +57,9 @@ func NewSignupHandler(
 //	@Accept		json
 //	@Produce	json
 //	@Param		body	body		service.SignupRequest	true	"Signup payload"
-//	@Success	201		{object}	map[string]any
-//	@Failure	400		{object}	map[string]string
-//	@Failure	409		{object}	map[string]string
+//	@Success	201		{object}	model.AuthResponse
+//	@Failure	400		{object}	model.ErrorResponse
+//	@Failure	409		{object}	model.ErrorResponse
 //	@Router		/auth/public/signup [post]
 func (h *SignupHandler) Signup(c *fiber.Ctx) error {
 	var req service.SignupRequest
@@ -118,9 +119,9 @@ func (h *SignupHandler) Signup(c *fiber.Ctx) error {
 //	@Tags		signup
 //	@Accept		json
 //	@Produce	json
-//	@Param		body	body		map[string]string	true	"{ token: string }"
-//	@Success	200		{object}	map[string]any
-//	@Failure	400		{object}	map[string]string
+//	@Param		body	body		model.VerifyEmailRequest	true	"Email verification token"
+//	@Success	200		{object}	model.AuthResponse
+//	@Failure	400		{object}	model.ErrorResponse
 //	@Router		/auth/public/verify-email [post]
 func (h *SignupHandler) VerifyEmail(c *fiber.Ctx) error {
 	var req struct {
@@ -154,9 +155,9 @@ func (h *SignupHandler) VerifyEmail(c *fiber.Ctx) error {
 //	@Tags		signup
 //	@Accept		json
 //	@Produce	json
-//	@Param		body	body		map[string]string	true	"{ email: string }"
-//	@Success	202		{object}	map[string]string
-//	@Failure	429		{object}	map[string]string
+//	@Param		body	body		model.ResendVerificationRequest	true	"Email to resend to"
+//	@Success	202		{object}	model.AcceptedResponse
+//	@Failure	429		{object}	model.ErrorResponse
 //	@Router		/auth/public/verify-email/resend [post]
 func (h *SignupHandler) ResendVerification(c *fiber.Ctx) error {
 	var req struct {

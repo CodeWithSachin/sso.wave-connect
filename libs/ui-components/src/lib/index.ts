@@ -33,5 +33,11 @@ export {
 // Dialog
 export { DialogComponent } from './dialog/dialog.component';
 
+// Tenant switcher (shared by admin-console + developer-portal)
+export {
+  TenantSwitcherComponent,
+  type MembershipSummary,
+} from './tenant-switcher/tenant-switcher.component';
+
 // PrimeNG Pass-Through Configuration
 export { snowPassThrough } from './primeng-passthrough';

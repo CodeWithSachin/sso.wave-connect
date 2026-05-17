@@ -2,6 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, resource } from '@angular/core';
 import { ConfirmationService } from 'primeng/api';
 import { firstValueFrom } from 'rxjs';
+import { InvitationCreateDialogComponent } from './invitation-create.dialog';
 import {
 	InvitationsService,
 	type InvitationStatus,
@@ -25,7 +26,7 @@ const TABS: { value: InvitationStatus; label: string }[] = [
 @Component({
 	selector: 'app-invitations',
 	standalone: true,
-	imports: [DatePipe],
+	imports: [DatePipe, InvitationCreateDialogComponent],
 	providers: [InvitationsStore, ConfirmationService],
 	template: `
 		<div class="space-y-6">
@@ -37,7 +38,19 @@ const TABS: { value: InvitationStatus; label: string }[] = [
 						token; revoke to invalidate it immediately.
 					</p>
 				</div>
+				@if (store.canMutate()) {
+					<button
+						type="button"
+						(click)="store.openCreate()"
+						class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					>
+						Invite member
+					</button>
+				}
 			</div>
+
+			<app-invitation-create-dialog />
+
 
 			<!-- Tab strip -->
 			<div role="tablist" class="inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/30 p-0.5">

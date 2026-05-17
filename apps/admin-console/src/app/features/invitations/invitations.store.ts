@@ -11,6 +11,7 @@ import { SessionStore } from '../../core/session/session.store';
 import {
 	InvitationsService,
 	type InvitationStatus,
+	type InviteMemberPayload,
 } from './invitations.service';
 
 interface InvitationsState {
@@ -22,6 +23,10 @@ interface InvitationsState {
 	lastResent: Record<string, number>;
 	/** Id of the row currently being resent. */
 	resendingId: string | null;
+	/** Create-dialog open state and submission feedback. */
+	createOpen: boolean;
+	createSubmitting: boolean;
+	createError: string | null;
 }
 
 const initialState: InvitationsState = {
@@ -31,6 +36,9 @@ const initialState: InvitationsState = {
 	mutationVersion: 0,
 	lastResent: {},
 	resendingId: null,
+	createOpen: false,
+	createSubmitting: false,
+	createError: null,
 };
 
 /**
@@ -71,6 +79,41 @@ export const InvitationsStore = signalStore(
 					patchState(store, {
 						resendingId: null,
 						error: parseHttpError(err),
+					});
+					return false;
+				}
+			},
+			openCreate(): void {
+				patchState(store, {
+					createOpen: true,
+					createError: null,
+				});
+			},
+			closeCreate(): void {
+				patchState(store, {
+					createOpen: false,
+					createError: null,
+					createSubmitting: false,
+				});
+			},
+			async create(payload: InviteMemberPayload): Promise<boolean> {
+				patchState(store, { createSubmitting: true, createError: null });
+				try {
+					await firstValueFrom(svc.invite(payload));
+					// Switching to the pending tab forces the resource() reload in
+					// the component, so the new row appears without a duplicate
+					// fetch. If we're already on pending, bump mutationVersion.
+					patchState(store, {
+						createSubmitting: false,
+						createOpen: false,
+						activeTab: 'pending',
+						mutationVersion: store.mutationVersion() + 1,
+					});
+					return true;
+				} catch (err) {
+					patchState(store, {
+						createSubmitting: false,
+						createError: parseHttpError(err),
 					});
 					return false;
 				}

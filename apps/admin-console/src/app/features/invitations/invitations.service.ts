@@ -7,6 +7,15 @@ import { environment } from '../../environments/environment';
 export type InvitationStatus = 'pending' | 'accepted' | 'expired';
 
 /**
+ * Body for POST /api/v1/memberships — see admin-api InviteMemberDto. Email is
+ * required; role defaults to `member` on the server when omitted.
+ */
+export interface InviteMemberPayload {
+	email: string;
+	role?: MembershipRole;
+}
+
+/**
  * Membership row as returned by GET /api/v1/memberships. Includes the joined
  * user record. `joinedAt`, `invitationExpires`, and `deletedAt` together
  * encode the derived status — the server filter (Phase 6A) handles the
@@ -73,6 +82,17 @@ export class InvitationsService {
 
 	revoke(id: string): Observable<MembershipRow> {
 		return this.http.delete<MembershipRow>(`${this.base}/${id}`, {
+			withCredentials: true,
+		});
+	}
+
+	/**
+	 * Send a new invitation. Server returns the newly-created membership row
+	 * with `joinedAt: null` and `invitationToken` set (the token is also
+	 * delivered out-of-band via email).
+	 */
+	invite(payload: InviteMemberPayload): Observable<MembershipRow> {
+		return this.http.post<MembershipRow>(this.base, payload, {
 			withCredentials: true,
 		});
 	}

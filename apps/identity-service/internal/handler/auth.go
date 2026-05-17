@@ -77,9 +77,9 @@ func NewAuthHandler(
 //	@Produce	json
 //	@Param		X-Tenant-ID	header		string					true	"Tenant ID"
 //	@Param		body		body		model.RegisterRequest	true	"Registration payload"
-//	@Success	201			{object}	map[string]any
-//	@Failure	400			{object}	map[string]string
-//	@Failure	409			{object}	map[string]string
+//	@Success	201			{object}	model.AuthResponse
+//	@Failure	400			{object}	model.ErrorResponse
+//	@Failure	409			{object}	model.ErrorResponse
 //	@Router		/auth/register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var req model.RegisterRequest
@@ -211,8 +211,8 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		X-Tenant-ID	header		string				true	"Tenant ID"
 //	@Param		body		body		model.LoginRequest	true	"Login credentials"
-//	@Success	200			{object}	map[string]any
-//	@Failure	401			{object}	map[string]string
+//	@Success	200			{object}	model.AuthResponse
+//	@Failure	401			{object}	model.ErrorResponse
 //	@Router		/auth/login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req model.LoginRequest
@@ -415,18 +415,12 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// clearSSOCookie overwrites the sso_session cookie with an expired value so the browser drops it.
+// clearSSOCookie delegates to the package-level helper so every clear in
+// identity-service produces an identical Set-Cookie (same Name/Path/Domain),
+// which is the *only* way the browser will overwrite the existing cookie
+// rather than store a sibling. See cookie.go.
 func (h *AuthHandler) clearSSOCookie(c *fiber.Ctx) {
-	c.Cookie(&fiber.Cookie{
-		Name:     "sso_session",
-		Value:    "",
-		Path:     "/",
-		Domain:   h.cookieCfg.Domain,
-		HTTPOnly: true,
-		Secure:   h.cookieCfg.Secure,
-		SameSite: "Lax",
-		MaxAge:   -1,
-	})
+	clearSSOCookieHelper(c, h.cookieCfg)
 }
 
 // hashSessionCookie decodes the base64url raw token and returns its SHA-256 hex hash —
@@ -440,21 +434,11 @@ func hashSessionCookie(raw string) (string, error) {
 	return hex.EncodeToString(h[:]), nil
 }
 
-// setSSOCookie sets the HttpOnly sso_session cookie for cross-app SSO.
+// setSSOCookie delegates to the package-level helper. See cookie.go for the
+// canonical attribute set — keeping this one place avoids the sibling-cookie
+// pile-up the architecture review (ADR-0002 §C) called out.
 func (h *AuthHandler) setSSOCookie(c *fiber.Ctx, sess *model.Session) {
-	if sess.RawToken == "" {
-		return
-	}
-	c.Cookie(&fiber.Cookie{
-		Name:     "sso_session",
-		Value:    sess.RawToken,
-		Path:     "/",
-		Domain:   h.cookieCfg.Domain,
-		HTTPOnly: true,
-		Secure:   h.cookieCfg.Secure,
-		SameSite: "Lax",
-		MaxAge:   int(time.Until(sess.ExpiresAt).Seconds()),
-	})
+	setSSOCookie(c, sess, h.cookieCfg)
 }
 
 func formatValidationErrors(err error) string {

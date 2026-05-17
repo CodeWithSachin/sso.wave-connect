@@ -36,8 +36,8 @@ func NewTokenHandler(
 //	@Produce	json
 //	@Param		X-Tenant-ID	header		string					true	"Tenant ID"
 //	@Param		body		body		model.RefreshRequest	true	"Refresh payload"
-//	@Success	200			{object}	map[string]any
-//	@Failure	401			{object}	map[string]string
+//	@Success	200			{object}	model.AuthResponse
+//	@Failure	401			{object}	model.ErrorResponse
 //	@Router		/oauth2/token [post]
 func (h *TokenHandler) Refresh(c *fiber.Ctx) error {
 	var req model.RefreshRequest
@@ -68,7 +68,7 @@ func (h *TokenHandler) Refresh(c *fiber.Ctx) error {
 //	@Summary	Revoke a token
 //	@Tags		oauth2
 //	@Accept		json
-//	@Param		body	body	map[string]string	true	"{ token: string }"
+//	@Param		body	body	model.RevokeTokenRequest	true	"Token to revoke"
 //	@Success	200
 //	@Router		/oauth2/revoke [post]
 func (h *TokenHandler) Revoke(c *fiber.Ctx) error {

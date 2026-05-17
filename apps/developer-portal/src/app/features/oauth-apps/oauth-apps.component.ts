@@ -1,15 +1,18 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Dialog } from 'primeng/dialog';
 import { ConfirmationService } from 'primeng/api';
+import { SearchService } from '../../core/search/search.service';
+import { OAuthAppEditDialogComponent } from './oauth-app-edit.dialog';
 import { OAuthAppsStore } from './oauth-apps.store';
+import type { OAuthApp } from './oauth-apps.service';
 
 @Component({
   selector: 'app-oauth-apps',
   standalone: true,
-  imports: [NgIcon, DatePipe, FormsModule, Dialog],
+  imports: [NgIcon, DatePipe, FormsModule, Dialog, OAuthAppEditDialogComponent],
   providers: [OAuthAppsStore],
   template: `
     <div class="space-y-6">
@@ -82,7 +85,7 @@ import { OAuthAppsStore } from './oauth-apps.store';
                 <tr><td class="px-4 py-3" colspan="5"><div class="h-5 rounded bg-muted/50 animate-pulse"></div></td></tr>
               }
             } @else {
-              @for (app of store.apps(); track app.id) {
+              @for (app of filteredApps(); track app.id) {
                 <tr class="hover:bg-muted/20 transition-colors">
                   <td class="px-4 py-3 font-medium text-foreground">{{ app.name }}</td>
                   <td class="px-4 py-3">
@@ -107,6 +110,10 @@ import { OAuthAppsStore } from './oauth-apps.store';
                   <td class="px-4 py-3 text-sm text-muted-foreground">{{ app.createdAt | date:'mediumDate' }}</td>
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-1">
+                      <button (click)="store.openEdit(app)"
+                        class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 transition-colors" title="Edit">
+                        <ng-icon name="heroPencilSquare" size="1rem" />
+                      </button>
                       <button (click)="confirmRotateSecret(app)"
                         class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 transition-colors" title="Rotate secret">
                         <ng-icon name="heroArrowPath" size="1rem" />
@@ -165,12 +172,32 @@ import { OAuthAppsStore } from './oauth-apps.store';
           </div>
         </ng-template>
       </p-dialog>
+
+      <!-- Edit dialog (visibility driven by store.editing()) -->
+      <app-oauth-app-edit-dialog />
     </div>
   `,
 })
 export class OAuthAppsComponent {
   readonly store = inject(OAuthAppsStore);
+  private readonly search = inject(SearchService);
   private confirmSvc = inject(ConfirmationService);
+
+  /**
+   * Client-side filter driven by the global search input in the layout
+   * header. Matches against name, client_id, or any redirect URI; empty
+   * query returns the unfiltered list (no perf cost vs. .filter()).
+   */
+  readonly filteredApps = computed(() => {
+    const q = this.search.query().toLowerCase();
+    const apps = this.store.apps();
+    if (!q) return apps;
+    return apps.filter((app: OAuthApp) =>
+      app.name.toLowerCase().includes(q) ||
+      app.clientId.toLowerCase().includes(q) ||
+      (app.redirectUris ?? []).some((u: string) => u.toLowerCase().includes(q)),
+    );
+  });
 
   appName = signal('');
   redirectUriInput = signal('');

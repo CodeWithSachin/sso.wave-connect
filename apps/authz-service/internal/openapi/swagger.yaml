@@ -36,6 +36,12 @@ definitions:
       allowed:
         type: boolean
     type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse:
+    properties:
+      error:
+        example: invalid request body
+        type: string
+    type: object
   github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsRequest:
     properties:
       relation:
@@ -55,6 +61,11 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleDeleteResult:
+    properties:
+      deleted:
+        type: integer
     type: object
   github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite:
     properties:
@@ -79,6 +90,13 @@ definitions:
         items:
           $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite'
         type: array
+    type: object
+  github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteResult:
+    properties:
+      deletes:
+        type: integer
+      writes:
+        type: integer
     type: object
 info:
   contact: {}
@@ -108,15 +126,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
       summary: Batch check permissions
       tags:
       - authz
@@ -142,15 +156,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
       summary: Check a permission
       tags:
       - authz
@@ -177,15 +187,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
       summary: List objects
       tags:
       - authz
@@ -209,21 +215,15 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: integer
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleDeleteResult'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
       summary: Delete tuples
       tags:
       - tuples
@@ -244,21 +244,15 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: integer
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteResult'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse'
       summary: Write or delete tuples
       tags:
       - tuples

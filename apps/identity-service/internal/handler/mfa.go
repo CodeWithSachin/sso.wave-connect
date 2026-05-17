@@ -69,7 +69,7 @@ func NewMfaHandler(
 //	@Produce	json
 //	@Security	BearerAuth
 //	@Param		body	body		model.MfaEnrollRequest	true	"Enrollment payload"
-//	@Success	201		{object}	map[string]any
+//	@Success	201		{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/enroll [post]
 func (h *MfaHandler) Enroll(c *fiber.Ctx) error {
 	var req model.MfaEnrollRequest
@@ -106,8 +106,8 @@ func (h *MfaHandler) Enroll(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Security	BearerAuth
 //	@Param		id		path		string	true	"Enrollment ID"
-//	@Param		body	body		map[string]string	true	"{ code: string }"
-//	@Success	200		{object}	map[string]any
+//	@Param		body	body		model.MfaEnrollVerifyRequest	true	"Verification code"
+//	@Success	200		{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/enroll/{id}/verify [post]
 func (h *MfaHandler) VerifyEnrollment(c *fiber.Ctx) error {
 	var req model.MfaEnrollVerifyRequest
@@ -144,8 +144,8 @@ func (h *MfaHandler) VerifyEnrollment(c *fiber.Ctx) error {
 //	@Tags		mfa
 //	@Accept		json
 //	@Produce	json
-//	@Param		body	body		map[string]string	true	"{ mfa_token: string, code: string }"
-//	@Success	200		{object}	map[string]any
+//	@Param		body	body		model.MfaVerifyRequest	true	"Second-factor payload"
+//	@Success	200		{object}	model.AuthResponse
 //	@Router		/auth/mfa/verify [post]
 func (h *MfaHandler) Verify(c *fiber.Ctx) error {
 	var req model.MfaVerifyRequest
@@ -219,19 +219,11 @@ func (h *MfaHandler) Verify(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 	}
 
-	// Set SSO session cookie (HttpOnly — enables cross-app auto-login via sso-service)
-	if sess.RawToken != "" {
-		c.Cookie(&fiber.Cookie{
-			Name:     "sso_session",
-			Value:    sess.RawToken,
-			Path:     "/",
-			Domain:   h.cookieCfg.Domain,
-			HTTPOnly: true,
-			Secure:   h.cookieCfg.Secure,
-			SameSite: "Lax",
-			MaxAge:   int(time.Until(sess.ExpiresAt).Seconds()),
-		})
-	}
+	// Set SSO session cookie via the single canonical writer in cookie.go.
+	// All sso_session writers in identity-service must produce identical
+	// Set-Cookie attributes — otherwise the browser keeps the old one as
+	// a sibling instead of overwriting it (ADR-0002 §C).
+	setSSOCookie(c, sess, h.cookieCfg)
 
 	return c.JSON(model.LoginResponse{
 		User: model.UserDTO{
@@ -257,7 +249,7 @@ func (h *MfaHandler) Verify(c *fiber.Ctx) error {
 //	@Tags		mfa
 //	@Produce	json
 //	@Security	BearerAuth
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/enrollments [get]
 func (h *MfaHandler) ListEnrollments(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
@@ -294,7 +286,7 @@ func (h *MfaHandler) ListEnrollments(c *fiber.Ctx) error {
 //	@Tags		mfa
 //	@Produce	json
 //	@Security	BearerAuth
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/backup-codes/regenerate [post]
 func (h *MfaHandler) RegenerateBackupCodes(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
@@ -322,7 +314,7 @@ func (h *MfaHandler) RegenerateBackupCodes(c *fiber.Ctx) error {
 //	@Tags		mfa
 //	@Produce	json
 //	@Security	BearerAuth
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/webauthn/register/begin [post]
 func (h *MfaHandler) BeginWebAuthnRegistration(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {
@@ -361,7 +353,7 @@ func (h *MfaHandler) BeginWebAuthnRegistration(c *fiber.Ctx) error {
 //	@Accept		json
 //	@Produce	json
 //	@Security	BearerAuth
-//	@Success	201	{object}	map[string]any
+//	@Success	201	{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/webauthn/register/complete [post]
 func (h *MfaHandler) CompleteWebAuthnRegistration(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {
@@ -405,7 +397,7 @@ func (h *MfaHandler) CompleteWebAuthnRegistration(c *fiber.Ctx) error {
 //	@Tags		mfa
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/webauthn/login/begin [post]
 func (h *MfaHandler) BeginWebAuthnLogin(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {
@@ -439,7 +431,7 @@ func (h *MfaHandler) BeginWebAuthnLogin(c *fiber.Ctx) error {
 //	@Tags		mfa
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.EmptyOKResponse
 //	@Router		/auth/mfa/webauthn/login/complete [post]
 func (h *MfaHandler) CompleteWebAuthnLogin(c *fiber.Ctx) error {
 	if h.webauthnSvc == nil {

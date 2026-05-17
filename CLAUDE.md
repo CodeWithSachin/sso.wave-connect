@@ -64,3 +64,42 @@ CI fails on `git diff --exit-code docs/api/` if you forget. The root-cause fix i
 
 **Agent skill installed globally:** [`scalar-docs`](https://skills.sh/scalar/scalar) at `~/.agents/skills/scalar-docs/`. It guides Scalar configuration choices — its instructions are loaded whenever you work on docs in any repo.
 
+### RBAC (capabilities + role-based access)
+
+Authoritative reference: [docs/architecture/rbac.md](docs/architecture/rbac.md). ADR-0002 in [the plan file](/Users/SACHIN.SINGH/.claude/plans/agent-skills-you-temporal-prism.md).
+
+**Single capability vocabulary.** Both consoles + both NestJS services share the `Capability` union in [libs/shared-types/src/lib/enums.ts](libs/shared-types/src/lib/enums.ts). The (role, tenant kind, platform role) → capabilities matrix is the **one place** that derives the list: [libs/nestjs-auth/src/lib/capabilities.ts](libs/nestjs-auth/src/lib/capabilities.ts). Never re-derive elsewhere.
+
+**Adding a new endpoint** — REQUIRED:
+
+```ts
+// libs/nestjs-auth provides @RequireCapability and is wired as APP_GUARD
+// in both admin-api and developer-portal-api.
+@Post()
+@RequireCapability('manage_api_keys')
+create(...) { ... }
+```
+
+Forgetting the decorator means the endpoint inherits SessionCookieGuard's "any authenticated user" gate — a security regression. Multi-cap `@RequireCapability('a', 'b')` is union semantics (any-of), matching the Angular `requireCapability([...])` route guard exactly.
+
+**Adding a new route in either console** — also REQUIRED:
+
+```ts
+// apps/<console>/src/app/app.routes.ts
+{
+  path: 'scim',
+  canActivate: [requireCapability(['manage_scim_tokens'])],
+  loadComponent: () => import('./features/scim/...'),
+}
+```
+
+**Adding a new capability** — one-liner in each of:
+1. `libs/shared-types/src/lib/enums.ts` (union)
+2. `libs/nestjs-auth/src/lib/capabilities.ts` (`computeCapabilities` matrix)
+3. relevant controllers (`@RequireCapability(...)`)
+4. relevant routes + nav (frontend guards)
+
+**Sidebar nav filter** mirrors route guards. Empty `caps: []` shows to any authenticated user (e.g. Dashboard, Account). Items are filtered against `SessionStore.capabilities()` — a 30 s poll keeps the list fresh.
+
+**OpenFGA / per-resource permissions** are deliberately deferred — see [docs/architecture/adr-0003-openfga.md](docs/architecture/adr-0003-openfga.md). Today's capability layer answers "can manage X in general"; per-instance ACLs land when we have a use case.
+

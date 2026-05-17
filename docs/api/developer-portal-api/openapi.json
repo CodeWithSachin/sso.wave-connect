@@ -192,6 +192,33 @@
       }
     },
     "/api/v1/oauth-apps/{id}": {
+      "patch": {
+        "operationId": "OAuthAppsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update an OAuth application (name, redirect URIs, scopes)",
+        "tags": [
+          "OAuth Applications"
+        ]
+      },
       "delete": {
         "operationId": "OAuthAppsController_delete",
         "parameters": [
@@ -366,6 +393,29 @@
         "summary": "Get code examples",
         "tags": [
           "Documentation"
+        ]
+      }
+    },
+    "/api/v1/session/me": {
+      "get": {
+        "operationId": "SessionController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "SessionMeDto shape (see libs/shared-types)"
+          },
+          "401": {
+            "description": "Missing or invalid sso_session cookie"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Return the authenticated session + memberships + capabilities for the developer-portal shell",
+        "tags": [
+          "session"
         ]
       }
     }

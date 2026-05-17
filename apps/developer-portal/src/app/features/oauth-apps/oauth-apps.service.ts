@@ -34,6 +34,14 @@ export class OAuthAppsService {
     return this.http.post<{ client_secret: string }>(`${this.baseUrl}/${id}/rotate-secret`, {});
   }
 
+  /**
+   * Update mutable fields. Backend treats omitted fields as no-ops, so
+   * passing just `{ name }` won't blank out redirect URIs.
+   */
+  update(id: string, dto: { name?: string; redirect_uris?: string[]; allowed_scopes?: string[] }) {
+    return this.http.patch<OAuthApp>(`${this.baseUrl}/${id}`, dto);
+  }
+
   delete(id: string) {
     return this.http.delete(`${this.baseUrl}/${id}`);
   }

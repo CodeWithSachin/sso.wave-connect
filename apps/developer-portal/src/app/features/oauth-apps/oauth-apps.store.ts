@@ -10,6 +10,10 @@ interface OAuthAppsState {
   loading: boolean;
   dialogVisible: boolean;
   newCredentials: { clientId: string; clientSecret: string } | null;
+  /** Currently-being-edited app, or null when the edit dialog is closed. */
+  editing: OAuthApp | null;
+  /** Submission state for the edit dialog; shows a spinner on Save. */
+  updating: boolean;
 }
 
 export const OAuthAppsStore = signalStore(
@@ -19,6 +23,8 @@ export const OAuthAppsStore = signalStore(
     loading: true,
     dialogVisible: false,
     newCredentials: null,
+    editing: null,
+    updating: false,
   }),
   withMethods((store) => {
     const svc = inject(OAuthAppsService);
@@ -70,6 +76,25 @@ export const OAuthAppsStore = signalStore(
       showDialog() { patchState(store, { dialogVisible: true }); },
       hideDialog() { patchState(store, { dialogVisible: false }); },
       dismissCredentials() { patchState(store, { newCredentials: null }); },
+      openEdit(app: OAuthApp) { patchState(store, { editing: app }); },
+      closeEdit() { patchState(store, { editing: null, updating: false }); },
+      async updateApp(id: string, dto: { name?: string; redirect_uris?: string[]; allowed_scopes?: string[] }) {
+        patchState(store, { updating: true });
+        try {
+          const updated = await firstValueFrom(svc.update(id, dto));
+          // Splice the updated row into the in-memory list so the table
+          // reflects the new state without a full reload.
+          patchState(store, {
+            updating: false,
+            editing: null,
+            apps: store.apps().map((a) => (a.id === id ? { ...a, ...updated } : a)),
+          });
+          msg.add({ severity: 'success', summary: 'Saved', detail: 'OAuth app updated' });
+        } catch {
+          patchState(store, { updating: false });
+          msg.add({ severity: 'error', summary: 'Error', detail: 'Failed to update app' });
+        }
+      },
     };
   }),
   withHooks({

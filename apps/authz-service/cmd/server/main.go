@@ -130,6 +130,9 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
+		// 16 KB header buffer (default 4 KB) — see comment in
+		// apps/sso-service/cmd/server/main.go for the full rationale.
+		ReadBufferSize: 16 * 1024,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

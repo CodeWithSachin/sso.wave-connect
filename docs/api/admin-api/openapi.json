@@ -220,6 +220,74 @@
         ]
       }
     },
+    "/api/v1/my-tenant": {
+      "get": {
+        "operationId": "MyTenantController_findMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get the tenant the session is currently bound to",
+        "tags": [
+          "tenants"
+        ]
+      },
+      "patch": {
+        "operationId": "MyTenantController_updateMine",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict — tenant was modified concurrently"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update fields on the current tenant (optimistic lock via version)",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
     "/api/v1/users": {
       "post": {
         "operationId": "UsersController_create",
@@ -1525,6 +1593,36 @@
           }
         ],
         "summary": "Revoke platform-admin privileges (superadmin only)",
+        "tags": [
+          "platform-admins"
+        ]
+      }
+    },
+    "/api/v1/platform/me": {
+      "get": {
+        "operationId": "PlatformMeController_getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformMeResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session cookie"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get the caller's active platform-admin role (null if none)",
         "tags": [
           "platform-admins"
         ]
@@ -2945,6 +3043,30 @@
           "total"
         ]
       },
+      "PlatformMeResponseDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "nullable": true,
+            "description": "The caller's active platform role, or null if they are not an active platform admin.",
+            "enum": [
+              "superadmin",
+              "support",
+              "readonly"
+            ]
+          },
+          "grantedAt": {
+            "type": "object",
+            "nullable": true,
+            "description": "ISO-8601 timestamp the grant was issued, or null if the caller is not a platform admin."
+          }
+        },
+        "required": [
+          "role",
+          "grantedAt"
+        ]
+      },
       "SessionMeUserDto": {
         "type": "object",
         "properties": {
@@ -3111,7 +3233,7 @@
             ]
           },
           "capabilities": {
-            "description": "Pre-computed capability list. Frontend reads verbatim — no re-derivation. See apps/admin-api/src/session/capabilities.ts.",
+            "description": "Pre-computed capability list. Frontend reads verbatim — no re-derivation. See libs/nestjs-auth/src/lib/capabilities.ts (single source of truth).",
             "type": "array",
             "items": {
               "type": "string"

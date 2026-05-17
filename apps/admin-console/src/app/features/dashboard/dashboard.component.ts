@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { DatePipe } from '@angular/common';
 import { DashboardStore } from './dashboard.store';
+import { SessionStore } from '../../core/session/session.store';
 
 @Component({
   selector: 'app-dashboard',
@@ -28,7 +29,7 @@ import { DashboardStore } from './dashboard.store';
             @if (store.loading()) {
               <div class="h-8 w-20 rounded bg-muted/50 animate-pulse"></div>
             } @else {
-              <p class="text-3xl font-bold text-foreground">{{ store.totalUsers() }}</p>
+              <p class="text-3xl font-bold text-foreground">{{ store.totalUsers() ?? '—' }}</p>
             }
           </div>
         </div>
@@ -44,7 +45,7 @@ import { DashboardStore } from './dashboard.store';
             @if (store.loading()) {
               <div class="h-8 w-20 rounded bg-muted/50 animate-pulse"></div>
             } @else {
-              <p class="text-3xl font-bold text-foreground">{{ store.activeSessions() }}</p>
+              <p class="text-3xl font-bold text-foreground">{{ store.activeSessions() ?? '—' }}</p>
             }
           </div>
         </div>
@@ -59,6 +60,8 @@ import { DashboardStore } from './dashboard.store';
           <div class="mt-3">
             @if (store.loading()) {
               <div class="h-8 w-20 rounded bg-muted/50 animate-pulse"></div>
+            } @else if (store.sessionRate() === null) {
+              <p class="text-3xl font-bold text-foreground">—</p>
             } @else {
               <p class="text-3xl font-bold text-foreground">{{ store.sessionRate() }}%</p>
             }
@@ -76,11 +79,22 @@ import { DashboardStore } from './dashboard.store';
             @if (store.loading()) {
               <div class="h-8 w-20 rounded bg-muted/50 animate-pulse"></div>
             } @else {
-              <p class="text-3xl font-bold text-foreground">{{ store.mfaEnrolled() }}</p>
+              <p class="text-3xl font-bold text-foreground">{{ store.mfaEnrolled() ?? '—' }}</p>
             }
           </div>
         </div>
       </div>
+
+      @if (isPersonalTenant()) {
+        <!-- A6: the tenant-admin metrics above don't apply to a personal
+             workspace. Surface this rather than showing four "—" cards
+             with no explanation. -->
+        <div class="rounded-xl border border-border bg-muted/30 px-5 py-4 text-sm text-muted-foreground">
+          You're signed into your personal workspace. The member-management
+          metrics above only apply to organisation tenants — switch tenants
+          from the sidebar to see them populated.
+        </div>
+      }
 
       <!-- Recent Activity -->
       <div class="rounded-xl border border-border bg-card shadow-sm">
@@ -116,4 +130,8 @@ import { DashboardStore } from './dashboard.store';
 })
 export class DashboardComponent {
   readonly store = inject(DashboardStore);
+  private readonly session = inject(SessionStore);
+  readonly isPersonalTenant = computed(
+    () => this.session.activeTenant()?.kind === 'personal',
+  );
 }

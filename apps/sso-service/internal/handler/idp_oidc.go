@@ -16,6 +16,7 @@ import (
 
 	pb "github.com/wave-connect/sso-platform/libs/proto/gen/go/identity/v1"
 
+	_ "github.com/wave-connect/sso-platform/apps/sso-service/internal/model" // referenced via swag annotations
 	"github.com/wave-connect/sso-platform/apps/sso-service/internal/service"
 )
 
@@ -88,7 +89,7 @@ func NewOIDCCallbackHandler(
 //	@Param			code	query	string	true	"Authorization code returned by the IdP"
 //	@Param			state	query	string	true	"Relay-state token previously stored in Redis"
 //	@Success		302		"Redirect back to the original OAuth client redirect_uri"
-//	@Failure		400		{object}	map[string]string
+//	@Failure		400		{object}	model.ErrorResponse
 //	@Router			/idp/oidc/callback [get]
 func (h *OIDCCallbackHandler) Callback(c *fiber.Ctx) error {
 	code := c.Query("code")
@@ -191,9 +192,19 @@ func (h *OIDCCallbackHandler) Callback(c *fiber.Ctx) error {
 }
 
 // setSSOSessionCookie writes the cookie identity-service would have written
-// on a password login — same attributes, so downstream services (admin-api,
-// developer-portal-api) validate it identically regardless of which entry
-// point minted the session.
+// on a password login.
+//
+// CO-WRITER WARNING (ADR-0002 §C): sso-service and identity-service both
+// emit `sso_session`. Browsers will only overwrite an existing cookie when
+// (Name, Domain, Path) match EXACTLY — otherwise they keep both as
+// siblings, which is what caused the localhost 4KB header overflow during
+// Slice 2 testing. This means both services MUST be configured with the
+// same Domain and Path on the same deployment. Diverging cookieCfg in
+// either service is a production-grade bug, not just a styling choice.
+// In a follow-up we should consolidate to a single writer (identity-service
+// only, with sso-service delegating session-creation over the existing
+// gRPC channel); for now keep the attributes in lockstep with
+// identity-service's cookie.go::setSSOCookie.
 func (h *OIDCCallbackHandler) setSSOSessionCookie(c *fiber.Ctx, rawToken string, expiresUnix int64) {
 	expires := time.Unix(expiresUnix, 0).UTC()
 	maxAge := int(time.Until(expires).Seconds())

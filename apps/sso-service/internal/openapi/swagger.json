@@ -22,8 +22,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.JWKSResponse"
                         }
                     }
                 }
@@ -42,8 +41,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OIDCDiscoveryDocument"
                         }
                     }
                 }
@@ -82,10 +80,7 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -167,10 +162,7 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse"
                         }
                     }
                 }
@@ -227,17 +219,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ConsentFormData"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -305,10 +293,7 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -382,19 +367,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse"
                         }
                     }
                 }
@@ -428,17 +407,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.UserInfoResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse"
                         }
                     }
                 }
@@ -446,6 +421,116 @@
         }
     },
     "definitions": {
+        "github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ConsentFormData": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_name": {
+                    "type": "string"
+                },
+                "redirect_uri": {
+                    "type": "string"
+                },
+                "requested_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "description": "TenantID is the tenant the OAuth2 flow was pinned to at first\n/authorize touch (Phase 5). The consent UI must echo this back in\nthe POST body so the code is minted for the same tenant, not the\nsession's current active_tenant_id (which may have drifted if the\nuser switched tenants mid-flow).",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "server_error"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_sso-service_internal_model.JWKSResponse": {
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "invalid_grant"
+                },
+                "error_description": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OIDCDiscoveryDocument": {
+            "type": "object",
+            "properties": {
+                "authorization_endpoint": {
+                    "type": "string"
+                },
+                "id_token_signing_alg_values_supported": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "issuer": {
+                    "type": "string"
+                },
+                "jwks_uri": {
+                    "type": "string"
+                },
+                "response_types_supported": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "scopes_supported": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "subject_types_supported": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token_endpoint": {
+                    "type": "string"
+                },
+                "token_endpoint_auth_methods_supported": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "userinfo_endpoint": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_wave-connect_sso-platform_apps_sso-service_internal_model.TokenResponse": {
             "type": "object",
             "properties": {
@@ -465,6 +550,32 @@
                     "type": "string"
                 },
                 "token_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_sso-service_internal_model.UserInfoResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "email_verified": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "picture": {
+                    "type": "string"
+                },
+                "preferred_username": {
+                    "type": "string"
+                },
+                "sub": {
+                    "type": "string"
+                },
+                "tenant_id": {
                     "type": "string"
                 }
             }

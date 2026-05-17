@@ -1,9 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Dialog } from 'primeng/dialog';
 import { ConfirmationService } from 'primeng/api';
+import { SearchService } from '../../core/search/search.service';
+import type { ApiKey } from './api-keys.service';
 import { ApiKeysStore } from './api-keys.store';
 
 @Component({
@@ -68,7 +70,7 @@ import { ApiKeysStore } from './api-keys.store';
                 <tr><td class="px-4 py-3" colspan="6"><div class="h-5 rounded bg-muted/50 animate-pulse"></div></td></tr>
               }
             } @else {
-              @for (key of store.keys(); track key.id) {
+              @for (key of filteredKeys(); track key.id) {
                 <tr class="hover:bg-muted/20 transition-colors">
                   <td class="px-4 py-3 font-medium text-foreground">{{ key.name }}</td>
                   <td class="px-4 py-3 font-mono text-xs text-muted-foreground">{{ key.keyPrefix }}...</td>
@@ -141,7 +143,24 @@ import { ApiKeysStore } from './api-keys.store';
 })
 export class ApiKeysComponent {
   readonly store = inject(ApiKeysStore);
+  private readonly search = inject(SearchService);
   private confirmSvc = inject(ConfirmationService);
+
+  /**
+   * Filtered view of the key list against the global search query. Matches
+   * name, key prefix, or any scope. The empty-query case returns the
+   * untouched list so the unfiltered render is the common path.
+   */
+  readonly filteredKeys = computed(() => {
+    const q = this.search.query().toLowerCase();
+    const keys = this.store.keys();
+    if (!q) return keys;
+    return keys.filter((k: ApiKey) =>
+      k.name.toLowerCase().includes(q) ||
+      k.keyPrefix.toLowerCase().includes(q) ||
+      (k.scopes ?? []).some((s: string) => s.toLowerCase().includes(q)),
+    );
+  });
 
   keyName = signal('');
   rateLimit = signal<number | null>(null);

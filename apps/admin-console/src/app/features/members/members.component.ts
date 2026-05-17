@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Dialog } from 'primeng/dialog';
 import { ConfirmationService } from 'primeng/api';
 import { firstValueFrom } from 'rxjs';
+import { SearchService } from '../../core/search/search.service';
 import { MembersService, type User } from './members.service';
 import { MembersStore } from './members.store';
 
@@ -249,6 +250,9 @@ export class MembersComponent {
   readonly store = inject(MembersStore);
   private readonly svc = inject(MembersService);
   private readonly confirmSvc = inject(ConfirmationService);
+  // Global search bus (Item 7). The list filter unions the page-local
+  // search input with the global ⌘K query so both work.
+  private readonly globalSearch = inject(SearchService);
 
   inviteEmail = signal('');
   inviteName = signal('');
@@ -272,13 +276,28 @@ export class MembersComponent {
   readonly users = computed<User[]>(() => this.listResource.value()?.data ?? []);
   readonly total = computed<number>(() => this.listResource.value()?.total ?? 0);
 
-  /** Cheap client-side filter over the page that's already loaded. */
+  /**
+   * Cheap client-side filter over the page that's already loaded. Matches
+   * against either the page-local search input or the global top-bar
+   * search bus (Item 7). The local input is the one rendered above the
+   * table; the bus is fed by the ⌘K header input — both narrow the same
+   * list.
+   */
   readonly visibleUsers = computed<User[]>(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) return this.users();
-    return this.users().filter((u) =>
-      [u.email, u.displayName ?? ''].some((s) => s.toLowerCase().includes(term)),
-    );
+    const localTerm = this.searchTerm().trim().toLowerCase();
+    const globalTerm = this.globalSearch.query().toLowerCase();
+    const users = this.users();
+    if (!localTerm && !globalTerm) return users;
+    return users.filter((u) => {
+      const haystack = [u.email, u.displayName ?? ''].map((s) =>
+        s.toLowerCase(),
+      );
+      const matchLocal =
+        !localTerm || haystack.some((s) => s.includes(localTerm));
+      const matchGlobal =
+        !globalTerm || haystack.some((s) => s.includes(globalTerm));
+      return matchLocal && matchGlobal;
+    });
   });
 
   readonly listState = computed<'loading' | 'error' | 'empty' | 'ready'>(() => {

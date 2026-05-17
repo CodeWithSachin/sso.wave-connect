@@ -57,7 +57,13 @@ import { DashboardStore } from './dashboard.store';
             </div>
           </div>
           <div class="mt-3">
-            <p class="text-3xl font-bold text-foreground">—</p>
+            @if (store.loading()) {
+              <div class="h-8 w-16 rounded bg-muted/50 animate-pulse"></div>
+            } @else {
+              <p class="text-3xl font-bold text-foreground" [title]="store.apiRequests30d() === null ? 'Audit service unavailable' : ''">
+                {{ store.apiRequests30d() === null ? '—' : store.apiRequests30d() }}
+              </p>
+            }
           </div>
         </div>
       </div>

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import {
   PlatformAdminGuard,
+  RequireCapabilityGuard,
+  RequireVerifiedEmailGuard,
   SessionCookieGuard,
   SESSION_DB_CLIENT,
 } from '@sso-platform/nestjs-auth';
@@ -45,6 +47,15 @@ const emailProvider: EmailProviderKind =
     // populates request.user = { id, tenantId, sessionId } for every route.
     { provide: SESSION_DB_CLIENT, useExisting: PrismaService },
     { provide: APP_GUARD, useClass: SessionCookieGuard },
+    // RequireCapabilityGuard (ADR-0002) runs after SessionCookieGuard and is
+    // a no-op on routes without @RequireCapability(). When a route is
+    // decorated, the guard lazily derives caps from identity-service
+    // memberships + the local platform_admins table.
+    { provide: APP_GUARD, useClass: RequireCapabilityGuard },
+    // E2E review A1 — RequireVerifiedEmailGuard runs after the capability
+    // gate. A no-op on undecorated routes; on `@RequireVerifiedEmail()`
+    // routes it 403s unverified users with `email_not_verified`.
+    { provide: APP_GUARD, useClass: RequireVerifiedEmailGuard },
     // PlatformAdminGuard is NOT app-global — controllers opt in via @UseGuards.
     // Exposed here so DI can resolve it when controllers list it in their guard array.
     PlatformAdminGuard,

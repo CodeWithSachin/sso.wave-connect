@@ -88,7 +88,7 @@ export class SessionMeResponseDto {
     type: [String],
     description:
       'Pre-computed capability list. Frontend reads verbatim — no re-derivation. ' +
-      'See apps/admin-api/src/session/capabilities.ts.',
+      'See libs/nestjs-auth/src/lib/capabilities.ts (single source of truth).',
   })
   capabilities!: Capability[];
 }

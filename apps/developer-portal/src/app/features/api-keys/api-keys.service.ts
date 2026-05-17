@@ -48,6 +48,11 @@ export class ApiKeysService {
   getUsage(id: string) {
     return this.http.get<{ data: UsageMetric[] }>(`${this.baseUrl}/${id}/usage`);
   }
+
+  /** Read one API key by id — used by /api-keys/:id detail page. */
+  get(id: string) {
+    return this.http.get<ApiKey>(`${this.baseUrl}/${id}`);
+  }
 }
 
 export interface UsageMetric {

@@ -72,7 +72,7 @@ func NewOAuth2Handler(
 //	@Param			nonce					query		string	false	"OIDC nonce"
 //	@Param			idp_hint				query		string	false	"External IdP ID for federated auth"
 //	@Success		302	"Redirect to login portal, IdP, consent, or the client's redirect_uri"
-//	@Failure		400	{object}	map[string]string
+//	@Failure		400	{object}	model.OAuthErrorResponse
 //	@Router			/oauth2/authorize [get]
 func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 	req := &model.AuthorizeRequest{}
@@ -256,8 +256,8 @@ func (h *OAuth2Handler) Authorize(c *fiber.Ctx) error {
 //	@Param			refresh_token	formData	string	false	"Refresh token (refresh_token grant)"
 //	@Param			code_verifier	formData	string	false	"PKCE verifier"
 //	@Success		200	{object}	model.TokenResponse
-//	@Failure		400	{object}	map[string]string
-//	@Failure		401	{object}	map[string]string
+//	@Failure		400	{object}	model.OAuthErrorResponse
+//	@Failure		401	{object}	model.OAuthErrorResponse
 //	@Router			/oauth2/token [post]
 func (h *OAuth2Handler) Token(c *fiber.Ctx) error {
 	req := &model.TokenRequest{}

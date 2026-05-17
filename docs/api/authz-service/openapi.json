@@ -42,19 +42,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -94,19 +88,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -146,19 +134,13 @@
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -192,28 +174,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteResult"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -248,28 +221,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleDeleteResult"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -331,6 +295,15 @@
                 }
             }
         },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "invalid request body"
+                }
+            }
+        },
         "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.ListObjectsRequest": {
             "type": "object",
             "required": [
@@ -358,6 +331,14 @@
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleDeleteResult": {
+            "type": "object",
+            "properties": {
+                "deleted": {
+                    "type": "integer"
                 }
             }
         },
@@ -394,6 +375,17 @@
                     "items": {
                         "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWrite"
                     }
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_authz-service_internal_model.TupleWriteResult": {
+            "type": "object",
+            "properties": {
+                "deletes": {
+                    "type": "integer"
+                },
+                "writes": {
+                    "type": "integer"
                 }
             }
         }

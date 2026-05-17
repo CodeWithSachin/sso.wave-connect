@@ -1,5 +1,83 @@
 basePath: /
 definitions:
+  github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ConsentFormData:
+    properties:
+      client_id:
+        type: string
+      client_name:
+        type: string
+      redirect_uri:
+        type: string
+      requested_scopes:
+        items:
+          type: string
+        type: array
+      state:
+        type: string
+      tenant_id:
+        description: |-
+          TenantID is the tenant the OAuth2 flow was pinned to at first
+          /authorize touch (Phase 5). The consent UI must echo this back in
+          the POST body so the code is minted for the same tenant, not the
+          session's current active_tenant_id (which may have drifted if the
+          user switched tenants mid-flow).
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse:
+    properties:
+      error:
+        example: server_error
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_sso-service_internal_model.JWKSResponse:
+    properties:
+      keys:
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+    type: object
+  github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse:
+    properties:
+      error:
+        example: invalid_grant
+        type: string
+      error_description:
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OIDCDiscoveryDocument:
+    properties:
+      authorization_endpoint:
+        type: string
+      id_token_signing_alg_values_supported:
+        items:
+          type: string
+        type: array
+      issuer:
+        type: string
+      jwks_uri:
+        type: string
+      response_types_supported:
+        items:
+          type: string
+        type: array
+      scopes_supported:
+        items:
+          type: string
+        type: array
+      subject_types_supported:
+        items:
+          type: string
+        type: array
+      token_endpoint:
+        type: string
+      token_endpoint_auth_methods_supported:
+        items:
+          type: string
+        type: array
+      userinfo_endpoint:
+        type: string
+    type: object
   github_com_wave-connect_sso-platform_apps_sso-service_internal_model.TokenResponse:
     properties:
       access_token:
@@ -13,6 +91,23 @@ definitions:
       scope:
         type: string
       token_type:
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_sso-service_internal_model.UserInfoResponse:
+    properties:
+      email:
+        type: string
+      email_verified:
+        type: boolean
+      name:
+        type: string
+      picture:
+        type: string
+      preferred_username:
+        type: string
+      sub:
+        type: string
+      tenant_id:
         type: string
     type: object
 info:
@@ -31,8 +126,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.JWKSResponse'
       summary: JSON Web Key Set
       tags:
       - oidc
@@ -44,8 +138,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OIDCDiscoveryDocument'
       summary: OpenID Connect discovery document
       tags:
       - oidc
@@ -72,9 +165,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse'
       summary: External OIDC IdP callback
       tags:
       - oidc
@@ -130,9 +221,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse'
       summary: OAuth2 authorization endpoint
       tags:
       - oauth2
@@ -172,14 +261,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ConsentFormData'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse'
       summary: Fetch consent form data
       tags:
       - oauth2
@@ -226,9 +312,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.ErrorResponse'
       summary: Submit a consent decision
       tags:
       - oauth2
@@ -278,15 +362,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse'
       summary: OAuth2 token endpoint
       tags:
       - oauth2
@@ -305,14 +385,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.UserInfoResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_sso-service_internal_model.OAuthErrorResponse'
       security:
       - BearerAuth: []
       summary: UserInfo endpoint

@@ -34,8 +34,8 @@ func NewAuthzHandler(authz *service.AuthzService, validate *validator.Validate, 
 //	@Produce		json
 //	@Param			body	body		model.CheckRequest	true	"Permission check"
 //	@Success		200		{object}	model.CheckResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	model.ErrorResponse
+//	@Failure		500		{object}	model.ErrorResponse
 //	@Router			/authz/check [post]
 func (h *AuthzHandler) Check(c *fiber.Ctx) error {
 	var req model.CheckRequest
@@ -69,8 +69,8 @@ func (h *AuthzHandler) Check(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			body	body		model.BatchCheckRequest	true	"Batch check"
 //	@Success		200		{object}	model.BatchCheckResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	model.ErrorResponse
+//	@Failure		500		{object}	model.ErrorResponse
 //	@Router			/authz/batch-check [post]
 func (h *AuthzHandler) BatchCheck(c *fiber.Ctx) error {
 	var req model.BatchCheckRequest
@@ -111,8 +111,8 @@ func (h *AuthzHandler) BatchCheck(c *fiber.Ctx) error {
 //	@Produce		json
 //	@Param			body	body		model.ListObjectsRequest	true	"List objects"
 //	@Success		200		{object}	model.ListObjectsResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	model.ErrorResponse
+//	@Failure		500		{object}	model.ErrorResponse
 //	@Router			/authz/list-objects [post]
 func (h *AuthzHandler) ListObjects(c *fiber.Ctx) error {
 	var req model.ListObjectsRequest

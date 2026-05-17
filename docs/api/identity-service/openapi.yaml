@@ -1,5 +1,61 @@
 basePath: /
 definitions:
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptInvitationRequest:
+    properties:
+      password:
+        description: |-
+          Password is required only when the invited email has no existing user
+          account. The handler decides based on the bound user ID.
+        minLength: 8
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptedResponse:
+    properties:
+      status:
+        example: accepted
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AddDomainRequest:
+    properties:
+      domain:
+        type: string
+    required:
+    - domain
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse:
+    properties:
+      display_name:
+        type: string
+      email:
+        type: string
+      expires_at:
+        type: integer
+      tenant_id:
+        type: string
+      user_id:
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse:
+    properties:
+      error:
+        example: invalid request body
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ListMembershipsResponse:
+    properties:
+      active_tenant_id:
+        type: string
+      memberships:
+        items:
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MembershipSummaryItem'
+        type: array
+    type: object
   github_com_wave-connect_sso-platform_apps_identity-service_internal_model.LoginRequest:
     properties:
       email:
@@ -10,6 +66,17 @@ definitions:
     - email
     - password
     type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MembershipSummaryItem:
+    properties:
+      is_active:
+        type: boolean
+      role:
+        type: string
+      tenant_id:
+        type: string
+      tenant_name:
+        type: string
+    type: object
   github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaEnrollRequest:
     properties:
       method:
@@ -19,6 +86,27 @@ definitions:
         type: string
     required:
     - method
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaEnrollVerifyRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaVerifyRequest:
+    properties:
+      challenge_token:
+        type: string
+      code:
+        maxLength: 4096
+        minLength: 6
+        type: string
+      method:
+        type: string
+    required:
+    - challenge_token
+    - code
     type: object
   github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RefreshRequest:
     properties:
@@ -47,6 +135,51 @@ definitions:
     - display_name
     - email
     - password
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ResendVerificationRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RevokeTokenRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RotateTokensResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        example: Bearer
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantRequest:
+    properties:
+      tenant_id:
+        type: string
+    required:
+    - tenant_id
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantResponse:
+    properties:
+      active_tenant_id:
+        type: string
+    type: object
+  github_com_wave-connect_sso-platform_apps_identity-service_internal_model.VerifyEmailRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
     type: object
   github_com_wave-connect_sso-platform_apps_identity-service_internal_service.SignupOrgRequest:
     properties:
@@ -159,14 +292,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
       summary: Login
       tags:
       - auth
@@ -178,8 +308,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       security:
       - BearerAuth: []
       summary: Regenerate MFA backup codes
@@ -202,8 +331,7 @@ paths:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       security:
       - BearerAuth: []
       summary: Begin MFA enrollment
@@ -219,22 +347,19 @@ paths:
         name: id
         required: true
         type: string
-      - description: '{ code: string }'
+      - description: Verification code
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaEnrollVerifyRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       security:
       - BearerAuth: []
       summary: Verify MFA enrollment
@@ -248,8 +373,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       security:
       - BearerAuth: []
       summary: List MFA enrollments
@@ -276,22 +400,19 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: '{ mfa_token: string, code: string }'
+      - description: Second-factor payload
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaVerifyRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
       summary: Verify second factor at login
       tags:
       - mfa
@@ -305,8 +426,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       summary: Begin WebAuthn login
       tags:
       - mfa
@@ -320,8 +440,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       summary: Complete WebAuthn login
       tags:
       - mfa
@@ -333,8 +452,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       security:
       - BearerAuth: []
       summary: Begin WebAuthn registration
@@ -350,8 +468,7 @@ paths:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       security:
       - BearerAuth: []
       summary: Complete WebAuthn registration
@@ -410,17 +527,14 @@ paths:
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptInvitationRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
       summary: Accept an invitation
       tags:
       - invitation
@@ -505,20 +619,15 @@ paths:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
       summary: Public consumer signup
       tags:
       - signup
@@ -539,20 +648,15 @@ paths:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
       summary: Organisation signup with domain claim
       tags:
       - signup
@@ -561,28 +665,23 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: '{ token: string }'
+      - description: Email verification token
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.VerifyEmailRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
       summary: Verify email
       tags:
       - signup
@@ -591,29 +690,23 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: '{ email: string }'
+      - description: Email to resend to
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ResendVerificationRequest'
       produces:
       - application/json
       responses:
         "202":
           description: Accepted
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptedResponse'
         "429":
           description: Too Many Requests
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
       summary: Resend verification email
       tags:
       - signup
@@ -639,20 +732,15 @@ paths:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
       summary: Register a user
       tags:
       - auth
@@ -661,22 +749,19 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: '{ tenant_id: string }'
+      - description: Target tenant
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantResponse'
       summary: Switch active tenant
       tags:
       - session
@@ -688,8 +773,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ListMembershipsResponse'
       summary: List user tenant memberships
       tags:
       - session
@@ -701,8 +785,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RotateTokensResponse'
       summary: Rotate session tokens
       tags:
       - session
@@ -719,14 +802,12 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: '{ token: string }'
+      - description: Token to revoke
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RevokeTokenRequest'
       responses:
         "200":
           description: OK
@@ -755,14 +836,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse'
       summary: Refresh access token
       tags:
       - oauth2
@@ -827,22 +905,19 @@ paths:
         name: tenantId
         required: true
         type: string
-      - description: '{ domain: string }'
+      - description: Domain to claim
         in: body
         name: body
         required: true
         schema:
-          additionalProperties:
-            type: string
-          type: object
+          $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AddDomainRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse'
       summary: Add a tenant domain
       tags:
       - domains
@@ -884,8 +959,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse'
       summary: Verify a tenant domain
       tags:
       - domains

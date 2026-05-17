@@ -18,6 +18,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
+	"github.com/wave-connect/sso-platform/apps/identity-service/internal/model"
+
 	"github.com/wave-connect/sso-platform/apps/identity-service/internal/service"
 )
 
@@ -40,7 +42,7 @@ func NewActiveTenantHandler(svc *service.ActiveTenantService, validate *validato
 //	@Summary	List user tenant memberships
 //	@Tags		session
 //	@Produce	json
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.ListMembershipsResponse
 //	@Router		/auth/session/memberships [get]
 func (h *ActiveTenantHandler) ListMemberships(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
@@ -60,12 +62,10 @@ func (h *ActiveTenantHandler) ListMemberships(c *fiber.Ctx) error {
 	})
 }
 
-// SwitchActiveTenantRequest is the PATCH body.
-type SwitchActiveTenantRequest struct {
-	// TenantID is the raw UUID of the target tenant. Validators keep this
-	// thin — the service layer enforces "user has membership in target."
-	TenantID string `json:"tenant_id" validate:"required,uuid"`
-}
+// SwitchActiveTenantRequest is the PATCH body. Re-exported from
+// internal/model so existing callers don't break; the canonical type lives
+// alongside the other DTOs.
+type SwitchActiveTenantRequest = model.SwitchTenantRequest
 
 // Rotate handles POST /auth/session/rotate — mints a fresh token set for
 // the session's current active tenant, revoking the prior family so stale
@@ -77,7 +77,7 @@ type SwitchActiveTenantRequest struct {
 //	@Summary	Rotate session tokens
 //	@Tags		session
 //	@Produce	json
-//	@Success	200	{object}	map[string]any
+//	@Success	200	{object}	model.RotateTokensResponse
 //	@Router		/auth/session/rotate [post]
 func (h *ActiveTenantHandler) Rotate(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
@@ -109,8 +109,8 @@ func (h *ActiveTenantHandler) Rotate(c *fiber.Ctx) error {
 //	@Tags		session
 //	@Accept		json
 //	@Produce	json
-//	@Param		body	body	map[string]string	true	"{ tenant_id: string }"
-//	@Success	200		{object}	map[string]any
+//	@Param		body	body		model.SwitchTenantRequest	true	"Target tenant"
+//	@Success	200		{object}	model.SwitchTenantResponse
 //	@Router		/auth/session/active-tenant [patch]
 func (h *ActiveTenantHandler) SwitchActive(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)

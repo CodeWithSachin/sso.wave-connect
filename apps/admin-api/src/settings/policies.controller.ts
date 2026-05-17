@@ -14,7 +14,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { CurrentUser, TenantId, type AuthSession } from '@sso-platform/nestjs-auth';
+import { CurrentUser, RequireCapability, RequireVerifiedEmail, TenantId, type AuthSession } from '@sso-platform/nestjs-auth';
 import { PoliciesService } from './policies.service';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PolicyResponseDto } from './dto/policy-response.dto';
@@ -26,6 +26,7 @@ export class PoliciesController {
   constructor(private readonly policiesService: PoliciesService) {}
 
   @Get('policies')
+  @RequireCapability('view_tenant_settings')
   @ApiOperation({ summary: 'Get tenant security policy' })
   @ApiOkResponse({ type: PolicyResponseDto })
   findOne(@TenantId() tenantId: string) {
@@ -33,6 +34,8 @@ export class PoliciesController {
   }
 
   @Patch('policies')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Update tenant security policy (optimistic locking)' })
   @ApiOkResponse({ type: PolicyResponseDto })
   @ApiConflictResponse({ description: 'Version conflict' })

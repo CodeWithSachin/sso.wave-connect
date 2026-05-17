@@ -1,9 +1,19 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { createHash, randomBytes, randomUUID } from 'crypto';
-import { TenantId } from '@sso-platform/nestjs-auth';
+import { RequireCapability, RequireVerifiedEmail, TenantId } from '@sso-platform/nestjs-auth';
 import { PrismaService } from '../shared/prisma/prisma.service';
 
+/**
+ * SCIM token management. Capability gates (ADR-0002):
+ *   - List + sync-logs: `view_developer_resources` (read tier: every active membership).
+ *   - Create + revoke:   `manage_scim_tokens` (owner / admin only — these are
+ *     long-lived provisioning credentials with broad write privileges).
+ *
+ * Before ADR-0002 the controller relied on `SessionCookieGuard` alone; any
+ * tenant member could curl-create SCIM tokens, bypassing the client-side
+ * nav filter. The decorators below close that gap.
+ */
 @ApiTags('SCIM Tokens')
 @ApiBearerAuth()
 @Controller('api/v1/scim-tokens')
@@ -11,6 +21,8 @@ export class ScimTokensController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
+  @RequireCapability('manage_scim_tokens')
+  @RequireVerifiedEmail()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Generate a new SCIM provisioning token' })
   async create(@TenantId() tenantId: string) {
@@ -28,6 +40,7 @@ export class ScimTokensController {
   }
 
   @Get()
+  @RequireCapability('view_developer_resources')
   @ApiOperation({ summary: 'List SCIM tokens' })
   async list(@TenantId() tenantId: string) {
     const tokens = await this.prisma.$queryRaw`
@@ -39,6 +52,8 @@ export class ScimTokensController {
   }
 
   @Delete(':id')
+  @RequireCapability('manage_scim_tokens')
+  @RequireVerifiedEmail()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke a SCIM token' })
   async revoke(
@@ -51,6 +66,7 @@ export class ScimTokensController {
   }
 
   @Get('sync-logs')
+  @RequireCapability('view_developer_resources')
   @ApiOperation({ summary: 'View SCIM sync operation history' })
   async syncLogs(
     @TenantId() tenantId: string,
@@ -58,8 +74,13 @@ export class ScimTokensController {
     @Query('pageSize') pageSize = '50',
   ) {
     const offset = (parseInt(page, 10) - 1) * parseInt(pageSize, 10);
+    // scim_sync_log columns are external_id (IdP-side) and internal_id
+    // (waveconnect uuid). The UI just wants one displayable id, so we
+    // coalesce — preferring internal_id when present, else the external one.
     const logs = await this.prisma.$queryRaw`
-      SELECT id, operation, resource_type, resource_id, status, error_message, created_at
+      SELECT id, operation, resource_type,
+             COALESCE(internal_id::text, external_id) AS resource_id,
+             status, error_message, created_at
       FROM scim_sync_log WHERE tenant_id = ${tenantId}::uuid
       ORDER BY created_at DESC LIMIT ${parseInt(pageSize, 10)} OFFSET ${offset}
     `;

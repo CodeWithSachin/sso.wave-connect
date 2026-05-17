@@ -19,7 +19,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { TenantId } from '@sso-platform/nestjs-auth';
+import { RequireCapability, RequireVerifiedEmail, TenantId } from '@sso-platform/nestjs-auth';
 import { IdpService } from './idp.service';
 import { CreateSamlIdpDto, CreateOidcIdpDto } from './dto/create-idp.dto';
 import { UpdateIdpDto } from './dto/update-idp.dto';
@@ -32,6 +32,8 @@ export class IdpController {
   constructor(private readonly idpService: IdpService) {}
 
   @Post('saml')
+  @RequireCapability('manage_identity_providers')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Create a SAML identity provider' })
   @ApiCreatedResponse({ type: IdpResponseDto })
   createSaml(
@@ -42,6 +44,8 @@ export class IdpController {
   }
 
   @Post('oidc')
+  @RequireCapability('manage_identity_providers')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Create an OIDC identity provider' })
   @ApiCreatedResponse({ type: IdpResponseDto })
   createOidc(
@@ -52,6 +56,7 @@ export class IdpController {
   }
 
   @Get()
+  @RequireCapability('manage_identity_providers')
   @ApiOperation({ summary: 'List identity providers (paginated)' })
   @ApiOkResponse({ type: PaginatedIdpsResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -69,6 +74,7 @@ export class IdpController {
   }
 
   @Get(':id')
+  @RequireCapability('manage_identity_providers')
   @ApiOperation({ summary: 'Get an identity provider by ID' })
   @ApiOkResponse({ type: IdpResponseDto })
   @ApiNotFoundResponse({ description: 'IdP not found' })
@@ -80,6 +86,8 @@ export class IdpController {
   }
 
   @Patch(':id')
+  @RequireCapability('manage_identity_providers')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Update an identity provider' })
   @ApiOkResponse({ type: IdpResponseDto })
   @ApiNotFoundResponse({ description: 'IdP not found' })
@@ -93,6 +101,8 @@ export class IdpController {
   }
 
   @Delete(':id')
+  @RequireCapability('manage_identity_providers')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Soft-delete an identity provider' })
   @ApiOkResponse({ type: IdpResponseDto })
   @ApiNotFoundResponse({ description: 'IdP not found' })
@@ -109,6 +119,7 @@ export class IdpController {
    * button on the SSO page. 5s server-side timeout; never mutates state.
    */
   @Post(':id/test')
+  @RequireCapability('manage_identity_providers')
   @ApiOperation({
     summary: 'Test connectivity to an IdP without modifying its state',
   })

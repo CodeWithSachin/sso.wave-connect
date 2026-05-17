@@ -10,8 +10,11 @@ export interface User {
   firstName?: string;
   lastName?: string;
   status: string;
-  locale: string;
-  timezone: string;
+  // Nullable in the DB; UserResponseDto on admin-api may return null/empty.
+  // Typed nullable so the template's `?? '—'` fallback isn't flagged as
+  // dead by the Angular compiler (NG8102).
+  locale: string | null;
+  timezone: string | null;
   lastLoginAt?: string;
   version: number;
   createdAt: string;
@@ -41,6 +44,11 @@ export class MembersService {
 
   list(page = 1, pageSize = 20) {
     return this.http.get<MembersResponse>(this.baseUrl, { params: { page, pageSize } });
+  }
+
+  /** Fetch a single member by id — used by /members/:id detail page. */
+  get(id: string) {
+    return this.http.get<User>(`${this.baseUrl}/${id}`, { withCredentials: true });
   }
 
   create(dto: CreateUserDto) {

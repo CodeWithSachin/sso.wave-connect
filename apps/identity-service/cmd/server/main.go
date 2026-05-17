@@ -321,6 +321,11 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
+		// 16 KB header buffer (default 4 KB) — see comment in
+		// apps/sso-service/cmd/server/main.go for the full rationale.
+		// Multi-service `localhost` cookie pile-up in dev easily
+		// exceeds 4 KB and Fiber returns 431.
+		ReadBufferSize: 16 * 1024,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
@@ -394,13 +399,21 @@ func main() {
 	// multiple short-var decls.
 	sessionAuth := middleware.SessionCookieAuth(sessionRepo)
 
+	// E2E review A1 — write-shaped routes require a verified email. Signup
+	// mints a session immediately (so the user lands on a dashboard), but
+	// anything that mutates state stays closed until `/auth/public/verify-email`
+	// has been consumed. `email_verified` is read from the users table on
+	// every gated request — no caching, because the verification window is
+	// the one place we want fresh state.
+	verifiedEmail := middleware.RequireVerifiedEmail(pool, log)
+
 	// Phase 5: multi-tenant session switcher. Registered BEFORE the `/auth`
 	// group so TenantExtraction on `/auth/*` does not also cover these —
 	// switching tenants is the operation that changes the session's live
 	// tenant, so a tenant header requirement would be chicken-and-egg.
 	app.Get("/auth/session/memberships", sessionAuth, activeTenantHandler.ListMemberships)
-	app.Patch("/auth/session/active-tenant", sessionAuth, activeTenantHandler.SwitchActive)
-	app.Post("/auth/session/rotate", sessionAuth, activeTenantHandler.Rotate)
+	app.Patch("/auth/session/active-tenant", sessionAuth, verifiedEmail, activeTenantHandler.SwitchActive)
+	app.Post("/auth/session/rotate", sessionAuth, verifiedEmail, activeTenantHandler.Rotate)
 
 	// --- Public Auth Routes (tenant required, policy enforced, rate-limited) ---
 	auth := app.Group("/auth", middleware.TenantExtraction(pool), middleware.TenantPolicyEnforcement(policySvc, log))
@@ -425,13 +438,21 @@ func main() {
 	// specific-prefix groups instead of a single empty-prefix group. This
 	// leaves /tenants/:tenantId/domains/* free to use its own auth.
 	pasetoChain := []fiber.Handler{middleware.TenantExtraction(pool), middleware.PASETOAuth(tokenSvc)}
-	sessions := app.Group("/sessions", pasetoChain...)
+
+	// /sessions is a per-USER resource (a single user's signed-in devices) —
+	// it is intentionally tenant-agnostic. Wrapping it in pasetoChain (which
+	// includes TenantExtraction) forced clients to send X-Tenant-ID for a
+	// header that the handler never reads, breaking the admin-console
+	// "My sessions" page. Use PASETOAuth only here. Fix for E2E review A5.
+	sessionChain := []fiber.Handler{middleware.PASETOAuth(tokenSvc)}
+	sessions := app.Group("/sessions", sessionChain...)
 	sessions.Get("/", sessionHandler.List)
-	sessions.Delete("/:id", sessionHandler.Revoke)
+	// Revoking other sessions is a write — gate behind verified email.
+	sessions.Delete("/:id", verifiedEmail, sessionHandler.Revoke)
 	// Alias for clients using the no-trailing-slash form. Fiber's default
 	// StrictRouting=false would already match both, but registering
 	// explicitly insulates us from that default ever flipping. Fix #6.
-	app.Get("/sessions", append(pasetoChain, sessionHandler.List)...)
+	app.Get("/sessions", append(sessionChain, sessionHandler.List)...)
 
 	// Policy enforcement is appended to the chain so DeleteEnrollment can read
 	// `tenant_policy` from Locals and refuse the last-active deletion when the
@@ -439,13 +460,16 @@ func main() {
 	// policy, but they should still respect IP allowlist + require_sso gates.
 	mfaChain := append(pasetoChain, middleware.TenantPolicyEnforcement(policySvc, log))
 	mfaProtected := app.Group("/auth/mfa", mfaChain...)
-	mfaProtected.Post("/enroll", mfaHandler.Enroll)
-	mfaProtected.Post("/enroll/:id/verify", mfaHandler.VerifyEnrollment)
+	// MFA enrolment + secret rotation are writes — require verified email.
+	// `GET /enrollments` is a read and stays open so the UI can still tell
+	// the user their (empty) MFA state pre-verification.
+	mfaProtected.Post("/enroll", verifiedEmail, mfaHandler.Enroll)
+	mfaProtected.Post("/enroll/:id/verify", verifiedEmail, mfaHandler.VerifyEnrollment)
 	mfaProtected.Get("/enrollments", mfaHandler.ListEnrollments)
-	mfaProtected.Delete("/enrollments/:id", mfaHandler.DeleteEnrollment)
-	mfaProtected.Post("/backup-codes/regenerate", mfaHandler.RegenerateBackupCodes)
-	mfaProtected.Post("/webauthn/register/begin", mfaHandler.BeginWebAuthnRegistration)
-	mfaProtected.Post("/webauthn/register/complete", mfaHandler.CompleteWebAuthnRegistration)
+	mfaProtected.Delete("/enrollments/:id", verifiedEmail, mfaHandler.DeleteEnrollment)
+	mfaProtected.Post("/backup-codes/regenerate", verifiedEmail, mfaHandler.RegenerateBackupCodes)
+	mfaProtected.Post("/webauthn/register/begin", verifiedEmail, mfaHandler.BeginWebAuthnRegistration)
+	mfaProtected.Post("/webauthn/register/complete", verifiedEmail, mfaHandler.CompleteWebAuthnRegistration)
 	mfaProtected.Post("/webauthn/login/begin", mfaHandler.BeginWebAuthnLogin)
 	mfaProtected.Post("/webauthn/login/complete", mfaHandler.CompleteWebAuthnLogin)
 
@@ -455,9 +479,10 @@ func main() {
 	// Verify endpoint additionally rate-limited per tenant (fix #3).
 	verifyLimit := middleware.DomainVerifyRateLimit(rdb)
 	app.Get("/tenants/:tenantId/domains", sessionAuth, domainsHandler.List)
-	app.Post("/tenants/:tenantId/domains", sessionAuth, domainsHandler.Add)
-	app.Post("/tenants/:tenantId/domains/:id/verify", sessionAuth, verifyLimit, domainsHandler.Verify)
-	app.Delete("/tenants/:tenantId/domains/:id", sessionAuth, domainsHandler.Delete)
+	// Domain CRUD is org-scoped state — must be a verified user.
+	app.Post("/tenants/:tenantId/domains", sessionAuth, verifiedEmail, domainsHandler.Add)
+	app.Post("/tenants/:tenantId/domains/:id/verify", sessionAuth, verifiedEmail, verifyLimit, domainsHandler.Verify)
+	app.Delete("/tenants/:tenantId/domains/:id", sessionAuth, verifiedEmail, domainsHandler.Delete)
 
 	// Phase 4: admin-facing migration controls. Guarded by ReBAC (OpenFGA via
 	// authz-service) — caller must hold `admin` on organization:<tenantId>,
@@ -466,8 +491,21 @@ func main() {
 	// user_id from locals and pass it to authz.CheckOrgRelation.
 	adminOrgGate := middleware.RequireOrgRelation(authzClient, authz.RelAdmin)
 	app.Get("/tenants/:tenantId/migrations", sessionAuth, adminOrgGate, migrationHandler.List)
-	app.Post("/tenants/:tenantId/migrations/:id/notify-force", sessionAuth, adminOrgGate, migrationHandler.NotifyForce)
-	app.Post("/tenants/:tenantId/migrations/:id/force", sessionAuth, adminOrgGate, migrationHandler.Force)
+	// Forcing a migration is the highest-impact write — verified email required.
+	app.Post("/tenants/:tenantId/migrations/:id/notify-force", sessionAuth, adminOrgGate, verifiedEmail, migrationHandler.NotifyForce)
+	app.Post("/tenants/:tenantId/migrations/:id/force", sessionAuth, adminOrgGate, verifiedEmail, migrationHandler.Force)
+
+	// --- Dev-only endpoints (A1.5) ---
+	// Gated by BOTH NODE_ENV != production AND IDENTITY_DEV_ENDPOINTS=true.
+	// Exists because dev environments have no outbound SMTP — without a
+	// way to verify an email, E2E signup is unreachable. Production binaries
+	// must not satisfy the gate.
+	if handler.DevEnabled() {
+		devHandler := handler.NewDevHandler(pool, log)
+		log.Warn().Msg("MOUNTING /auth/dev/* — verification-bypass endpoints active (NOT FOR PRODUCTION)")
+		app.Get("/auth/dev/verification-link", devHandler.VerificationLink)
+		app.Post("/auth/dev/verify-email", devHandler.VerifyEmailNow)
+	}
 
 	// --- Start gRPC Server ---
 	grpcServer := grpc.NewServer()

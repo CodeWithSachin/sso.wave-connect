@@ -51,8 +51,8 @@ func NewConsentHandler(
 //	@Param			redirect_uri			query	string	true	"Redirect URI"
 //	@Param			state					query	string	true	"OAuth state"
 //	@Param			tenant_id				query	string	true	"Pinned tenant ID"
-//	@Success		200	{object}	map[string]any
-//	@Failure		400	{object}	map[string]string
+//	@Success		200	{object}	model.ConsentFormData
+//	@Failure		400	{object}	model.ErrorResponse
 //	@Router			/oauth2/consent [get]
 func (h *ConsentHandler) GetConsent(c *fiber.Ctx) error {
 	clientIDParam := c.Query("client_id")
@@ -108,7 +108,7 @@ func (h *ConsentHandler) GetConsent(c *fiber.Ctx) error {
 //	@Param			tenant_id		formData	string	true	"Pinned tenant ID"
 //	@Param			decision		formData	string	true	"`accept` or `deny`"
 //	@Success		302	"Redirect to OAuth client or login"
-//	@Failure		400	{object}	map[string]string
+//	@Failure		400	{object}	model.ErrorResponse
 //	@Router			/oauth2/consent [post]
 func (h *ConsentHandler) PostConsent(c *fiber.Ctx) error {
 	decision := &model.ConsentDecision{}

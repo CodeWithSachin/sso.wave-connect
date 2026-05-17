@@ -82,17 +82,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -116,8 +112,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -155,8 +150,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -188,15 +182,12 @@
                         "required": true
                     },
                     {
-                        "description": "{ code: string }",
+                        "description": "Verification code",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaEnrollVerifyRequest"
                         }
                     }
                 ],
@@ -204,8 +195,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -229,8 +219,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -277,15 +266,12 @@
                 "summary": "Verify second factor at login",
                 "parameters": [
                     {
-                        "description": "{ mfa_token: string, code: string }",
+                        "description": "Second-factor payload",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaVerifyRequest"
                         }
                     }
                 ],
@@ -293,8 +279,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     }
                 }
@@ -316,8 +301,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -339,8 +323,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -364,8 +347,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -392,8 +374,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -483,10 +464,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptInvitationRequest"
                         }
                     }
                 ],
@@ -494,8 +472,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     }
                 }
@@ -627,26 +604,19 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -679,26 +649,19 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -718,15 +681,12 @@
                 "summary": "Verify email",
                 "parameters": [
                     {
-                        "description": "{ token: string }",
+                        "description": "Email verification token",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.VerifyEmailRequest"
                         }
                     }
                 ],
@@ -734,17 +694,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -764,15 +720,12 @@
                 "summary": "Resend verification email",
                 "parameters": [
                     {
-                        "description": "{ email: string }",
+                        "description": "Email to resend to",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ResendVerificationRequest"
                         }
                     }
                 ],
@@ -780,19 +733,13 @@
                     "202": {
                         "description": "Accepted",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptedResponse"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -832,26 +779,19 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -871,15 +811,12 @@
                 "summary": "Switch active tenant",
                 "parameters": [
                     {
-                        "description": "{ tenant_id: string }",
+                        "description": "Target tenant",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantRequest"
                         }
                     }
                 ],
@@ -887,8 +824,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantResponse"
                         }
                     }
                 }
@@ -907,8 +843,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ListMembershipsResponse"
                         }
                     }
                 }
@@ -927,8 +862,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RotateTokensResponse"
                         }
                     }
                 }
@@ -958,15 +892,12 @@
                 "summary": "Revoke a token",
                 "parameters": [
                     {
-                        "description": "{ token: string }",
+                        "description": "Token to revoke",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RevokeTokenRequest"
                         }
                     }
                 ],
@@ -1011,17 +942,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse"
                         }
                     }
                 }
@@ -1130,15 +1057,12 @@
                         "required": true
                     },
                     {
-                        "description": "{ domain: string }",
+                        "description": "Domain to claim",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AddDomainRequest"
                         }
                     }
                 ],
@@ -1146,8 +1070,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse"
                         }
                     }
                 }
@@ -1211,8 +1134,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse"
                         }
                     }
                 }
@@ -1326,6 +1248,88 @@
         }
     },
     "definitions": {
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptInvitationRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "description": "Password is required only when the invited email has no existing user\naccount. The handler decides based on the bound user ID.",
+                    "type": "string",
+                    "minLength": 8
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AcceptedResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "accepted"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AddDomainRequest": {
+            "type": "object",
+            "required": [
+                "domain"
+            ],
+            "properties": {
+                "domain": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "display_name": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "integer"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.EmptyOKResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "invalid request body"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ListMembershipsResponse": {
+            "type": "object",
+            "properties": {
+                "active_tenant_id": {
+                    "type": "string"
+                },
+                "memberships": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MembershipSummaryItem"
+                    }
+                }
+            }
+        },
         "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.LoginRequest": {
             "type": "object",
             "required": [
@@ -1337,6 +1341,23 @@
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MembershipSummaryItem": {
+            "type": "object",
+            "properties": {
+                "is_active": {
+                    "type": "boolean"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "string"
+                },
+                "tenant_name": {
                     "type": "string"
                 }
             }
@@ -1353,6 +1374,37 @@
                         "totp",
                         "webauthn"
                     ]
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaEnrollVerifyRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.MfaVerifyRequest": {
+            "type": "object",
+            "required": [
+                "challenge_token",
+                "code"
+            ],
+            "properties": {
+                "challenge_token": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "minLength": 6
+                },
+                "method": {
+                    "type": "string"
                 }
             }
         },
@@ -1392,6 +1444,76 @@
                     "type": "string",
                     "maxLength": 128,
                     "minLength": 10
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.ResendVerificationRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RevokeTokenRequest": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.RotateTokensResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string",
+                    "example": "Bearer"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantRequest": {
+            "type": "object",
+            "required": [
+                "tenant_id"
+            ],
+            "properties": {
+                "tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.SwitchTenantResponse": {
+            "type": "object",
+            "properties": {
+                "active_tenant_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_wave-connect_sso-platform_apps_identity-service_internal_model.VerifyEmailRequest": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "token": {
+                    "type": "string"
                 }
             }
         },

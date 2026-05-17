@@ -162,6 +162,17 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
+		// Fiber's default ReadBufferSize is 4096. In dev every browser
+		// session accumulates several cookies on the shared `localhost`
+		// domain (ports don't scope cookies) — sso_session set by
+		// identity-service + sso-service, OAuth `state`, PKCE artefacts,
+		// browser dev-tool cookies. The combined `Cookie:` header plus
+		// the rest of the request line easily exceeds 4 KB and Fiber
+		// returns 431 "Request Header Fields Too Large". 16 KB matches
+		// Node's default `--max-http-header-size` and gives plenty of
+		// runway without pretending we're somehow safer with a smaller
+		// limit. Same change applied across all three Go services.
+		ReadBufferSize: 16 * 1024,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
