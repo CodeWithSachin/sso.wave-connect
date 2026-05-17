@@ -441,11 +441,13 @@ func main() {
 	pasetoChain := []fiber.Handler{middleware.TenantExtraction(pool), middleware.PASETOAuth(tokenSvc)}
 
 	// /sessions is a per-USER resource (a single user's signed-in devices) —
-	// it is intentionally tenant-agnostic. Wrapping it in pasetoChain (which
-	// includes TenantExtraction) forced clients to send X-Tenant-ID for a
-	// header that the handler never reads, breaking the admin-console
-	// "My sessions" page. Use PASETOAuth only here. Fix for E2E review A5.
-	sessionChain := []fiber.Handler{middleware.PASETOAuth(tokenSvc)}
+	// it is intentionally tenant-agnostic. The admin-console authenticates
+	// with the sso_session cookie (no bearer token), so SessionCookieAuth is
+	// the right middleware here. The earlier A5 fix dropped TenantExtraction
+	// from the chain but kept PASETOAuth, which still 401'd cookie clients
+	// with "missing authorization header". Switch to sessionAuth so the
+	// "My sessions" page works for the only client that hits this endpoint.
+	sessionChain := []fiber.Handler{sessionAuth}
 	sessions := app.Group("/sessions", sessionChain...)
 	sessions.Get("/", sessionHandler.List)
 	// Revoking other sessions is a write — gate behind verified email.
