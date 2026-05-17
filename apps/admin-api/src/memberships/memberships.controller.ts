@@ -21,7 +21,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { TenantId } from '@sso-platform/nestjs-auth';
+import { RequireCapability, RequireVerifiedEmail, TenantId } from '@sso-platform/nestjs-auth';
 import { MembershipsService } from './memberships.service';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -30,6 +30,14 @@ import {
   PaginatedMembershipsResponseDto,
 } from './dto/membership-response.dto';
 
+/**
+ * Tenant-member management. Capability gates (ADR-0002 + Item 1.2 split):
+ *   - Reads (`list`, `get`): `read_members` (any active organization
+ *     membership; the cap split lets billing_manager / readonly audit the
+ *     team list without inheriting writeful manage_*).
+ *   - Role change: `manage_members` (writeful).
+ *   - Invite / revoke / resend: `manage_invitations`.
+ */
 @ApiTags('memberships')
 @ApiBearerAuth()
 @Controller('api/v1/memberships')
@@ -37,6 +45,8 @@ export class MembershipsController {
   constructor(private readonly membershipsService: MembershipsService) {}
 
   @Post()
+  @RequireCapability('manage_invitations')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Invite a user to the tenant' })
   @ApiCreatedResponse({ type: MembershipResponseDto })
   @ApiConflictResponse({ description: 'User already a member' })
@@ -49,6 +59,7 @@ export class MembershipsController {
   }
 
   @Get()
+  @RequireCapability('read_members')
   @ApiOperation({ summary: 'List tenant memberships (paginated, optional status filter)' })
   @ApiOkResponse({ type: PaginatedMembershipsResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -75,6 +86,7 @@ export class MembershipsController {
   }
 
   @Get(':id')
+  @RequireCapability('read_members')
   @ApiOperation({ summary: 'Get a membership by ID' })
   @ApiOkResponse({ type: MembershipResponseDto })
   @ApiNotFoundResponse({ description: 'Membership not found' })
@@ -86,6 +98,8 @@ export class MembershipsController {
   }
 
   @Patch(':id/role')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Update a member role (writes to authz outbox)' })
   @ApiOkResponse({ type: MembershipResponseDto })
   @ApiNotFoundResponse({ description: 'Membership not found' })
@@ -98,6 +112,8 @@ export class MembershipsController {
   }
 
   @Delete(':id')
+  @RequireCapability('manage_invitations')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Remove a member from the tenant' })
   @ApiOkResponse({ type: MembershipResponseDto })
   @ApiNotFoundResponse({ description: 'Membership not found' })
@@ -115,6 +131,8 @@ export class MembershipsController {
    * delete, so SessionCookieGuard + tenant scoping covers it.
    */
   @Post(':id/resend')
+  @RequireCapability('manage_invitations')
+  @RequireVerifiedEmail()
   @ApiOperation({
     summary: 'Resend the invitation email for a pending membership',
   })

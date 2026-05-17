@@ -1,8 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { TenantId } from '@sso-platform/nestjs-auth';
+import { RequireCapability, RequireVerifiedEmail, TenantId } from '@sso-platform/nestjs-auth';
 import { OAuthAppsService } from './oauth-apps.service';
 
+/**
+ * OAuth app management. Capability gates (ADR-0002 + Item 1.2 split):
+ *   - Reads (`list`): `read_oauth_apps` (any active membership).
+ *   - Writes (`create`, `update`, `rotate-secret`, `delete`): `manage_oauth_apps`.
+ */
 @ApiTags('OAuth Applications')
 @ApiBearerAuth()
 @Controller('api/v1/oauth-apps')
@@ -10,6 +15,8 @@ export class OAuthAppsController {
   constructor(private readonly oauthAppsService: OAuthAppsService) {}
 
   @Post()
+  @RequireCapability('manage_oauth_apps')
+  @RequireVerifiedEmail()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new OAuth application' })
   async create(
@@ -20,6 +27,7 @@ export class OAuthAppsController {
   }
 
   @Get()
+  @RequireCapability('read_oauth_apps')
   @ApiOperation({ summary: 'List OAuth applications' })
   async list(
     @TenantId() tenantId: string,
@@ -30,6 +38,8 @@ export class OAuthAppsController {
   }
 
   @Post(':id/rotate-secret')
+  @RequireCapability('manage_oauth_apps')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Rotate client secret (new secret shown once)' })
   async rotateSecret(
     @TenantId() tenantId: string,
@@ -38,7 +48,21 @@ export class OAuthAppsController {
     return this.oauthAppsService.rotateSecret(tenantId, id);
   }
 
+  @Patch(':id')
+  @RequireCapability('manage_oauth_apps')
+  @RequireVerifiedEmail()
+  @ApiOperation({ summary: 'Update an OAuth application (name, redirect URIs, scopes)' })
+  async update(
+    @TenantId() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { name?: string; redirect_uris?: string[]; allowed_scopes?: string[] },
+  ) {
+    return this.oauthAppsService.update(tenantId, id, body);
+  }
+
   @Delete(':id')
+  @RequireCapability('manage_oauth_apps')
+  @RequireVerifiedEmail()
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @TenantId() tenantId: string,

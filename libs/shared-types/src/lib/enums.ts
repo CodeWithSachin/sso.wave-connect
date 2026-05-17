@@ -37,17 +37,40 @@ export type PlatformAdminRole = 'superadmin' | 'support' | 'readonly';
 // auto-created single-user "personal" tenants from real organizations.
 export type TenantKind = 'personal' | 'organization';
 
-// UI-facing capability vocabulary. Computed server-side from (membership role,
-// tenant_kind, platform-admin role) — see apps/admin-api/src/session/capabilities.ts.
+// Capability vocabulary shared by both consoles + their backing NestJS
+// services. Computed server-side from (membership role, tenant_kind,
+// platform-admin role) in `libs/nestjs-auth/src/lib/capabilities.ts`
+// (single source of truth — see ADR-0002 for the unified RBAC design).
+//
 // Frontend never re-derives; it only checks `capabilities.includes(c)`.
+// Backend gates writes via `@RequireCapability(...)` from libs/nestjs-auth.
+//
+// Categories below are organizational only; the union is flat.
 export type Capability =
+  // --- Platform tier (admin-console only) ---
   | 'view_platform_admins'
   | 'manage_platform_admins'
   | 'view_tenant_settings'
+  | 'view_audit_log'
+  // --- Tenant-admin tier (admin-console) ---
+  // read_members is additive to manage_members so billing_manager / readonly
+  // can see the team list without inheriting writeful manage_* (Item 1.2).
+  | 'read_members'
   | 'manage_members'
   | 'manage_domains'
   | 'manage_identity_providers'
   | 'manage_invitations'
   | 'view_migrations'
   | 'force_migration'
-  | 'view_audit_log';
+  // --- Developer tier (developer-portal) — ADR-0002 §A2 ---
+  // read_* developer caps are additive to manage_* (Item 1.2): they gate
+  // GET list/detail routes so audit/billing roles can review usage without
+  // rotating keys or editing apps.
+  | 'view_developer_resources'
+  | 'read_api_keys'
+  | 'manage_api_keys'
+  | 'read_oauth_apps'
+  | 'manage_oauth_apps'
+  | 'read_webhooks'
+  | 'manage_webhooks'
+  | 'manage_scim_tokens';

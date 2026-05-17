@@ -1,4 +1,4 @@
-import { Component, inject, signal } from "@angular/core";
+import { Component, computed, inject, signal } from "@angular/core";
 import { RouterOutlet, RouterLink, RouterLinkActive } from "@angular/router";
 import { HttpClient } from "@angular/common/http";
 import { NgIcon } from "@ng-icons/core";
@@ -7,12 +7,22 @@ import { ConfirmDialog } from "primeng/confirmdialog";
 import { MessageService } from "primeng/api";
 import { ConfirmationService } from "primeng/api";
 import { firstValueFrom } from "rxjs";
+import { FormsModule } from "@angular/forms";
+import type { Capability } from "@sso-platform/shared-types";
+import { TenantSwitcherComponent } from "../../../../../libs/ui-components/src/lib/tenant-switcher/tenant-switcher.component";
+import { SearchService } from "../core/search/search.service";
+import { SessionStore } from "../core/session/session.store";
 import { environment } from "../environments/environment";
 
+/**
+ * Capabilities that allow the item to render. Empty array means "show to
+ * any signed-in user" (e.g. Account, Activity, Docs).
+ */
 interface NavItem {
 	path: string;
 	label: string;
 	icon: string;
+	caps: Capability[];
 }
 
 @Component({
@@ -25,8 +35,12 @@ interface NavItem {
 		NgIcon,
 		Toast,
 		ConfirmDialog,
+		FormsModule,
+		TenantSwitcherComponent,
 	],
-	providers: [MessageService, ConfirmationService],
+	// MessageService is provided at the app root (see app.config.ts) so the
+	// HTTP interceptor and this <p-toast/> share a single instance.
+	providers: [ConfirmationService],
 	template: `
 		<div class="flex min-h-screen bg-background text-foreground">
 			<!-- Sidebar wrapper — relative so the toggle can overflow -->
@@ -73,39 +87,21 @@ interface NavItem {
 						}
 					</div>
 
-					<!-- Tenant switcher chip -->
+					<!-- Tenant switcher — backed by identity-service /auth/session
+					     /memberships + /active-tenant. Hidden when sidebar is
+					     collapsed because the chip needs horizontal space for
+					     the tenant name. -->
 					@if (!collapsed()) {
-						<button
-							type="button"
-							class="mx-3 mt-3 flex items-center gap-2.5 rounded-md border border-sidebar-border bg-sidebar-accent/60 px-2.5 py-2 text-left transition-colors hover:bg-sidebar-accent"
-							title="Switch tenant"
-						>
-							<div
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] bg-primary text-[11px] font-semibold text-primary-foreground"
-							>
-								A
-							</div>
-							<div class="min-w-0 flex-1 leading-tight">
-								<div
-									class="truncate text-[13px] font-medium text-sidebar-foreground"
-								>
-									Acme Inc.
-								</div>
-								<div class="truncate font-mono text-[10px] text-sidebar-muted">
-									acme.test
-								</div>
-							</div>
-							<ng-icon
-								name="heroChevronUpDown"
-								class="shrink-0 text-sidebar-muted"
-								size="0.8rem"
+						<div class="mx-3 mt-3">
+							<wc-tenant-switcher
+								[identityServiceUrl]="identityServiceUrl"
 							/>
-						</button>
+						</div>
 					}
 
-					<!-- Navigation -->
+					<!-- Navigation — capability-filtered via SessionStore (ADR-0002) -->
 					<nav class="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
-						@for (item of navItems; track item.path) {
+						@for (item of navItems(); track item.path) {
 							<a
 								[routerLink]="item.path"
 								routerLinkActive="!bg-sidebar-accent !text-sidebar-accent-foreground font-medium"
@@ -123,7 +119,7 @@ interface NavItem {
 						}
 					</nav>
 
-					<!-- Footer: user chip + collapse -->
+					<!-- Footer: user chip driven by SessionStore (D1) -->
 					<div class="border-t border-sidebar-border p-3">
 						<div
 							class="flex items-center gap-2.5 rounded-md px-1.5 py-1"
@@ -132,17 +128,17 @@ interface NavItem {
 							<div
 								class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground"
 							>
-								TA
+								{{ userInitials() }}
 							</div>
 							@if (!collapsed()) {
 								<div class="min-w-0 flex-1 leading-tight">
 									<div
 										class="truncate text-[12px] font-medium text-sidebar-foreground"
 									>
-										Taylor Admin
+										{{ userDisplayName() }}
 									</div>
-									<div class="truncate text-[11px] text-sidebar-muted">
-										Owner
+									<div class="truncate text-[11px] text-sidebar-muted capitalize">
+										{{ userRoleLabel() }}
 									</div>
 								</div>
 								<button
@@ -175,8 +171,12 @@ interface NavItem {
 							size="0.85rem"
 						/>
 						<input
+							#searchInput
 							type="search"
-							placeholder="Search members, domains, audit events…"
+							placeholder="Search keys, apps, webhooks…"
+							[ngModel]="search.query()"
+							(ngModelChange)="search.setQuery($event)"
+							(keydown.escape)="search.clear(); searchInput.blur()"
 							class="h-8 w-full rounded-md border border-border bg-muted pl-8 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/35"
 						/>
 						<span
@@ -207,6 +207,33 @@ interface NavItem {
 					</button>
 				</header>
 
+				<!--
+					Verify-email banner (A1). Shown when SessionStore reports
+					emailVerified=false. The developer-portal-api gates writes
+					with @RequireVerifiedEmail() — without this banner the
+					user would just see 403 toasts with no explanation.
+				-->
+				@if (showVerifyEmailBanner()) {
+					<div class="border-b border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-900/20">
+						<div class="mx-auto flex max-w-300 items-center gap-3 px-6 py-2.5 md:px-8">
+							<ng-icon name="heroExclamationTriangle" class="shrink-0 text-amber-700 dark:text-amber-300" size="1rem" />
+							<p class="flex-1 text-[13px] text-amber-900 dark:text-amber-100">
+								<span class="font-medium">Verify your email</span>
+								to create API keys, OAuth apps, webhooks, or SCIM tokens. We sent a link to
+								<span class="font-mono">{{ session.user()?.email }}</span>.
+							</p>
+							<button
+								type="button"
+								(click)="resendVerification()"
+								[disabled]="resendingVerification()"
+								class="rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[12px] font-medium text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
+							>
+								{{ resendingVerification() ? 'Sending…' : 'Resend' }}
+							</button>
+						</div>
+					</div>
+				}
+
 				<!-- Page Content — 1200px inner cap, 24/32 padding -->
 				<main class="flex-1">
 					<div class="mx-auto max-w-300 px-6 py-6 md:px-8 md:py-8">
@@ -223,16 +250,143 @@ interface NavItem {
 export class LayoutComponent {
 	private readonly http = inject(HttpClient);
 
+	// Passed through to <wc-tenant-switcher> so it can call identity-service.
+	// The library has no environment.ts of its own (it's framework-agnostic).
+	readonly identityServiceUrl = environment.identityServiceUrl;
+
+	/**
+	 * Global search bus. The input in the top header is bound via ngModel
+	 * to `search.query()`; list-shaped features subscribe and filter their
+	 * rows in-browser. Cmd/Ctrl+K focuses the input (see the document-level
+	 * keydown listener in app.config.ts or the constructor below).
+	 */
+	readonly search = inject(SearchService);
+
+	/**
+	 * Authenticated-session source of truth (ADR-0002). Provides the
+	 * computed `capabilities()` signal the nav filter reads, plus the
+	 * 30 s background poll that keeps role changes propagating without a
+	 * full page reload. `hydrate()` already fired via APP_INITIALIZER in
+	 * app.config.ts before this layout ever instantiated.
+	 */
+	readonly session = inject(SessionStore);
+
 	collapsed = signal(false);
 	isDark = signal(false);
+	resendingVerification = signal(false);
 
-	navItems: NavItem[] = [
-		{ path: "dashboard", label: "Overview", icon: "heroHome" },
-		{ path: "api-keys", label: "API Keys", icon: "heroKey" },
-		{ path: "oauth-apps", label: "OAuth Apps", icon: "heroFingerPrint" },
-		{ path: "docs", label: "Documentation", icon: "heroBookOpen" },
-		{ path: "scim", label: "SCIM Tokens", icon: "heroArrowPath" },
+	private readonly messages = inject(MessageService);
+
+	// A1: banner visibility — mirrors admin-console. We only show after
+	// SessionStore hydrates with a user whose emailVerified is explicitly
+	// false; the pre-hydrate window renders nothing to avoid a flicker.
+	readonly showVerifyEmailBanner = computed(() => {
+		const u = this.session.user();
+		return !!u && u.emailVerified === false;
+	});
+
+	async resendVerification(): Promise<void> {
+		const email = this.session.user()?.email;
+		if (!email || this.resendingVerification()) return;
+		this.resendingVerification.set(true);
+		try {
+			await firstValueFrom(
+				this.http.post(
+					`${environment.identityServiceUrl}/auth/public/verify-email/resend`,
+					{ email },
+				),
+			);
+			this.messages.add({
+				severity: 'success',
+				summary: 'Verification email sent',
+				detail: `Check ${email} for the link.`,
+				life: 4000,
+			});
+			// Item 10: dismiss the banner the moment the user verifies (in a
+			// different tab / via dev endpoint) instead of waiting on the
+			// 30 s poll. Cheap — one GET against /api/v1/session/me.
+			void this.session.reload();
+		} catch {
+			this.messages.add({
+				severity: 'warn',
+				summary: "Couldn't send right now",
+				detail: 'Network issue — please try again in a moment.',
+				life: 4000,
+			});
+		} finally {
+			this.resendingVerification.set(false);
+		}
+	}
+
+	constructor() {
+		// Wire Cmd/Ctrl+K to focus the search input. Listener lives on the
+		// document because the input may be off-screen; runs outside Angular's
+		// zone via `addEventListener` and intentionally doesn't trigger CD.
+		if (typeof document !== 'undefined') {
+			document.addEventListener('keydown', (ev) => {
+				if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') {
+					ev.preventDefault();
+					const el = document.querySelector<HTMLInputElement>('input[type="search"]');
+					el?.focus();
+				}
+			});
+		}
+	}
+
+	// Static catalogue of every nav entry. `caps: []` means auth-only —
+	// every signed-in user sees the item. Non-empty caps[] gates the entry
+	// to users whose capabilities intersect the list (union semantics —
+	// any-of, matching the requireCapability route guard).
+	//
+	// `view_developer_resources` is granted to every active membership, so
+	// using it on API Keys / OAuth Apps / Webhooks gives any tenant member
+	// browse access while writes are gated server-side via @RequireCapability.
+	readonly allNavItems: NavItem[] = [
+		{ path: "dashboard", label: "Overview", icon: "heroHome", caps: [] },
+		// Item 1.2 split: read_* caps are the precise read-tier gates;
+		// view_developer_resources stays in the union for backward compat.
+		{ path: "api-keys", label: "API Keys", icon: "heroKey", caps: ["view_developer_resources", "read_api_keys", "manage_api_keys"] },
+		{ path: "oauth-apps", label: "OAuth Apps", icon: "heroFingerPrint", caps: ["view_developer_resources", "read_oauth_apps", "manage_oauth_apps"] },
+		{ path: "webhooks", label: "Webhooks", icon: "heroBellAlert", caps: ["view_developer_resources", "read_webhooks", "manage_webhooks"] },
+		// SCIM tokens — admin-only.
+		{ path: "scim", label: "SCIM Tokens", icon: "heroArrowPath", caps: ["manage_scim_tokens"] },
+		{ path: "activity", label: "Activity", icon: "heroClock", caps: [] },
+		{ path: "docs", label: "Documentation", icon: "heroBookOpen", caps: [] },
+		{ path: "account", label: "Account", icon: "heroUser", caps: [] },
 	];
+
+	/**
+	 * Filtered nav for the current user. Mirrors admin-console exactly:
+	 * empty `caps[]` always shows; otherwise the user must hold at least
+	 * one of the listed capabilities. Until SessionStore hydrates,
+	 * `capabilities()` returns `[]` and only auth-only items render.
+	 */
+	readonly navItems = computed<NavItem[]>(() => {
+		const have = this.session.capabilities();
+		return this.allNavItems.filter((item) =>
+			item.caps.length === 0 || item.caps.some((c) => have.includes(c)),
+		);
+	});
+
+	// User chip — sourced from SessionStore (D1 fix). Falls back to '…'
+	// during the hydrate window so we never render the old hardcoded
+	// 'Taylor Admin' placeholder.
+	readonly userDisplayName = computed(() => {
+		const u = this.session.user();
+		return u?.displayName ?? u?.email ?? '…';
+	});
+	readonly userInitials = computed(() => {
+		const name = this.userDisplayName();
+		if (!name || name === '…') return '··';
+		const parts = name.split(/\s+/).filter(Boolean);
+		if (parts.length === 0) return '··';
+		if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+		return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+	});
+	readonly userRoleLabel = computed(() => {
+		const m = this.session.activeMembership();
+		return m?.role ?? 'Member';
+	});
 
 	toggleDarkMode() {
 		this.isDark.update((v) => !v);

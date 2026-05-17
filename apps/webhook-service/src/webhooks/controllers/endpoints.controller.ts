@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { randomUUID, createHash } from 'crypto';
-import { TenantId } from '@sso-platform/nestjs-auth';
+import { RequireCapability, TenantId } from '@sso-platform/nestjs-auth';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { CryptoService } from '../services/crypto.service';
 
@@ -38,6 +38,7 @@ export class EndpointsController {
   ) {}
 
   @Get()
+  @RequireCapability('read_webhooks')
   async list(
     @TenantId() tenantId: string,
     @Query('page') page = '1',
@@ -68,6 +69,7 @@ export class EndpointsController {
   }
 
   @Post()
+  @RequireCapability('manage_webhooks')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @TenantId() tenantId: string,
@@ -98,6 +100,7 @@ export class EndpointsController {
   }
 
   @Delete(':id')
+  @RequireCapability('manage_webhooks')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @TenantId() tenantId: string,

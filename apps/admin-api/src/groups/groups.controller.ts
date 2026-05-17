@@ -18,7 +18,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { TenantId } from '@sso-platform/nestjs-auth';
+import { RequireCapability, RequireVerifiedEmail, TenantId } from '@sso-platform/nestjs-auth';
 import { GroupsService } from './groups.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { AddGroupMemberDto } from './dto/add-member.dto';
@@ -32,6 +32,8 @@ export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
   @Post()
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Create a group' })
   @ApiCreatedResponse({ type: GroupResponseDto })
   create(
@@ -42,6 +44,7 @@ export class GroupsController {
   }
 
   @Get()
+  @RequireCapability('read_members')
   @ApiOperation({ summary: 'List groups (paginated)' })
   @ApiOkResponse({ type: PaginatedGroupsResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -59,6 +62,7 @@ export class GroupsController {
   }
 
   @Get(':id')
+  @RequireCapability('read_members')
   @ApiOperation({ summary: 'Get a group with members and nesting' })
   @ApiOkResponse({ type: GroupResponseDto })
   @ApiNotFoundResponse({ description: 'Group not found' })
@@ -70,6 +74,8 @@ export class GroupsController {
   }
 
   @Delete(':id')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Soft-delete a group' })
   @ApiOkResponse({ type: GroupResponseDto })
   @ApiNotFoundResponse({ description: 'Group not found' })
@@ -83,6 +89,8 @@ export class GroupsController {
   // --- Members ---
 
   @Post(':id/members')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Add a member to a group' })
   @ApiCreatedResponse({ description: 'Member added' })
   addMember(
@@ -94,6 +102,8 @@ export class GroupsController {
   }
 
   @Delete(':id/members/:userId')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Remove a member from a group' })
   @ApiOkResponse({ description: 'Member removed' })
   @ApiNotFoundResponse({ description: 'Member not in group' })
@@ -108,6 +118,8 @@ export class GroupsController {
   // --- Nesting ---
 
   @Post(':id/children')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Nest a child group under this group' })
   @ApiCreatedResponse({ description: 'Group nested' })
   @ApiConflictResponse({ description: 'Cannot nest a group under itself' })
@@ -120,6 +132,8 @@ export class GroupsController {
   }
 
   @Delete(':id/children/:childGroupId')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Remove a nested child group' })
   @ApiOkResponse({ description: 'Nesting removed' })
   @ApiNotFoundResponse({ description: 'Nesting not found' })

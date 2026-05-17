@@ -45,10 +45,20 @@ export const appRoutes: Routes = [
       },
       {
         path: 'members',
-        canActivate: [requireCapability(['manage_members'])],
+        // Item 1.2 split: read_members lets billing_manager / readonly see
+        // the team list without inheriting writeful manage_members.
+        canActivate: [requireCapability(['read_members', 'manage_members'])],
         loadComponent: () =>
           import('./features/members/members.component').then(
             (m) => m.MembersComponent,
+          ),
+      },
+      {
+        path: 'members/:id',
+        canActivate: [requireCapability(['read_members', 'manage_members'])],
+        loadComponent: () =>
+          import('./features/members/member-detail.component').then(
+            (m) => m.MemberDetailComponent,
           ),
       },
       // Phase 8 (plan v2 D7) — preserve deep links from before the rename.
@@ -57,10 +67,18 @@ export const appRoutes: Routes = [
       { path: 'users', redirectTo: 'members', pathMatch: 'prefix' },
       {
         path: 'groups',
-        canActivate: [requireCapability(['manage_members'])],
+        canActivate: [requireCapability(['read_members', 'manage_members'])],
         loadComponent: () =>
           import('./features/groups/groups.component').then(
             (m) => m.GroupsComponent,
+          ),
+      },
+      {
+        path: 'groups/:id',
+        canActivate: [requireCapability(['read_members', 'manage_members'])],
+        loadComponent: () =>
+          import('./features/groups/group-detail.component').then(
+            (m) => m.GroupDetailComponent,
           ),
       },
       {
@@ -93,6 +111,28 @@ export const appRoutes: Routes = [
         loadComponent: () =>
           import('./features/scim/scim.component').then(
             (m) => m.ScimComponent,
+          ),
+      },
+      // /account/* — self-service routes available to any signed-in user
+      // regardless of capability. authGuard at the parent route already
+      // gates access; no requireCapability so a member with zero admin
+      // caps can still manage their own sessions.
+      {
+        path: 'account/sessions',
+        loadComponent: () =>
+          import('./features/account-sessions/account-sessions.component').then(
+            (m) => m.AccountSessionsComponent,
+          ),
+      },
+      // /settings — self-service tenant editor. Tenant-admin role check
+      // happens server-side on PATCH /api/v1/my-tenant; we gate the route
+      // with manage_members which is the existing tenant-admin capability.
+      {
+        path: 'settings',
+        canActivate: [requireCapability(['manage_members'])],
+        loadComponent: () =>
+          import('./features/settings/settings.component').then(
+            (m) => m.SettingsComponent,
           ),
       },
       // ----- Phase 4–7 dark-shipped pages — flag-gated -----
@@ -161,6 +201,14 @@ export const appRoutes: Routes = [
         loadComponent: () =>
           import('./features/platform-admins/platform-admins.component').then(
             (m) => m.PlatformAdminsComponent,
+          ),
+      },
+      {
+        path: 'tenants',
+        canActivate: [requireCapability(['view_platform_admins'])],
+        loadComponent: () =>
+          import('./features/platform-tenants/platform-tenants.component').then(
+            (m) => m.PlatformTenantsComponent,
           ),
       },
       { path: '', redirectTo: 'admins', pathMatch: 'full' },

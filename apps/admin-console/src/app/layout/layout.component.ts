@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from "@angular/core";
 import { RouterOutlet, RouterLink, RouterLinkActive } from "@angular/router";
 import { HttpClient } from "@angular/common/http";
+import { FormsModule } from "@angular/forms";
 import { NgIcon } from "@ng-icons/core";
 import { Toast } from "primeng/toast";
 import { ConfirmDialog } from "primeng/confirmdialog";
@@ -8,7 +9,9 @@ import { MessageService } from "primeng/api";
 import { ConfirmationService } from "primeng/api";
 import { firstValueFrom } from "rxjs";
 import type { Capability } from "@sso-platform/shared-types";
+import { TenantSwitcherComponent } from "../../../../../libs/ui-components/src/lib/tenant-switcher/tenant-switcher.component";
 import { environment } from "../environments/environment";
+import { SearchService } from "../core/search/search.service";
 import { SessionStore } from "../core/session/session.store";
 
 interface NavItem {
@@ -36,9 +39,11 @@ const TENANT_NAV: NavItem[] = [
 	// otherwise a member redirected to /dashboard would have no way to navigate
 	// back without typing a URL. Empty `caps` means "no capability gate".
 	{ path: "dashboard", label: "Overview", icon: "heroHome", caps: [] },
-	{ path: "members", label: "Members", icon: "heroUsers", caps: ["manage_members"] },
+	// Item 1.2 split: read_members lets billing_manager / readonly see the
+	// Members + Groups sidebar entries (read-only access to the team list).
+	{ path: "members", label: "Members", icon: "heroUsers", caps: ["read_members", "manage_members"] },
 	{ path: "invitations", label: "Invitations", icon: "heroEnvelope", caps: ["manage_invitations"] },
-	{ path: "groups", label: "Groups", icon: "heroUserGroup", caps: ["manage_members"] },
+	{ path: "groups", label: "Groups", icon: "heroUserGroup", caps: ["read_members", "manage_members"] },
 	{ path: "domains", label: "Domains", icon: "heroGlobeAlt", caps: ["manage_domains"] },
 	{ path: "sso", label: "Single sign-on", icon: "heroKey", caps: ["manage_identity_providers"] },
 	{ path: "migrations", label: "Migrations", icon: "heroArrowsRightLeft", caps: ["view_migrations"] },
@@ -46,6 +51,12 @@ const TENANT_NAV: NavItem[] = [
 	{ path: "webhooks", label: "Webhooks", icon: "heroBolt", caps: ["manage_members"] },
 	{ path: "audit", label: "Audit log", icon: "heroClipboardDocumentList", caps: ["view_audit_log"] },
 	{ path: "scim", label: "SCIM", icon: "heroArrowPath", caps: ["manage_identity_providers"] },
+	// Tenant-admin self-service (matches the requireCapability gate on /settings).
+	{ path: "settings", label: "Settings", icon: "heroCog6Tooth", caps: ["manage_members"] },
+	// Account routes are auth-only — every signed-in user gets these, regardless
+	// of admin capabilities. Empty caps means "no capability gate" (same
+	// pattern as /dashboard).
+	{ path: "account/sessions", label: "My sessions", icon: "heroComputerDesktop", caps: [] },
 ];
 
 /**
@@ -54,6 +65,7 @@ const TENANT_NAV: NavItem[] = [
  */
 const PLATFORM_NAV: NavItem[] = [
 	{ path: "/platform/admins", label: "Platform admins", icon: "heroShieldCheck", caps: ["view_platform_admins"] },
+	{ path: "/platform/tenants", label: "Tenants", icon: "heroGlobeAlt", caps: ["view_platform_admins"] },
 ];
 
 @Component({
@@ -63,11 +75,19 @@ const PLATFORM_NAV: NavItem[] = [
 		RouterOutlet,
 		RouterLink,
 		RouterLinkActive,
+		FormsModule,
 		NgIcon,
 		Toast,
 		ConfirmDialog,
+		TenantSwitcherComponent,
 	],
-	providers: [MessageService, ConfirmationService],
+	// MessageService is provided at the app root (see app.config.ts) so the
+	// HTTP interceptor and this <p-toast/> share a single instance.
+	// Re-providing it here would shadow the root one and the interceptor's
+	// `email_not_verified` toast would fire on an instance with no
+	// subscriber. ConfirmationService stays component-scoped — it's only
+	// used by <p-confirmDialog/> below.
+	providers: [ConfirmationService],
 	template: `
 		<div class="flex min-h-screen bg-background text-foreground">
 			<!-- Sidebar wrapper — relative so the toggle can overflow -->
@@ -119,33 +139,18 @@ const PLATFORM_NAV: NavItem[] = [
 						"active tenant" is semantically wrong cross-tenant. Hidden
 						when the sidebar is collapsed regardless.
 					-->
-					@if (!collapsed() && session.mode() === "tenant" && session.activeTenant(); as tenant) {
-						<button
-							type="button"
-							class="mx-3 mt-3 flex items-center gap-2.5 rounded-md border border-sidebar-border bg-sidebar-accent/60 px-2.5 py-2 text-left transition-colors hover:bg-sidebar-accent"
-							title="Switch tenant"
-						>
-							<div
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] bg-primary text-[11px] font-semibold text-primary-foreground"
-							>
-								{{ tenant.name.charAt(0).toUpperCase() }}
-							</div>
-							<div class="min-w-0 flex-1 leading-tight">
-								<div
-									class="truncate text-[13px] font-medium text-sidebar-foreground"
-								>
-									{{ tenant.name }}
-								</div>
-								<div class="truncate font-mono text-[10px] text-sidebar-muted">
-									{{ tenant.slug }}
-								</div>
-							</div>
-							<ng-icon
-								name="heroChevronUpDown"
-								class="shrink-0 text-sidebar-muted"
-								size="0.8rem"
+					@if (!collapsed() && session.mode() === "tenant") {
+						<!--
+							Live tenant switcher backed by identity-service
+							/auth/session/memberships + /active-tenant. Replaces
+							the prior display-only chip; the SessionStore still
+							feeds capability checks elsewhere in the shell.
+						-->
+						<div class="mx-3 mt-3">
+							<wc-tenant-switcher
+								[identityServiceUrl]="identityServiceUrl"
 							/>
-						</button>
+						</div>
 					}
 
 					<!--
@@ -245,6 +250,14 @@ const PLATFORM_NAV: NavItem[] = [
 				<header
 					class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3.5 border-b border-border bg-background/80 px-6 backdrop-blur-sm"
 				>
+					<!--
+						Global search bus (Item 7): same pattern as developer-portal.
+						The input feeds SearchService; feature list components read
+						SearchService.query() and filter rows in-browser. Cmd/Ctrl+K
+						focuses the input via the document keydown listener below.
+						A server-side search surface is a follow-up — most list
+						pages return ≤20 rows where in-browser filter is enough.
+					-->
 					<div class="relative max-w-100 flex-1">
 						<ng-icon
 							name="heroMagnifyingGlass"
@@ -252,8 +265,12 @@ const PLATFORM_NAV: NavItem[] = [
 							size="0.85rem"
 						/>
 						<input
+							#searchInput
 							type="search"
-							placeholder="Search members, domains, audit events…"
+							placeholder="Search members, groups, audit…"
+							[ngModel]="search.query()"
+							(ngModelChange)="search.setQuery($event)"
+							(keydown.escape)="search.clear(); searchInput.blur()"
 							class="h-8 w-full rounded-md border border-border bg-muted pl-8 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/35"
 						/>
 						<span
@@ -323,6 +340,33 @@ const PLATFORM_NAV: NavItem[] = [
 					</button>
 				</header>
 
+				<!--
+					Verify-email banner (A1). Shown when the session reports
+					emailVerified=false. Writes are server-side gated by
+					RequireVerifiedEmail; this banner is the UX nudge — without
+					it the user would just see 403s with no explanation.
+				-->
+				@if (showVerifyEmailBanner()) {
+					<div class="border-b border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-900/20">
+						<div class="mx-auto flex max-w-300 items-center gap-3 px-6 py-2.5 md:px-8">
+							<ng-icon name="heroExclamationTriangle" class="shrink-0 text-amber-700 dark:text-amber-300" size="1rem" />
+							<p class="flex-1 text-[13px] text-amber-900 dark:text-amber-100">
+								<span class="font-medium">Verify your email</span>
+								to unlock write actions. We sent a link to
+								<span class="font-mono">{{ session.user()?.email }}</span>.
+							</p>
+							<button
+								type="button"
+								(click)="resendVerification()"
+								[disabled]="resendingVerification()"
+								class="rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[12px] font-medium text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
+							>
+								{{ resendingVerification() ? 'Sending…' : 'Resend' }}
+							</button>
+						</div>
+					</div>
+				}
+
 				<!-- Page Content — 1200px inner cap, 24/32 padding -->
 				<main class="flex-1">
 					<div class="mx-auto max-w-300 px-6 py-6 md:px-8 md:py-8">
@@ -347,8 +391,84 @@ export class LayoutComponent {
 	 */
 	readonly session = inject(SessionStore);
 
+	/**
+	 * Global search bus (Item 7). The top-bar input binds via ngModel to
+	 * `search.query()`; list features inject SearchService and filter
+	 * their rows. Cmd/Ctrl+K focuses the input via the document-level
+	 * keydown listener installed in the constructor.
+	 */
+	readonly search = inject(SearchService);
+
+	// Passed through to <wc-tenant-switcher>. The library is environment-
+	// agnostic by design; each app supplies its own identity-service URL.
+	readonly identityServiceUrl = environment.identityServiceUrl;
+
 	collapsed = signal(false);
 	isDark = signal(false);
+	resendingVerification = signal(false);
+
+	constructor() {
+		// Wire Cmd/Ctrl+K to focus the search input. Listener lives on the
+		// document because the input may be off-screen; runs outside
+		// Angular's zone via addEventListener and intentionally doesn't
+		// trigger CD. Mirrors developer-portal exactly.
+		if (typeof document !== 'undefined') {
+			document.addEventListener('keydown', (ev) => {
+				if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') {
+					ev.preventDefault();
+					const el = document.querySelector<HTMLInputElement>('input[type="search"]');
+					el?.focus();
+				}
+			});
+		}
+	}
+
+	private readonly messages = inject(MessageService);
+
+	// A1: banner visibility. Shown only after SessionStore hydrates with a
+	// user whose emailVerified flag is explicitly false. During the brief
+	// pre-hydrate window we render nothing — flickering a "verify your email"
+	// banner for verified users would be worse than showing it slightly late.
+	readonly showVerifyEmailBanner = computed(() => {
+		const u = this.session.user();
+		return !!u && u.emailVerified === false;
+	});
+
+	async resendVerification(): Promise<void> {
+		const email = this.session.user()?.email;
+		if (!email || this.resendingVerification()) return;
+		this.resendingVerification.set(true);
+		try {
+			await firstValueFrom(
+				this.http.post(
+					`${environment.identityServiceUrl}/auth/public/verify-email/resend`,
+					{ email },
+				),
+			);
+			this.messages.add({
+				severity: 'success',
+				summary: 'Verification email sent',
+				detail: `Check ${email} for the link.`,
+				life: 4000,
+			});
+			// If the user verifies between now and the next 30 s poll, refresh
+			// the store so the banner dismisses on the next render instead of
+			// lingering for ~30 s. The reload itself is cheap (single GET).
+			void this.session.reload();
+		} catch {
+			// /verify-email/resend is enumeration-resistant (always 202),
+			// so the only way this throws is a transport error. Treat as
+			// non-blocking — the user can retry.
+			this.messages.add({
+				severity: 'warn',
+				summary: "Couldn't send right now",
+				detail: 'Network issue — please try again in a moment.',
+				life: 4000,
+			});
+		} finally {
+			this.resendingVerification.set(false);
+		}
+	}
 
 	/**
 	 * The sidebar entries the current user is allowed to see.

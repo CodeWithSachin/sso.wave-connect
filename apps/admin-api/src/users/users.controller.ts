@@ -23,7 +23,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { TenantId } from '@sso-platform/nestjs-auth';
+import { RequireCapability, RequireVerifiedEmail, TenantId } from '@sso-platform/nestjs-auth';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -36,6 +36,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Create a user in a tenant' })
   @ApiCreatedResponse({ type: UserResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid or missing token' })
@@ -48,6 +50,7 @@ export class UsersController {
   }
 
   @Get()
+  @RequireCapability('read_members')
   @ApiOperation({ summary: 'List users in a tenant (paginated)' })
   @ApiOkResponse({ type: PaginatedUsersResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -65,6 +68,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @RequireCapability('read_members')
   @ApiOperation({ summary: 'Get a user by ID' })
   @ApiOkResponse({ type: UserResponseDto })
   @ApiNotFoundResponse({ description: 'User not found in tenant' })
@@ -76,6 +80,8 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Update a user (optimistic locking)' })
   @ApiOkResponse({ type: UserResponseDto })
   @ApiNotFoundResponse({ description: 'User not found' })
@@ -89,6 +95,8 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @RequireCapability('manage_members')
+  @RequireVerifiedEmail()
   @ApiOperation({ summary: 'Soft-delete a user' })
   @ApiOkResponse({ type: UserResponseDto })
   @ApiNotFoundResponse({ description: 'User not found' })

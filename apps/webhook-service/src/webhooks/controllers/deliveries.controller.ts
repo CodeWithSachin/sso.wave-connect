@@ -7,6 +7,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { RequireCapability } from '@sso-platform/nestjs-auth';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 
 @ApiTags('Webhook Deliveries')
@@ -15,6 +16,7 @@ export class DeliveriesController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
+  @RequireCapability('read_webhooks')
   async list(
     @Param('endpointId', ParseUUIDPipe) endpointId: string,
     @Query('page') page = '1',
@@ -36,6 +38,7 @@ export class DeliveriesController {
   }
 
   @Get(':deliveryId')
+  @RequireCapability('read_webhooks')
   async getDetail(
     @Param('deliveryId', ParseUUIDPipe) deliveryId: string,
   ) {
@@ -50,6 +53,7 @@ export class DeliveriesController {
   }
 
   @Post(':deliveryId/retry')
+  @RequireCapability('manage_webhooks')
   async retry(
     @Param('deliveryId', ParseUUIDPipe) deliveryId: string,
   ) {
