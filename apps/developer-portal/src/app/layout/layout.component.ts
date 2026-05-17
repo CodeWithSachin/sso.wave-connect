@@ -11,6 +11,7 @@ import { FormsModule } from "@angular/forms";
 import type { Capability } from "@sso-platform/shared-types";
 import { TenantSwitcherComponent } from "../../../../../libs/ui-components/src/lib/tenant-switcher/tenant-switcher.component";
 import { SearchService } from "../core/search/search.service";
+import { SearchResultsComponent } from "./search-results.component";
 import { SessionStore } from "../core/session/session.store";
 import { environment } from "../environments/environment";
 
@@ -37,6 +38,7 @@ interface NavItem {
 		ConfirmDialog,
 		FormsModule,
 		TenantSwitcherComponent,
+		SearchResultsComponent,
 	],
 	// MessageService is provided at the app root (see app.config.ts) so the
 	// HTTP interceptor and this <p-toast/> share a single instance.
@@ -159,7 +161,7 @@ interface NavItem {
 			</div>
 
 			<!-- Main Content -->
-			<div class="flex min-w-0 flex-1 flex-col z-10">
+			<div class="relative flex min-w-0 flex-1 flex-col z-10">
 				<!-- Top Bar — sticky, translucent cream, search + status -->
 				<header
 					class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3.5 border-b border-border bg-background/80 px-6 backdrop-blur-sm"
@@ -206,6 +208,13 @@ interface NavItem {
 						/>
 					</button>
 				</header>
+
+				<!--
+					Phase 2 search aggregator — overlay panel anchored below the
+					top bar. Hides itself on /api-keys, /oauth-apps where the
+					list components consume SearchService themselves.
+				-->
+				<app-search-results />
 
 				<!--
 					Verify-email banner (A1). Shown when SessionStore reports

@@ -22,8 +22,10 @@ export class OAuthAppsService {
   private http = inject(HttpClient);
   private baseUrl = `${environment.devPortalApiUrl}/api/v1/oauth-apps`;
 
-  list(page = 1, pageSize = 20) {
-    return this.http.get<OAuthAppsResponse>(this.baseUrl, { params: { page, pageSize } });
+  list(page = 1, pageSize = 20, search?: string) {
+    const params: Record<string, string | number> = { page, pageSize };
+    if (search?.trim()) params['search'] = search.trim();
+    return this.http.get<OAuthAppsResponse>(this.baseUrl, { params });
   }
 
   create(dto: { name: string; redirect_uris: string[]; allowed_scopes?: string[] }) {

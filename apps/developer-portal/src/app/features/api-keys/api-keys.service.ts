@@ -33,8 +33,10 @@ export class ApiKeysService {
   private http = inject(HttpClient);
   private baseUrl = `${environment.devPortalApiUrl}/api/v1/api-keys`;
 
-  list(page = 1, pageSize = 20) {
-    return this.http.get<ApiKeysResponse>(this.baseUrl, { params: { page, pageSize } });
+  list(page = 1, pageSize = 20, search?: string) {
+    const params: Record<string, string | number> = { page, pageSize };
+    if (search?.trim()) params['search'] = search.trim();
+    return this.http.get<ApiKeysResponse>(this.baseUrl, { params });
   }
 
   create(dto: CreateApiKeyDto) {

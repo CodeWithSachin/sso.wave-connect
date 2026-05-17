@@ -35,8 +35,10 @@ export class GroupsService {
   private http = inject(HttpClient);
   private baseUrl = `${environment.adminApiUrl}/api/v1/groups`;
 
-  list(page = 1, pageSize = 20) {
-    return this.http.get<GroupsResponse>(this.baseUrl, { params: { page, pageSize } });
+  list(page = 1, pageSize = 20, search?: string) {
+    const params: Record<string, string | number> = { page, pageSize };
+    if (search?.trim()) params['search'] = search.trim();
+    return this.http.get<GroupsResponse>(this.baseUrl, { params });
   }
 
   get(id: string) {

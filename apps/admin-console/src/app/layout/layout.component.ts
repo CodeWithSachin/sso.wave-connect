@@ -12,6 +12,7 @@ import type { Capability } from "@sso-platform/shared-types";
 import { TenantSwitcherComponent } from "../../../../../libs/ui-components/src/lib/tenant-switcher/tenant-switcher.component";
 import { environment } from "../environments/environment";
 import { SearchService } from "../core/search/search.service";
+import { SearchResultsComponent } from "./search-results.component";
 import { SessionStore } from "../core/session/session.store";
 
 interface NavItem {
@@ -80,6 +81,7 @@ const PLATFORM_NAV: NavItem[] = [
 		Toast,
 		ConfirmDialog,
 		TenantSwitcherComponent,
+		SearchResultsComponent,
 	],
 	// MessageService is provided at the app root (see app.config.ts) so the
 	// HTTP interceptor and this <p-toast/> share a single instance.
@@ -245,7 +247,7 @@ const PLATFORM_NAV: NavItem[] = [
 			</div>
 
 			<!-- Main Content -->
-			<div class="flex min-w-0 flex-1 flex-col z-10">
+			<div class="relative flex min-w-0 flex-1 flex-col z-10">
 				<!-- Top Bar — sticky, translucent cream, search + status -->
 				<header
 					class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3.5 border-b border-border bg-background/80 px-6 backdrop-blur-sm"
@@ -339,6 +341,13 @@ const PLATFORM_NAV: NavItem[] = [
 						/>
 					</button>
 				</header>
+
+				<!--
+					Phase 2 search aggregator — overlay panel anchored below the
+					top bar. Hides itself on /members, /groups, /audit (their
+					list components consume SearchService directly).
+				-->
+				<app-search-results />
 
 				<!--
 					Verify-email banner (A1). Shown when the session reports

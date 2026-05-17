@@ -28,6 +28,8 @@ export interface AuditFilters {
   action?: string;
   resourceType?: string;
   actorId?: string;
+  /** Free-text search across action + resource_id (Phase 2). */
+  search?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -49,6 +51,7 @@ export class AuditService {
     if (filters.action) params = params.set('action', filters.action);
     if (filters.resourceType) params = params.set('resourceType', filters.resourceType);
     if (filters.actorId) params = params.set('actorId', filters.actorId);
+    if (filters.search?.trim()) params = params.set('search', filters.search.trim());
     return this.http.get<AuditResponse>(this.baseUrl, { params });
   }
 }

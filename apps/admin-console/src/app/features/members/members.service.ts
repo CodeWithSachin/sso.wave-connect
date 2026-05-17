@@ -42,8 +42,12 @@ export class MembersService {
   // Tenant is now derived server-side from the sso_session cookie by SessionCookieGuard.
   private baseUrl = `${environment.adminApiUrl}/api/v1/users`;
 
-  list(page = 1, pageSize = 20) {
-    return this.http.get<MembersResponse>(this.baseUrl, { params: { page, pageSize } });
+  list(page = 1, pageSize = 20, search?: string) {
+    // Build params conditionally so an empty/whitespace search stays out of
+    // the query string — admin-api treats absent === empty for backward compat.
+    const params: Record<string, string | number> = { page, pageSize };
+    if (search?.trim()) params['search'] = search.trim();
+    return this.http.get<MembersResponse>(this.baseUrl, { params });
   }
 
   /** Fetch a single member by id — used by /members/:id detail page. */
