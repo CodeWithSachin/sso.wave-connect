@@ -49,25 +49,39 @@ export class UsersService {
     return this.sanitize(user);
   }
 
-  async findAll(tenantId: string, page = 1, pageSize = 20) {
+  async findAll(
+    tenantId: string,
+    page = 1,
+    pageSize = 20,
+    search?: string,
+  ) {
     const skip = (page - 1) * pageSize;
+    // Plan caps server-side search at 200 chars — anything longer is almost
+    // certainly an attack or copy-paste accident, not a real query.
+    const trimmed = search?.trim().slice(0, 200) || undefined;
+    const where = {
+      deletedAt: null,
+      memberships: { some: { tenantId, deletedAt: null } },
+      ...(trimmed
+        ? {
+            OR: [
+              { email: { contains: trimmed, mode: 'insensitive' as const } },
+              { displayName: { contains: trimmed, mode: 'insensitive' as const } },
+              { firstName: { contains: trimmed, mode: 'insensitive' as const } },
+              { lastName: { contains: trimmed, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
-        where: {
-          deletedAt: null,
-          memberships: { some: { tenantId, deletedAt: null } },
-        },
+        where,
         skip,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.user.count({
-        where: {
-          deletedAt: null,
-          memberships: { some: { tenantId, deletedAt: null } },
-        },
-      }),
+      this.prisma.user.count({ where }),
     ]);
 
     return { data: data.map(this.sanitize), total, page, pageSize };

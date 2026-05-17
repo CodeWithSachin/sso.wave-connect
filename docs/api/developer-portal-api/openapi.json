@@ -22,7 +22,16 @@
       },
       "get": {
         "operationId": "ApiKeysController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -33,7 +42,7 @@
             "bearer": []
           }
         ],
-        "summary": "List API keys for the current tenant",
+        "summary": "List API keys for the current tenant (optional ?search=)",
         "tags": [
           "API Keys"
         ]
@@ -145,7 +154,16 @@
       },
       "get": {
         "operationId": "OAuthAppsController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -156,7 +174,7 @@
             "bearer": []
           }
         ],
-        "summary": "List OAuth applications",
+        "summary": "List OAuth applications (optional ?search=)",
         "tags": [
           "OAuth Applications"
         ]

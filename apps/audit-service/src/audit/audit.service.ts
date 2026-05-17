@@ -9,6 +9,7 @@ export interface AuditQueryParams {
   action?: string;
   resourceType?: string;
   resourceId?: string;
+  search?: string;   // free-text ILIKE across action + resource_id
   startDate: string; // ISO 8601 — required for partition pruning
   endDate: string;   // ISO 8601 — required for partition pruning
 }
@@ -74,6 +75,15 @@ export class AuditService {
     if (params.resourceId) {
       conditions.push(`resource_id = $${paramIdx}`);
       queryParams.push(params.resourceId);
+      paramIdx++;
+    }
+    // Free-text search across action + resource_id (no description column
+    // on audit_logs; the frontend surfaces metadata.description if present
+    // but the backend can't ILIKE jsonb keys efficiently). Cap at 200 chars.
+    const trimmedSearch = params.search?.trim().slice(0, 200);
+    if (trimmedSearch) {
+      conditions.push(`(action ILIKE $${paramIdx} OR resource_id ILIKE $${paramIdx})`);
+      queryParams.push(`%${trimmedSearch}%`);
       paramIdx++;
     }
 

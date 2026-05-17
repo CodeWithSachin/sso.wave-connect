@@ -350,6 +350,15 @@
               "example": 20,
               "type": "number"
             }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive substring match across email, displayName, firstName, lastName. Server caps at 200 chars.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -369,7 +378,7 @@
             "bearer": []
           }
         ],
-        "summary": "List users in a tenant (paginated)",
+        "summary": "List users in a tenant (paginated, optional ?search=)",
         "tags": [
           "users"
         ]
@@ -577,6 +586,15 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive substring match across user.email + user.displayName. Server caps at 200 chars.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -596,7 +614,7 @@
             "bearer": []
           }
         ],
-        "summary": "List tenant memberships (paginated, optional status filter)",
+        "summary": "List tenant memberships (paginated, optional status + search)",
         "tags": [
           "memberships"
         ]
@@ -823,6 +841,15 @@
             "schema": {
               "type": "number"
             }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Case-insensitive substring match across name + description. Server caps at 200 chars.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -842,7 +869,7 @@
             "bearer": []
           }
         ],
-        "summary": "List groups (paginated)",
+        "summary": "List groups (paginated, optional ?search=)",
         "tags": [
           "groups"
         ]

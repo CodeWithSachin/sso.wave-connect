@@ -23,6 +23,7 @@ export class AuditController {
     @Query('action') action?: string,
     @Query('resourceType') resourceType?: string,
     @Query('resourceId') resourceId?: string,
+    @Query('search') search?: string,
   ) {
     return this.auditService.query({
       tenantId,
@@ -34,6 +35,7 @@ export class AuditController {
       action,
       resourceType,
       resourceId,
+      search,
     });
   }
 }

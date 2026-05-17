@@ -60,7 +60,7 @@ export class MembershipsController {
 
   @Get()
   @RequireCapability('read_members')
-  @ApiOperation({ summary: 'List tenant memberships (paginated, optional status filter)' })
+  @ApiOperation({ summary: 'List tenant memberships (paginated, optional status + search)' })
   @ApiOkResponse({ type: PaginatedMembershipsResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 20 })
@@ -71,17 +71,25 @@ export class MembershipsController {
     description:
       'Filter by derived invitation status. Soft-deleted rows always excluded.',
   })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Case-insensitive substring match across user.email + user.displayName. Server caps at 200 chars.',
+  })
   findAll(
     @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
     @Query('status') status?: 'pending' | 'accepted' | 'expired',
+    @Query('search') search?: string,
   ) {
     return this.membershipsService.findAll(
       tenantId,
       page ? parseInt(page, 10) : 1,
       pageSize ? parseInt(pageSize, 10) : 20,
       status,
+      search,
     );
   }
 

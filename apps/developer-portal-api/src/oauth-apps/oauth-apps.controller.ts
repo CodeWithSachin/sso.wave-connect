@@ -28,13 +28,14 @@ export class OAuthAppsController {
 
   @Get()
   @RequireCapability('read_oauth_apps')
-  @ApiOperation({ summary: 'List OAuth applications' })
+  @ApiOperation({ summary: 'List OAuth applications (optional ?search=)' })
   async list(
     @TenantId() tenantId: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
+    @Query('search') search?: string,
   ) {
-    return this.oauthAppsService.list(tenantId, parseInt(page, 10), parseInt(pageSize, 10));
+    return this.oauthAppsService.list(tenantId, parseInt(page, 10), parseInt(pageSize, 10), search);
   }
 
   @Post(':id/rotate-secret')

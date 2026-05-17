@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../shared/prisma/prisma.service';
 
@@ -76,14 +77,21 @@ export class ApiKeysService {
     };
   }
 
-  async list(tenantId: string, page = 1, pageSize = 20) {
+  async list(tenantId: string, page = 1, pageSize = 20, search?: string) {
     const offset = (page - 1) * pageSize;
+    // Cap search length server-side per plan; ILIKE wildcards are escaped by
+    // Prisma.sql parameter binding so user-supplied % or _ is treated literally.
+    const trimmed = search?.trim().slice(0, 200) || undefined;
+    const searchClause = trimmed
+      ? Prisma.sql`AND (name ILIKE ${'%' + trimmed + '%'} OR key_prefix ILIKE ${'%' + trimmed + '%'})`
+      : Prisma.empty;
 
     const keys = await this.prisma.$queryRaw<ApiKeyRow[]>`
       SELECT id, tenant_id, user_id, name, key_prefix, status, scopes,
              allowed_ips, rate_limit_per_min, expires_at, last_used_at, created_at
       FROM api_keys
       WHERE tenant_id = ${tenantId}::uuid
+      ${searchClause}
       ORDER BY created_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `;
@@ -91,6 +99,7 @@ export class ApiKeysService {
     const totalResult = await this.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) as count FROM api_keys
       WHERE tenant_id = ${tenantId}::uuid
+      ${searchClause}
     `;
 
     return {

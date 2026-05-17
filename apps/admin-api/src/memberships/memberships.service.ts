@@ -192,11 +192,12 @@ export class MembershipsService {
     page = 1,
     pageSize = 20,
     status?: 'pending' | 'accepted' | 'expired',
+    search?: string,
   ) {
     const skip = (page - 1) * pageSize;
     const now = new Date();
     const baseWhere = { tenantId, deletedAt: null } as const;
-    const where =
+    const statusWhere =
       status === 'accepted'
         ? { ...baseWhere, joinedAt: { not: null } }
         : status === 'pending'
@@ -204,6 +205,23 @@ export class MembershipsService {
           : status === 'expired'
             ? { ...baseWhere, joinedAt: null, invitationExpires: { lte: now } }
             : baseWhere;
+
+    // Membership search hits the joined user; Prisma's `is:` filter is the
+    // right shape for a one-to-one relation (membership.user).
+    const trimmed = search?.trim().slice(0, 200) || undefined;
+    const where = trimmed
+      ? {
+          ...statusWhere,
+          user: {
+            is: {
+              OR: [
+                { email: { contains: trimmed, mode: 'insensitive' as const } },
+                { displayName: { contains: trimmed, mode: 'insensitive' as const } },
+              ],
+            },
+          },
+        }
+      : statusWhere;
 
     const [data, total] = await Promise.all([
       this.prisma.membership.findMany({

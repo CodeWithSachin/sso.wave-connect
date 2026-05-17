@@ -52,9 +52,26 @@ export class GroupsService {
     });
   }
 
-  async findAll(tenantId: string, page = 1, pageSize = 20) {
+  async findAll(
+    tenantId: string,
+    page = 1,
+    pageSize = 20,
+    search?: string,
+  ) {
     const skip = (page - 1) * pageSize;
-    const where = { tenantId, deletedAt: null };
+    const trimmed = search?.trim().slice(0, 200) || undefined;
+    const where = {
+      tenantId,
+      deletedAt: null,
+      ...(trimmed
+        ? {
+            OR: [
+              { name: { contains: trimmed, mode: 'insensitive' as const } },
+              { description: { contains: trimmed, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.group.findMany({

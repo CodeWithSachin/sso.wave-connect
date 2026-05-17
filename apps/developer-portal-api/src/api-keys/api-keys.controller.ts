@@ -63,16 +63,18 @@ export class ApiKeysController {
 
   @Get()
   @RequireCapability('read_api_keys')
-  @ApiOperation({ summary: 'List API keys for the current tenant' })
+  @ApiOperation({ summary: 'List API keys for the current tenant (optional ?search=)' })
   async list(
     @TenantId() tenantId: string,
     @Query('page') page = '1',
     @Query('pageSize') pageSize = '20',
+    @Query('search') search?: string,
   ) {
     return this.apiKeysService.list(
       tenantId,
       parseInt(page, 10),
       parseInt(pageSize, 10),
+      search,
     );
   }
 

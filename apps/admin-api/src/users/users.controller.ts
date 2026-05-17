@@ -51,19 +51,28 @@ export class UsersController {
 
   @Get()
   @RequireCapability('read_members')
-  @ApiOperation({ summary: 'List users in a tenant (paginated)' })
+  @ApiOperation({ summary: 'List users in a tenant (paginated, optional ?search=)' })
   @ApiOkResponse({ type: PaginatedUsersResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 20 })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description:
+      'Case-insensitive substring match across email, displayName, firstName, lastName. Server caps at 200 chars.',
+  })
   findAll(
     @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
   ) {
     return this.usersService.findAll(
       tenantId,
       page ? parseInt(page, 10) : 1,
       pageSize ? parseInt(pageSize, 10) : 20,
+      search,
     );
   }
 

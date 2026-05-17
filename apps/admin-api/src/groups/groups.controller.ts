@@ -45,19 +45,27 @@ export class GroupsController {
 
   @Get()
   @RequireCapability('read_members')
-  @ApiOperation({ summary: 'List groups (paginated)' })
+  @ApiOperation({ summary: 'List groups (paginated, optional ?search=)' })
   @ApiOkResponse({ type: PaginatedGroupsResponseDto })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Case-insensitive substring match across name + description. Server caps at 200 chars.',
+  })
   findAll(
     @TenantId() tenantId: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
   ) {
     return this.groupsService.findAll(
       tenantId,
       page ? parseInt(page, 10) : 1,
       pageSize ? parseInt(pageSize, 10) : 20,
+      search,
     );
   }
 

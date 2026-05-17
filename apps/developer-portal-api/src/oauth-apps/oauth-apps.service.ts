@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../shared/prisma/prisma.service';
 
@@ -26,12 +27,17 @@ export class OAuthAppsService {
     return { id, client_id: clientId, client_secret: clientSecret, name: body.name, redirect_uris: body.redirect_uris };
   }
 
-  async list(tenantId: string, page = 1, pageSize = 20) {
+  async list(tenantId: string, page = 1, pageSize = 20, search?: string) {
     const offset = (page - 1) * pageSize;
+    const trimmed = search?.trim().slice(0, 200) || undefined;
+    const searchClause = trimmed
+      ? Prisma.sql`AND (name ILIKE ${'%' + trimmed + '%'} OR client_id ILIKE ${'%' + trimmed + '%'})`
+      : Prisma.empty;
     const apps = await this.prisma.$queryRaw`
       SELECT id, client_id, name, redirect_uris, allowed_scopes, is_active, created_at, updated_at
       FROM oauth_clients
       WHERE tenant_id = ${tenantId}::uuid AND deleted_at IS NULL AND is_first_party = false
+      ${searchClause}
       ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${offset}
     `;
     return { data: apps, page, pageSize };
